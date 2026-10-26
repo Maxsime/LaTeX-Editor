@@ -72,7 +72,7 @@ test.describe('projects and files', () => {
     expect(await treePaths(page)).toEqual(['main.tex', 'references.bib']);
 
     await page.getByRole('treeitem', { name: /main\.tex/ }).click();
-    await expect(page.getByTestId('text-preview')).toContainText(
+    await expect(page.locator('.cm-editor:visible .cm-content')).toContainText(
       '\\documentclass[11pt,a4paper]{article}',
     );
 
