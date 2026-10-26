@@ -2,7 +2,7 @@
 
 Éditeur LaTeX collaboratif, auto-hébergé, avec assistant IA intégré. Le cahier des charges est dans [`SPEC.md`](SPEC.md), les consignes de développement dans [`CLAUDE.md`](CLAUDE.md).
 
-État : jalon J1 (comptes, projets, fichiers). On crée un compte, on gère ses projets, on importe un projet Overleaf ou Prism en zip, on organise ses fichiers et on réexporte le projet à l'identique. L'éditeur et la compilation arrivent aux jalons suivants (`SPEC.md` §9).
+État : jalon J2 (éditeur). On crée un compte, on gère ses projets, on importe un projet Overleaf ou Prism en zip, on édite ses fichiers dans un éditeur LaTeX synchronisé en continu et on réexporte le projet à l'identique. La compilation arrive au jalon suivant (`SPEC.md` §9).
 
 ## Démarrer une instance
 
@@ -59,9 +59,15 @@ Le lien d'invitation affiché est relatif : le préfixer par l'adresse de l'inst
 
 ### Importer un projet existant
 
-Le bouton « Importer un zip » du tableau de bord accepte l'export d'un projet Overleaf ou Prism, ou n'importe quel dossier compressé. Aucune organisation n'est imposée : le document principal est le fichier `.tex` racine qui déclare `\documentclass`, et il se change depuis la page du projet. Les fichiers texte en UTF-8 sont stockés comme documents texte, éditables dès que l'éditeur arrivera (J2) ; les autres (images, PDF, fichiers texte dans un autre encodage) sont conservés octet pour octet. L'export redonne exactement les mêmes fichiers.
+Le bouton « Importer un zip » du tableau de bord accepte l'export d'un projet Overleaf ou Prism, ou n'importe quel dossier compressé. Aucune organisation n'est imposée : le document principal est le fichier `.tex` racine qui déclare `\documentclass`, et il se change depuis la page du projet. Les fichiers texte en UTF-8 sont stockés comme documents texte, éditables dans l'éditeur ; les autres (images, PDF, fichiers texte dans un autre encodage) sont conservés octet pour octet. L'export redonne exactement les mêmes fichiers.
 
 Limites d'une archive : 5 000 entrées, 500 Mio décompressés, 100 Mio par fichier, 32 niveaux de dossiers. Les archives contenant des chemins sortant du projet, des liens symboliques ou un taux de compression anormal sont refusées en entier.
+
+### Éditer
+
+Un clic sur un fichier texte l'ouvre dans un onglet. Chaque frappe part aussitôt vers le serveur : il n'y a pas de bouton d'enregistrement, et la pastille de l'onglet indique l'état (synchronisé, envoi en cours, hors ligne). Hors ligne, les modifications restent dans l'onglet et repartent à la reconnexion ; le navigateur prévient si l'on ferme la page avant.
+
+L'éditeur colore LaTeX et BibTeX, replie les environnements et les sections, et complète les commandes, les environnements et les chemins de fichiers, y compris ceux que le projet définit. Le panneau « Plan » suit `\input`, `\include` et `\subfile` depuis le document principal et mène à la section choisie. Le panneau « Recherche » cherche dans tout le projet (texte ou expression régulière, casse, mot entier) et remplace partout après confirmation. Thème, taille de police et retour à la ligne se règlent au-dessus de l'éditeur.
 
 ### Vérifier l'état des services
 
@@ -82,7 +88,7 @@ docker compose -f compose.dev.yml up -d   # PostgreSQL, Valkey, SeaweedFS sur lo
 pnpm dev                                  # services et interface en mode watch
 ```
 
-L'interface de développement est servie par Vite sur <http://localhost:5173>, qui relaie `/api` vers l'API locale.
+L'interface de développement est servie par Vite sur <http://localhost:5173>, qui relaie `/api` vers l'API locale et `/collab` (WebSocket) vers le serveur de collaboration.
 
 | Commande         | Rôle                                                                                 |
 | ---------------- | ------------------------------------------------------------------------------------ |
@@ -107,16 +113,18 @@ docker buildx build --secret id=extra_ca_cert,src=/chemin/vers/ca.pem \
 ## Organisation du dépôt
 
 ```
-apps/web        SPA React servie par Caddy
-apps/api        API HTTP Fastify
-apps/collab     serveur Hocuspocus (Yjs)
-apps/compiler   worker de compilation (BullMQ)
-packages/shared schémas, configuration, journalisation partagés
-fixtures/       archives de référence pour les tests
-e2e/            tests Playwright
-infra/          Dockerfiles et configuration de Caddy
-scripts/        scripts d'exploitation
-docs/           plans de jalons, décisions, architecture
+apps/web             SPA React servie par Caddy
+apps/api             API HTTP Fastify
+apps/collab          serveur Hocuspocus (Yjs)
+apps/compiler        worker de compilation (BullMQ)
+packages/shared      schémas, configuration, journalisation partagés
+packages/db          schéma PostgreSQL, migrations, sessions (API et collab)
+packages/latex-index extraction du plan, des labels et des définitions LaTeX
+fixtures/            archives de référence pour les tests
+e2e/                 tests Playwright
+infra/               Dockerfiles et configuration de Caddy
+scripts/             scripts d'exploitation
+docs/                plans de jalons, décisions, architecture
 ```
 
 Documentation : [`docs/architecture.md`](docs/architecture.md), [`docs/decisions.md`](docs/decisions.md), plans de jalons dans [`docs/plans/`](docs/plans/).
