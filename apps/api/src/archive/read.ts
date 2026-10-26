@@ -26,6 +26,8 @@ export interface ExtractedArchive {
   warnings: ImportWarning[];
 }
 
+const UNSAFE_NAME_ERRORS = /^(absolute path|invalid relative path|invalid characters in fileName):/;
+
 interface PlannedEntry extends EntryPath {
   entry: yauzl.Entry;
 }
@@ -69,6 +71,10 @@ async function planEntries(zip: yauzl.ZipFile, limits: ArchiveLimits): Promise<P
     }
   } catch (error) {
     if (error instanceof ArchiveError) throw error;
+    // yauzl validates names itself while reading the central directory.
+    if (error instanceof Error && UNSAFE_NAME_ERRORS.test(error.message)) {
+      throw new ArchiveError('UNSAFE_PATH');
+    }
     throw new ArchiveError('CORRUPT');
   }
   return planned;

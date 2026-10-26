@@ -69,23 +69,39 @@ describe('checkEntryType', () => {
   });
 
   it('refuses symbolic links and special files', () => {
-    expect(reason(() => checkEntryType(UNIX, mode(0o120777), 'link'))).toBe('SYMLINK');
-    expect(reason(() => checkEntryType(UNIX, mode(0o060644), 'dev'))).toBe('SPECIAL_FILE');
+    expect(
+      reason(() => {
+        checkEntryType(UNIX, mode(0o120777), 'link');
+      }),
+    ).toBe('SYMLINK');
+    expect(
+      reason(() => {
+        checkEntryType(UNIX, mode(0o060644), 'dev');
+      }),
+    ).toBe('SPECIAL_FILE');
   });
 });
 
 describe('checkDeclaredSize', () => {
   it('refuses oversized and over-compressed entries', () => {
     expect(
-      reason(() => checkDeclaredSize(limits.maxFileBytes + 1, limits.maxFileBytes, 'a', limits)),
+      reason(() => {
+        checkDeclaredSize(limits.maxFileBytes + 1, limits.maxFileBytes, 'a', limits);
+      }),
     ).toBe('TOO_LARGE');
-    expect(reason(() => checkDeclaredSize(50 * 1024 * 1024, 1000, 'a', limits))).toBe(
-      'COMPRESSION_RATIO',
-    );
+    expect(
+      reason(() => {
+        checkDeclaredSize(50 * 1024 * 1024, 1000, 'a', limits);
+      }),
+    ).toBe('COMPRESSION_RATIO');
   });
 
   it('tolerates high ratios on small entries', () => {
-    expect(reason(() => checkDeclaredSize(500_000, 100, 'a', limits))).toBeUndefined();
+    expect(
+      reason(() => {
+        checkDeclaredSize(500_000, 100, 'a', limits);
+      }),
+    ).toBeUndefined();
   });
 });
 
