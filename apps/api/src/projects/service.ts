@@ -18,8 +18,7 @@ import {
   isNull,
   type SQL,
 } from 'drizzle-orm';
-import type { Executor } from '../db/client.js';
-import { projectMembers, projects, projectTags, tags, users } from '../db/schema.js';
+import { type Executor, projectMembers, projects, projectTags, tags, users } from '@galley/db';
 import type { ProjectRow } from './access.js';
 
 function stateOf(row: ProjectRow): ProjectState {

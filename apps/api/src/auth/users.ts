@@ -1,8 +1,6 @@
 import { ApiError, type PublicUser } from '@galley/shared';
 import { count, eq, or } from 'drizzle-orm';
-import type { Executor } from '../db/client.js';
-import { uniqueViolation } from '../db/errors.js';
-import { users } from '../db/schema.js';
+import { type Executor, uniqueViolation, users } from '@galley/db';
 import { ValidationError } from '../http/validate.js';
 import { hashPassword } from './password.js';
 

@@ -7,6 +7,7 @@ import * as z from 'zod/mini';
 export const errorCodes = [
   'BAD_REQUEST',
   'VALIDATION_FAILED',
+  'INVALID_PATTERN',
   'UNAUTHENTICATED',
   'FORBIDDEN',
   'NOT_FOUND',
@@ -35,6 +36,7 @@ export type ApiErrorBody = z.infer<typeof apiErrorBody>;
 const statusByCode: Record<ErrorCode, number> = {
   BAD_REQUEST: 400,
   VALIDATION_FAILED: 400,
+  INVALID_PATTERN: 400,
   UNAUTHENTICATED: 401,
   FORBIDDEN: 403,
   NOT_FOUND: 404,

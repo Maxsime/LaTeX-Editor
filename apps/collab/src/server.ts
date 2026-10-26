@@ -1,7 +1,8 @@
 import { ConfigError } from '@galley/shared';
 import { createLogger, readPackageVersion } from '@galley/shared/node';
 import { Redis } from 'ioredis';
-import { createCollabServer } from './collab.js';
+import { createDatabase } from '@galley/db';
+import { createCollab } from './collab.js';
 import { readConfig } from './config.js';
 
 async function main(): Promise<void> {
@@ -11,15 +12,17 @@ async function main(): Promise<void> {
   const redis = new Redis(config.VALKEY_URL, { lazyConnect: true, maxRetriesPerRequest: 1 });
   await redis.connect();
 
-  const server = createCollabServer({ config, logger, version, redis });
+  const database = createDatabase(config.DATABASE_URL);
+  const collab = createCollab({ config, logger, version, database, redis });
 
   let closing = false;
   const shutdown = (signal: NodeJS.Signals): void => {
     if (closing) return;
     closing = true;
     logger.info({ signal }, 'shutting down');
-    server
+    collab
       .destroy()
+      .then(() => database.sql.end({ timeout: 5 }))
       .then(() => redis.quit())
       .then(() => process.exit(0))
       .catch((error: unknown) => {
@@ -30,8 +33,8 @@ async function main(): Promise<void> {
   process.on('SIGTERM', shutdown);
   process.on('SIGINT', shutdown);
 
-  await server.listen();
-  logger.info({ version, port: server.address.port }, 'collab started');
+  await collab.listen();
+  logger.info({ version, port: collab.server.address.port }, 'collab started');
 }
 
 main().catch((error: unknown) => {

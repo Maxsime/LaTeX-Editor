@@ -2,7 +2,7 @@ import { defineConfig } from 'drizzle-kit';
 
 export default defineConfig({
   dialect: 'postgresql',
-  schema: './src/db/schema.ts',
-  out: './migrations',
+  schema: '../../packages/db/src/schema.ts',
+  out: '../../packages/db/migrations',
   dbCredentials: { url: process.env.DATABASE_URL ?? 'postgres://galley@localhost:5432/galley' },
 });

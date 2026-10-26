@@ -1,4 +1,5 @@
 import { readFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { ListBucketsCommand, type S3Client } from '@aws-sdk/client-s3';
 import { healthResponse } from '@galley/shared';
 import { createLogger } from '@galley/shared/node';
@@ -8,8 +9,8 @@ import type { StartedTestContainer } from 'testcontainers';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { buildApp } from '../src/app.js';
 import { readConfig, type ApiConfig } from '../src/config.js';
-import { createDatabase, type Database } from '../src/db/client.js';
-import { runMigrations } from '../src/db/migrate.js';
+import { createDatabase, type Database, migrationsFolder } from '@galley/db';
+import { runMigrations } from '@galley/db';
 import { createS3Client, ensureBucket, headBucket } from '../src/storage/s3.js';
 import {
   dockerAvailable,
@@ -66,7 +67,7 @@ describe.skipIf(!dockerAvailable)('api against real dependencies', () => {
       select count(*)::text as count from drizzle.__drizzle_migrations`;
     // One row per migration in the journal, however many times migrations ran.
     const journal = JSON.parse(
-      await readFile(new URL('../migrations/meta/_journal.json', import.meta.url), 'utf8'),
+      await readFile(join(migrationsFolder, 'meta', '_journal.json'), 'utf8'),
     ) as { entries: unknown[] };
     expect(applied[0]?.count).toBe(String(journal.entries.length));
     const extensions = await database.sql<{ extname: string }[]>`

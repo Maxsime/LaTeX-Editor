@@ -5,8 +5,8 @@ import type { Database } from './client.js';
 /** Arbitrary constant identifying the migration lock among PostgreSQL advisory locks. */
 const MIGRATION_LOCK_KEY = 7_265_830_141;
 
-/** Versioned SQL migrations shipped next to `src/` and `dist/`. */
-export const migrationsFolder = fileURLToPath(new URL('../../migrations', import.meta.url));
+/** Versioned SQL migrations, a sibling of both `src/` and `dist/`. */
+export const migrationsFolder = fileURLToPath(new URL('../migrations', import.meta.url));
 
 /**
  * Applies pending migrations. A session-level advisory lock serialises

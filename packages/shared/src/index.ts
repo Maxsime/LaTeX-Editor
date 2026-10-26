@@ -1,5 +1,7 @@
 export * from './auth.js';
+export * from './collab.js';
 export * from './compile-job.js';
+export * from './editor.js';
 export * from './env.js';
 export * from './errors.js';
 export * from './files.js';

@@ -37,6 +37,7 @@
     "CONFLICT": "Conflicts with the current state.",
     "PAYLOAD_TOO_LARGE": "Content too large.",
     "RATE_LIMITED": "Too many requests, try again later.",
+    "INVALID_PATTERN": "Invalid regular expression.",
     "SERVICE_UNAVAILABLE": "Service temporarily unavailable.",
     "INTERNAL_ERROR": "Internal error."
   },
@@ -202,7 +203,56 @@
       "none": "No preview for this file type.",
       "openPdf": "Open the PDF in a new tab",
       "download": "Download",
-      "readOnly": "Read-only preview: editing comes with the editor."
+      "readOnly": "This file cannot be edited (it is not UTF-8): read-only preview."
+    },
+    "newFile": "New file",
+    "fileName": "File name"
+  },
+  "editor": {
+    "empty": "Open a file from the tree to edit it.",
+    "tabs": "Open files",
+    "closeTab": "Close {{name}}",
+    "panels": "Panels",
+    "panel": {
+      "files": "Files",
+      "outline": "Outline",
+      "search": "Search"
+    },
+    "status": {
+      "connecting": "Connecting…",
+      "saved": "Synced",
+      "saving": "Syncing…",
+      "offline": "Offline: changes kept",
+      "denied": "Access denied"
+    },
+    "preferences": {
+      "theme": "Theme",
+      "light": "Light",
+      "dark": "Dark",
+      "fontSize": "Size",
+      "wrap": "Wrap lines"
+    },
+    "outline": {
+      "title": "Document outline",
+      "empty": "No section in the document.",
+      "noMain": "Choose a main document to see its outline.",
+      "untitled": "(untitled)"
+    },
+    "search": {
+      "query": "Search the project",
+      "caseSensitive": "Match case",
+      "wholeWord": "Whole word",
+      "regex": "Regular expression",
+      "submit": "Search",
+      "replacement": "Replace with",
+      "replaceAll": "Replace all",
+      "confirm_one": "Replace {{count}} occurrence in {{files}} file(s)?",
+      "confirm_other": "Replace {{count}} occurrences in {{files}} file(s)?",
+      "replaced_one": "{{count}} replacement in {{files}} file(s).",
+      "replaced_other": "{{count}} replacements in {{files}} file(s).",
+      "count_one": "{{count}} result in {{files}} file(s).",
+      "count_other": "{{count}} results in {{files}} file(s).",
+      "truncated": "More than {{count}} results: refine the search."
     }
   }
 }

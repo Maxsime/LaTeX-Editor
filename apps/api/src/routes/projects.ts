@@ -12,7 +12,7 @@ import type { FastifyInstance } from 'fastify';
 import * as z from 'zod/mini';
 import { requireAuth } from '../auth/plugin.js';
 import type { AppContext } from '../context.js';
-import { projects } from '../db/schema.js';
+import { projects } from '@galley/db';
 import { getNode, writeFiles } from '../files/tree.js';
 import { parse } from '../http/validate.js';
 import { loadProject } from '../projects/access.js';
@@ -48,7 +48,9 @@ export function projectRoutes(app: FastifyInstance, context: AppContext): void {
           size: textBytes(file.content).length,
         };
       });
-      const [main] = await writeFiles(tx, row.id, null, files);
+      const {
+        rows: [main],
+      } = await writeFiles(tx, row.id, null, files);
       const [updated] = await tx
         .update(projects)
         .set({ mainFileId: main?.id ?? null })

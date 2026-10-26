@@ -82,3 +82,31 @@ Alternative écartée. Un domaine distinct pour les contenus : plus sûr encore,
 ## 2026-10-26 — Archive de référence des tests d'import (J1)
 
 L'export Prism réel fourni par Maxime reste privé et n'est pas versionné, le dépôt étant public. La CI utilise `fixtures/archives/reference-report.zip`, produite de façon déterministe par `build_reference.py` au même format (entrées de dossiers explicites, modes Unix, classe locale, figures PNG et PDF, `.bib`, fichiers CRLF, BOM, sans saut de ligne final et Latin-1). Le test d'intégration rejoue l'aller-retour sur une archive privée désignée par `GALLEY_PRIVATE_ARCHIVE` quand elle est fournie.
+
+## 2026-10-26 — Accès de collab à PostgreSQL, paquet `packages/db` (J2)
+
+Contexte. `collab` doit authentifier chaque connexion par le cookie de session et persister les états Yjs (SPEC §6.2).
+
+Décision. Le schéma Drizzle, le client, la consultation des sessions et les migrations quittent `apps/api` pour `packages/db`, partagé par `api` et `collab`. Seule l'API applique les migrations au démarrage ; `collab` attend que l'API soit saine dans `compose.yaml`.
+
+Alternative écartée. Un `collab` sans base, passant par des routes internes de l'API : deux allers-retours par connexion et une dépendance circulaire, l'API devant aussi demander à `collab` l'état vivant des documents.
+
+## 2026-10-26 — Écritures de l'API dans les documents ouverts (J2)
+
+L'API ne réécrit plus jamais l'état d'un document existant. Le remplacement d'un fichier texte, la recherche-remplacement et la suppression passent par trois routes internes de `collab` (`flush`, `replace`, `close`), protégées par `COLLAB_INTERNAL_TOKEN` et jamais relayées par Caddy, qui ne transmet à `collab` que les mises à niveau WebSocket. Le remplacement applique un différentiel préfixe-suffixe pour préserver les curseurs hors de la zone modifiée. Quand `collab` est injoignable, personne ne peut éditer : l'API lit et écrit alors directement l'état stocké.
+
+## 2026-10-26 — Grammaire LaTeX de l'éditeur (J2)
+
+Contexte. Le plan prévoyait d'évaluer `codemirror-lang-latex` 0.6.1 (grammaire Lezer, repli, complétion, linter).
+
+Décision. Paquet écarté : son README indique qu'il est dérivé de la grammaire Lezer d'Overleaf. Même sous licence compatible (AGPL-3.0-or-later), l'intégrer reviendrait à reprendre du code d'Overleaf, ce que `CLAUDE.md` interdit. L'éditeur utilise le mode `stex` de `@codemirror/legacy-modes` (MIT) pour la coloration, un service de repli maison (`apps/web/src/editor/folding.ts`) pour les environnements et les sections, et un mode BibTeX maison.
+
+Conséquence. Pas d'arbre syntaxique LaTeX côté client : le plan, les labels et les définitions viennent de `packages/latex-index`, côté serveur. Une grammaire Lezer propre au projet pourra remplacer `stex` plus tard sans toucher au reste.
+
+## 2026-10-26 — Recherche par expressions régulières côté serveur (J2)
+
+Les expressions régulières saisies par l'utilisateur s'exécutent dans l'API. Le moteur `RegExp` de JavaScript peut y prendre un temps exponentiel (`(a+)+$`) et bloquer le processus. La recherche utilise `re2js` 2.8.6, portage JavaScript pur de RE2 en temps linéaire, sans module natif. Les références arrière ne sont pas prises en charge ; une expression invalide renvoie `INVALID_PATTERN`.
+
+## 2026-10-26 — Poids du module d'édition (J2)
+
+Le module chargé à l'ouverture d'un projet (CodeMirror 6, Yjs, `y-codemirror.next`, client Hocuspocus) pèse environ 165 kB gzip, au-delà du seuil de 100 kB de `CLAUDE.md`. Il est indispensable à l'édition et chargé à la demande (`React.lazy`) : le tableau de bord n'en paie pas le coût, son paquet principal ne grossit que de 6 kB.

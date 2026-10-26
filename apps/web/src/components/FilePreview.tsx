@@ -28,7 +28,7 @@ function TextPreview({ url }: { url: string }) {
   );
 }
 
-/** Read-only preview of the selected file (J1); the editor replaces it for text in J2. */
+/** Read-only preview of a file the editor cannot open: images, PDF, non-UTF-8 text. */
 export function FilePreview({
   projectId,
   node,

@@ -87,8 +87,37 @@ describe('loadConfig', () => {
     }
   });
 
+  it('requires the internal token once the collab URL is set', () => {
+    expect(loadConfig(apiEnv, validApiEnv).COLLAB_INTERNAL_URL).toBeUndefined();
+    expect(() =>
+      loadConfig(apiEnv, { ...validApiEnv, COLLAB_INTERNAL_URL: 'http://collab:3001' }),
+    ).toThrow(/COLLAB_INTERNAL_TOKEN/);
+    const config = loadConfig(apiEnv, {
+      ...validApiEnv,
+      COLLAB_INTERNAL_URL: 'http://collab:3001',
+      COLLAB_INTERNAL_TOKEN: 'y'.repeat(40),
+    });
+    expect(config.COLLAB_INTERNAL_URL).toBe('http://collab:3001');
+  });
+
   it('validates the collab and compiler schemas', () => {
-    expect(loadConfig(collabEnv, { VALKEY_URL: 'redis://valkey:6379' }).COLLAB_PORT).toBe(3001);
+    const collab = loadConfig(collabEnv, {
+      DATABASE_URL: validApiEnv.DATABASE_URL,
+      VALKEY_URL: 'redis://valkey:6379',
+      COLLAB_INTERNAL_TOKEN: 'x'.repeat(32),
+    });
+    expect(collab).toMatchObject({
+      COLLAB_PORT: 3001,
+      COLLAB_PERSIST_DEBOUNCE_MS: 2_000,
+      COLLAB_PERSIST_MAX_DEBOUNCE_MS: 10_000,
+    });
+    expect(() =>
+      loadConfig(collabEnv, {
+        DATABASE_URL: validApiEnv.DATABASE_URL,
+        VALKEY_URL: 'redis://valkey:6379',
+        COLLAB_INTERNAL_TOKEN: 'short',
+      }),
+    ).toThrow(/COLLAB_INTERNAL_TOKEN/);
     const compiler = loadConfig(compilerEnv, { VALKEY_URL: 'rediss://valkey:6380' });
     expect(compiler.COMPILER_HEALTH_PORT).toBe(3002);
     expect(compiler.COMPILER_CONCURRENCY).toBe(1);

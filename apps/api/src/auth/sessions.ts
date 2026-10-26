@@ -1,8 +1,7 @@
 import type { PublicUser } from '@galley/shared';
-import { and, eq, gt, isNull } from 'drizzle-orm';
-import type { Database } from '../db/client.js';
-import { sessions, users } from '../db/schema.js';
-import { randomToken, tokenDigest } from './tokens.js';
+import { eq } from 'drizzle-orm';
+import { type Database, findSessionByToken, sessions, tokenDigest } from '@galley/db';
+import { randomToken } from './tokens.js';
 
 export interface AuthenticatedSession {
   sessionId: string;
@@ -40,46 +39,16 @@ export async function findSession(
   ttlDays: number,
 ): Promise<AuthenticatedSession | null> {
   const now = new Date();
-  const [row] = await db
-    .select({
-      sessionId: sessions.id,
-      csrfToken: sessions.csrfToken,
-      lastSeenAt: sessions.lastSeenAt,
-      id: users.id,
-      email: users.email,
-      username: users.username,
-      displayName: users.displayName,
-      isAdmin: users.isAdmin,
-    })
-    .from(sessions)
-    .innerJoin(users, eq(users.id, sessions.userId))
-    .where(
-      and(
-        eq(sessions.tokenHash, tokenDigest(token)),
-        gt(sessions.expiresAt, now),
-        isNull(users.disabledAt),
-      ),
-    )
-    .limit(1);
-  if (!row) return null;
+  const found = await findSessionByToken(db, token, now);
+  if (!found) return null;
 
-  if (now.getTime() - row.lastSeenAt.getTime() > 3_600_000) {
+  if (now.getTime() - found.lastSeenAt.getTime() > 3_600_000) {
     await db
       .update(sessions)
       .set({ lastSeenAt: now, expiresAt: new Date(now.getTime() + ttlDays * 86_400_000) })
-      .where(eq(sessions.id, row.sessionId));
+      .where(eq(sessions.id, found.sessionId));
   }
-  return {
-    sessionId: row.sessionId,
-    csrfToken: row.csrfToken,
-    user: {
-      id: row.id,
-      email: row.email,
-      username: row.username,
-      displayName: row.displayName,
-      isAdmin: row.isAdmin,
-    },
-  };
+  return { sessionId: found.sessionId, csrfToken: found.csrfToken, user: found.user };
 }
 
 export async function deleteSession({ db }: Database, sessionId: string): Promise<void> {

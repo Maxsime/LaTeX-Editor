@@ -36,7 +36,7 @@ WORKDIR /app
 # Keep the workspace layout so the pnpm symlinks between packages stay valid.
 COPY --from=prod-deps --chown=node:node /repo/package.json ./
 COPY --from=prod-deps --chown=node:node /repo/node_modules ./node_modules
-COPY --from=prod-deps --chown=node:node /repo/packages/shared ./packages/shared
+COPY --from=prod-deps --chown=node:node /repo/packages ./packages
 COPY --from=prod-deps --chown=node:node /repo/apps/${SERVICE} ./apps/${SERVICE}
 WORKDIR /app/apps/${SERVICE}
 USER node

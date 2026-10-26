@@ -1,8 +1,6 @@
 import { ApiError, type TreeNode } from '@galley/shared';
 import { and, eq, isNull, sql } from 'drizzle-orm';
-import type { Executor } from '../db/client.js';
-import { uniqueViolation } from '../db/errors.js';
-import { files, projects, yjsStates } from '../db/schema.js';
+import { type Executor, uniqueViolation, files, projects, yjsStates } from '@galley/db';
 import { stateToText, textToState } from '../yjs/text.js';
 import { detectMainFile } from './main-file.js';
 import type { IncomingFile } from './ingest.js';
@@ -83,10 +81,28 @@ export function createFolder(
 }
 
 /**
+ * Changes to documents that may be open in an editor. They are applied after
+ * the transaction commits, through collab, which holds the live state.
+ */
+export interface DocumentChanges {
+  /** Existing text files whose content is replaced. */
+  replaced: { fileId: string; content: string }[];
+  /** Text files that were deleted or became binary. */
+  closed: string[];
+}
+
+/** Result of {@link writeFiles}. */
+export interface WrittenFiles extends DocumentChanges {
+  rows: FileRow[];
+}
+
+/**
  * Writes files below `rootId`, creating intermediate folders and the listed
  * empty folders as needed.
  * An existing file at the same path is replaced; an existing folder is a
- * conflict. Runs inside the caller's transaction.
+ * conflict. Runs inside the caller's transaction. The content of an existing
+ * text file is not written here but returned in `replaced`, because only
+ * collab may change a document a user can have open.
  */
 export async function writeFiles(
   db: Executor,
@@ -94,9 +110,11 @@ export async function writeFiles(
   rootId: string | null,
   incoming: readonly IncomingFile[],
   emptyFolders: readonly (readonly string[])[] = [],
-): Promise<FileRow[]> {
+): Promise<WrittenFiles> {
   const folders = new Map<string, string | null>([['', rootId]]);
   const written: FileRow[] = [];
+  const replaced: DocumentChanges['replaced'] = [];
+  const closed: string[] = [];
 
   async function folderFor(segments: readonly string[]): Promise<string | null> {
     let key = '';
@@ -144,22 +162,27 @@ export async function writeFiles(
         .returning();
       if (!updated) throw new ApiError('INTERNAL_ERROR');
       row = updated;
-      if (file.kind === 'binary') {
+      if (file.kind === 'binary' && existing.kind === 'text') {
         await db.delete(yjsStates).where(eq(yjsStates.fileId, row.id));
+        closed.push(row.id);
       }
     } else {
       row = await insertNode(db, { projectId, parentId, name, ...content });
     }
     if (file.kind === 'text') {
-      const state = textToState(file.content);
-      await db
-        .insert(yjsStates)
-        .values({ fileId: row.id, state })
-        .onConflictDoUpdate({ target: yjsStates.fileId, set: { state, updatedAt: new Date() } });
+      if (existing?.kind === 'text') {
+        replaced.push({ fileId: row.id, content: file.content });
+      } else {
+        // A file that was not text has no document anyone could have open.
+        await db
+          .insert(yjsStates)
+          .values({ fileId: row.id, state: textToState(file.content) })
+          .onConflictDoNothing();
+      }
     }
     written.push(row);
   }
-  return written;
+  return { rows: written, replaced, closed };
 }
 
 /**
@@ -210,13 +233,29 @@ async function isSelfOrDescendant(
   return rows[0]?.found === true;
 }
 
-/** Deletes a node; children and Yjs states follow through foreign keys. */
-export async function deleteNode(db: Executor, projectId: string, fileId: string): Promise<void> {
+/**
+ * Deletes a node; children and Yjs states follow through foreign keys.
+ *
+ * @returns the ids of the deleted text files, whose open documents must be closed.
+ */
+export async function deleteNode(
+  db: Executor,
+  projectId: string,
+  fileId: string,
+): Promise<string[]> {
+  const textFiles = await db.execute<{ id: string }>(sql`
+    with recursive subtree(id, kind) as (
+      select id, kind from ${files} where id = ${fileId} and project_id = ${projectId}
+      union all
+      select f.id, f.kind from ${files} f join subtree s on f.parent_id = s.id
+    )
+    select id from subtree where kind = 'text'`);
   const deleted = await db
     .delete(files)
     .where(and(eq(files.projectId, projectId), eq(files.id, fileId)))
     .returning({ id: files.id });
   if (deleted.length === 0) throw new ApiError('NOT_FOUND');
+  return textFiles.map((row) => row.id);
 }
 
 /** Marks the project as modified, for sorting on the dashboard. */

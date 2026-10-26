@@ -1,7 +1,6 @@
 import { ApiError, hasRole, type ProjectRole } from '@galley/shared';
 import { and, eq } from 'drizzle-orm';
-import type { Executor } from '../db/client.js';
-import { projectMembers, projects } from '../db/schema.js';
+import { type Executor, projectMembers, projects } from '@galley/db';
 
 export type ProjectRow = typeof projects.$inferSelect;
 

@@ -51,5 +51,8 @@ export const uploadResponse = z.object({
 });
 export type UploadResponse = z.infer<typeof uploadResponse>;
 
+/** Text files above this size are stored as binaries: the editor cannot handle them well. */
+export const MAX_TEXT_BYTES = 4 * 1024 * 1024;
+
 /** Per-file upload limit, also enforced by the multipart parser. */
 export const MAX_UPLOAD_BYTES = 100 * 1024 * 1024;

@@ -3,8 +3,7 @@ import { Queue, Worker } from 'bullmq';
 import { and, isNotNull, lt } from 'drizzle-orm';
 import type { FastifyBaseLogger } from 'fastify';
 import type { Redis } from 'ioredis';
-import type { Executor } from '../db/client.js';
-import { projects } from '../db/schema.js';
+import { type Executor, projects } from '@galley/db';
 
 /** Queue for periodic API housekeeping. */
 export const MAINTENANCE_QUEUE = 'maintenance';

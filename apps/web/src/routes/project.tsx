@@ -1,14 +1,24 @@
+import { hasRole } from '@galley/shared';
 import { Link, useParams } from '@tanstack/react-router';
-import { useEffect, useRef } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { FilePreview } from '../components/FilePreview.js';
 import { FileTree, type TreeActions } from '../components/FileTree.js';
-import { Button, ErrorAlert } from '../components/ui.js';
+import { OutlinePanel } from '../components/OutlinePanel.js';
+import { SearchPanel } from '../components/SearchPanel.js';
+import { Button, ErrorAlert, NameDialog } from '../components/ui.js';
+import { ApiRequestError } from '../lib/api.js';
 import { useProject, useTree, useTreeMutations, useUpdateProject } from '../lib/projects.js';
 import { buildTree, flatten } from '../lib/tree.js';
 import { fromFileList } from '../lib/upload.js';
+import { useEditor } from '../stores/editor.js';
 import { useNotices } from '../stores/notices.js';
 import { useTreeState } from '../stores/tree.js';
+
+// CodeMirror, Yjs and the collab client load with the first project opened, not the dashboard.
+const EditorArea = lazy(() => import('../editor/EditorArea.js'));
+
+type Panel = 'files' | 'outline' | 'search';
+const PANELS: readonly Panel[] = ['files', 'outline', 'search'];
 
 function Warnings({ projectId }: { projectId: string }) {
   const { t } = useTranslation();
@@ -47,18 +57,33 @@ export function ProjectPage() {
   const mutations = useTreeMutations(projectId);
   const updateProject = useUpdateProject(projectId);
   const setWarnings = useNotices((state) => state.setWarnings);
-  const { open, selectedId } = useTreeState();
+  const { open, selectedId, select } = useTreeState();
+  const { openProject, openTab } = useEditor();
+  const activeId = useEditor((state) => state.activeId);
   const fileInput = useRef<HTMLInputElement>(null);
   const folderInput = useRef<HTMLInputElement>(null);
+  const [panel, setPanel] = useState<Panel>('files');
+  const [newFile, setNewFile] = useState(false);
 
   useEffect(() => {
     open(projectId);
-  }, [open, projectId]);
+    openProject(projectId);
+  }, [open, openProject, projectId]);
 
-  const nodes = tree.data?.nodes ?? [];
-  const roots = buildTree(nodes);
-  const all = flatten(roots);
+  const nodes = useMemo(() => tree.data?.nodes ?? [], [tree.data]);
+  const roots = useMemo(() => buildTree(nodes), [nodes]);
+  const all = useMemo(() => flatten(roots), [roots]);
+  const paths = useMemo(() => new Map(all.map((item) => [item.id, item.path])), [all]);
   const selected = nodes.find((node) => node.id === selectedId);
+  const canEdit = project.data !== undefined && hasRole(project.data.role, 'editor');
+
+  // Selecting a file in the tree opens it; switching tabs selects it in the tree.
+  useEffect(() => {
+    if (selected !== undefined && selected.kind !== 'folder') openTab(selected.id);
+  }, [selected, openTab]);
+  useEffect(() => {
+    if (activeId !== null) select(activeId);
+  }, [activeId, select]);
   const uploadTarget = selected?.kind === 'folder' ? selected.id : (selected?.parentId ?? null);
   const texFiles = all.filter(
     (item) => item.kind === 'text' && item.name.toLowerCase().endsWith('.tex'),
@@ -80,6 +105,20 @@ export function ProjectPage() {
       );
     },
   };
+
+  const createFile = (name: string) => {
+    const taken = nodes.some((node) => node.parentId === uploadTarget && node.name === name);
+    if (taken) return Promise.reject(new ApiRequestError(409, 'CONFLICT'));
+    return mutations.upload
+      .mutateAsync({
+        parentId: uploadTarget,
+        uploads: [{ path: name, file: new File([], name, { type: 'text/plain' }) }],
+      })
+      .then(() => {
+        setNewFile(false);
+      });
+  };
+  const [newFileError, setNewFileError] = useState<unknown>(null);
 
   if (project.error) return <ErrorAlert error={project.error} />;
 
@@ -117,53 +156,111 @@ export function ProjectPage() {
       </div>
       <Warnings projectId={projectId} />
       <ErrorAlert error={updateProject.error} />
-      <div className="grid gap-4 md:grid-cols-[18rem_1fr]">
-        <FileTree
-          nodes={nodes}
-          roots={roots}
-          mainFileId={project.data?.mainFileId ?? null}
-          actions={actions}
-          error={<ErrorAlert error={mutations.upload.error ?? tree.error} />}
-          toolbar={(openFolderDialog) => (
-            <div className="mb-2 flex flex-wrap gap-1">
-              <Button onClick={openFolderDialog}>{t('project.newFolder')}</Button>
-              <Button
-                disabled={mutations.upload.isPending}
-                onClick={() => fileInput.current?.click()}
+      <div className="grid h-[calc(100vh-11rem)] min-h-[28rem] gap-3 md:grid-cols-[18rem_1fr]">
+        <aside className="flex min-h-0 flex-col">
+          <div role="tablist" aria-label={t('editor.panels')} className="mb-2 flex gap-1">
+            {PANELS.map((name) => (
+              <button
+                key={name}
+                type="button"
+                role="tab"
+                aria-selected={panel === name}
+                onClick={() => {
+                  setPanel(name);
+                }}
+                className="rounded-md px-2 py-1 text-sm aria-selected:bg-slate-200 aria-selected:font-medium hover:bg-slate-100"
               >
-                {mutations.upload.isPending ? t('project.uploading') : t('project.uploadFiles')}
-              </Button>
-              <Button
-                disabled={mutations.upload.isPending}
-                onClick={() => folderInput.current?.click()}
-              >
-                {t('project.uploadFolder')}
-              </Button>
-              {[fileInput, folderInput].map((ref) => (
-                <input
-                  key={ref === fileInput ? 'files' : 'folder'}
-                  ref={ref}
-                  type="file"
-                  multiple
-                  className="sr-only"
-                  tabIndex={-1}
-                  aria-hidden
-                  data-testid={ref === fileInput ? 'upload-files' : 'upload-folder'}
-                  {...(ref === folderInput ? { webkitdirectory: '' } : {})}
-                  onChange={(event) => {
-                    const uploads = fromFileList(event.currentTarget.files ?? []);
-                    event.currentTarget.value = '';
-                    if (uploads.length > 0) actions.upload(uploadTarget, uploads);
-                  }}
-                />
-              ))}
-            </div>
-          )}
-        />
-        <section aria-live="polite" className="min-w-0">
-          <FilePreview projectId={projectId} node={selected} />
+                {t(`editor.panel.${name}`)}
+              </button>
+            ))}
+          </div>
+          <div className="min-h-0 flex-1 overflow-auto">
+            {panel === 'files' && (
+              <FileTree
+                nodes={nodes}
+                roots={roots}
+                mainFileId={project.data?.mainFileId ?? null}
+                actions={actions}
+                error={<ErrorAlert error={mutations.upload.error ?? tree.error} />}
+                toolbar={(openFolderDialog) => (
+                  <div className="mb-2 flex flex-wrap gap-1">
+                    <Button
+                      onClick={() => {
+                        setNewFileError(null);
+                        setNewFile(true);
+                      }}
+                    >
+                      {t('project.newFile')}
+                    </Button>
+                    <Button onClick={openFolderDialog}>{t('project.newFolder')}</Button>
+                    <Button
+                      disabled={mutations.upload.isPending}
+                      onClick={() => fileInput.current?.click()}
+                    >
+                      {mutations.upload.isPending
+                        ? t('project.uploading')
+                        : t('project.uploadFiles')}
+                    </Button>
+                    <Button
+                      disabled={mutations.upload.isPending}
+                      onClick={() => folderInput.current?.click()}
+                    >
+                      {t('project.uploadFolder')}
+                    </Button>
+                    {[fileInput, folderInput].map((ref) => (
+                      <input
+                        key={ref === fileInput ? 'files' : 'folder'}
+                        ref={ref}
+                        type="file"
+                        multiple
+                        className="sr-only"
+                        tabIndex={-1}
+                        aria-hidden
+                        data-testid={ref === fileInput ? 'upload-files' : 'upload-folder'}
+                        {...(ref === folderInput ? { webkitdirectory: '' } : {})}
+                        onChange={(event) => {
+                          const uploads = fromFileList(event.currentTarget.files ?? []);
+                          event.currentTarget.value = '';
+                          if (uploads.length > 0) actions.upload(uploadTarget, uploads);
+                        }}
+                      />
+                    ))}
+                  </div>
+                )}
+              />
+            )}
+            {panel === 'outline' && <OutlinePanel projectId={projectId} />}
+            {panel === 'search' && <SearchPanel projectId={projectId} canEdit={canEdit} />}
+          </div>
+        </aside>
+        <section className="min-h-0 min-w-0 overflow-hidden rounded-md border border-slate-200">
+          <Suspense fallback={<p className="p-4 text-slate-600">{t('common.loading')}</p>}>
+            {project.data && (
+              <EditorArea
+                key={projectId}
+                projectId={projectId}
+                nodes={nodes}
+                paths={paths}
+                readOnly={!canEdit}
+              />
+            )}
+          </Suspense>
         </section>
       </div>
+      <NameDialog
+        open={newFile}
+        onOpenChange={setNewFile}
+        title={t('project.newFile')}
+        label={t('project.fileName')}
+        submitLabel={t('common.create')}
+        error={newFileError}
+        pending={mutations.upload.isPending}
+        onSubmit={(name) => {
+          createFile(name).catch((error: unknown) => {
+            setNewFileError(error);
+          });
+        }}
+      />
     </div>
   );
 }
