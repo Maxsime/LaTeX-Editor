@@ -8,7 +8,7 @@ import { randomToken, tokenDigest } from '../auth/tokens.js';
 import { createUser, findUserByLogin } from '../auth/users.js';
 import { readConfig } from '../config.js';
 import { createDatabase, type Database, registrationInvites, users } from '@galley/db';
-import { runMigrations } from '../db/migrate.js';
+import { runMigrations } from '@galley/db';
 
 const usage = `Usage: admin <command> [options]
 

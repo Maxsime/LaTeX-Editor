@@ -74,6 +74,8 @@ services:
       S3_BUCKET: ${S3_BUCKET:-galley}
       REGISTRATION_MODE: ${REGISTRATION_MODE:-invite}
       SESSION_TTL_DAYS: ${SESSION_TTL_DAYS:-30}
+      COLLAB_INTERNAL_URL: http://collab:3001
+      COLLAB_INTERNAL_TOKEN: ${COLLAB_INTERNAL_TOKEN:-galley-dev-internal-token-change-me}
     depends_on:
       postgres: { condition: service_healthy }
       valkey: { condition: service_healthy }
@@ -93,7 +95,15 @@ services:
       dockerfile: infra/docker/node-service.Dockerfile
       args: { SERVICE: collab }
     image: galley/collab:dev
+    environment:
+      <<: *node-env
+      DATABASE_URL: postgres://${POSTGRES_USER:-galley}:${POSTGRES_PASSWORD:-galley-dev-password}@postgres:5432/${POSTGRES_DB:-galley}
+      COLLAB_INTERNAL_TOKEN: ${COLLAB_INTERNAL_TOKEN:-galley-dev-internal-token-change-me}
+      COLLAB_PERSIST_DEBOUNCE_MS: ${COLLAB_PERSIST_DEBOUNCE_MS:-2000}
+      COLLAB_PERSIST_MAX_DEBOUNCE_MS: ${COLLAB_PERSIST_MAX_DEBOUNCE_MS:-10000}
     depends_on:
+      # The API applies the migrations collab relies on.
+      api: { condition: service_healthy }
       valkey: { condition: service_healthy }
     networks: [data, edge]
     healthcheck:

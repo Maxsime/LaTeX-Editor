@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
+import { MAX_TEXT_BYTES } from '@galley/shared';
 
-/** Text files above this size are stored as binaries: the editor cannot handle them well. */
-export const MAX_TEXT_BYTES = 4 * 1024 * 1024;
+export { MAX_TEXT_BYTES };
 
 const TEXT_EXTENSIONS = new Set([
   'tex',

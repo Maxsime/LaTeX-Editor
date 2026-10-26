@@ -1,7 +1,5 @@
+import { TEXT_KEY } from '@galley/shared';
 import * as Y from 'yjs';
-
-/** Name of the shared text holding a file's content, fixed for the whole application. */
-export const TEXT_KEY = 'content';
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder('utf-8', { ignoreBOM: true });

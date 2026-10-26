@@ -6,7 +6,7 @@ import { ensureSetupCode } from './auth/setup.js';
 import { countUsers } from './auth/users.js';
 import { readConfig } from './config.js';
 import { createDatabase } from '@galley/db';
-import { runMigrations } from './db/migrate.js';
+import { runMigrations } from '@galley/db';
 import { startMaintenance } from './projects/purge.js';
 import { createS3Client, ensureBucket, headBucket } from './storage/s3.js';
 
