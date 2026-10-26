@@ -1,12 +1,12 @@
-import { z } from 'zod';
+import * as z from 'zod/mini';
 
 export const healthStatus = z.enum(['ok', 'error']);
 export type HealthStatus = z.infer<typeof healthStatus>;
 
 export const dependencyCheck = z.object({
   status: healthStatus,
-  latencyMs: z.number().nonnegative(),
-  error: z.string().optional(),
+  latencyMs: z.number().check(z.gte(0)),
+  error: z.optional(z.string()),
 });
 export type DependencyCheck = z.infer<typeof dependencyCheck>;
 
@@ -15,7 +15,7 @@ export const healthResponse = z.object({
   status: healthStatus,
   service: z.string(),
   version: z.string(),
-  checks: z.record(z.string(), dependencyCheck).optional(),
+  checks: z.optional(z.record(z.string(), dependencyCheck)),
 });
 export type HealthResponse = z.infer<typeof healthResponse>;
 

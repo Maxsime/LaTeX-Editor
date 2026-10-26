@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { z } from 'zod';
+import * as z from 'zod/mini';
 
 const packageJson = z.object({ version: z.string() });
 

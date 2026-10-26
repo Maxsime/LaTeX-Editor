@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import * as z from 'zod/mini';
 
 /**
  * Stable machine-readable error codes. Clients map them to translated messages;
@@ -25,9 +25,9 @@ export const apiErrorBody = z.object({
     code: errorCode,
     /** i18n key resolved by the client, e.g. `errors.NOT_FOUND`. */
     messageKey: z.string(),
-    requestId: z.string().optional(),
+    requestId: z.optional(z.string()),
     /** Field-level validation issues, only for `VALIDATION_FAILED`. */
-    fields: z.array(z.object({ path: z.string(), messageKey: z.string() })).optional(),
+    fields: z.optional(z.array(z.object({ path: z.string(), messageKey: z.string() }))),
   }),
 });
 export type ApiErrorBody = z.infer<typeof apiErrorBody>;
