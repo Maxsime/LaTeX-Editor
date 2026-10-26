@@ -5,7 +5,7 @@ import * as z from 'zod/mini';
 import { requireAdmin } from '../auth/plugin.js';
 import { randomToken, tokenDigest } from '../auth/tokens.js';
 import type { AppContext } from '../context.js';
-import { registrationInvites } from '../db/schema.js';
+import { registrationInvites } from '@galley/db';
 import { parse } from '../http/validate.js';
 
 const idParams = z.object({ id: z.uuid() });

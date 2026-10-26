@@ -14,7 +14,7 @@ import type { FastifyInstance, FastifyReply } from 'fastify';
 import * as z from 'zod/mini';
 import { requireAuth } from '../auth/plugin.js';
 import type { AppContext } from '../context.js';
-import { yjsStates } from '../db/schema.js';
+import { yjsStates } from '@galley/db';
 import { classifySpooled, type IncomingFile, mimeTypeFor } from '../files/ingest.js';
 import { createScratchDir, spool } from '../files/spool.js';
 import {

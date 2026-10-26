@@ -1,13 +1,11 @@
-import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
+import { randomBytes, timingSafeEqual } from 'node:crypto';
+
+// The digest lives with the session lookup it must match; re-exported for invite tokens.
+export { tokenDigest } from '@galley/db';
 
 /** 256-bit random token, URL-safe. */
 export function randomToken(bytes = 32): string {
   return randomBytes(bytes).toString('base64url');
-}
-
-/** Digest stored in place of a token, so a database leak does not leak live tokens. */
-export function tokenDigest(token: string): string {
-  return createHash('sha256').update(token).digest('hex');
 }
 
 /** Constant-time string comparison for secrets of equal or differing length. */

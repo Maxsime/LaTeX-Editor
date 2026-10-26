@@ -16,7 +16,7 @@ import { checkSetupCode, clearSetupCode } from '../auth/setup.js';
 import { tokenDigest } from '../auth/tokens.js';
 import { countUsers, createUser, findUserByLogin, toPublicUser } from '../auth/users.js';
 import type { AppContext } from '../context.js';
-import { registrationInvites } from '../db/schema.js';
+import { registrationInvites } from '@galley/db';
 import { parse } from '../http/validate.js';
 
 /** Brute-force guard for credential endpoints, per client address. */

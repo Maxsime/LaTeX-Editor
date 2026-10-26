@@ -50,6 +50,9 @@ importers:
       '@fastify/rate-limit':
         specifier: 11.2.1
         version: 11.2.1
+      '@galley/db':
+        specifier: workspace:*
+        version: link:../../packages/db
       '@galley/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -114,6 +117,9 @@ importers:
 
   apps/collab:
     dependencies:
+      '@galley/db':
+        specifier: workspace:*
+        version: link:../../packages/db
       '@galley/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -123,6 +129,9 @@ importers:
       '@hocuspocus/server':
         specifier: 4.7.1
         version: 4.7.1(y-protocols@1.0.7(yjs@13.6.33))(yjs@13.6.33)
+      drizzle-orm:
+        specifier: 0.45.4
+        version: 0.45.4(@opentelemetry/api@1.10.0)(postgres@3.4.9)
       ioredis:
         specifier: 5.11.1
         version: 5.11.1
@@ -240,6 +249,18 @@ importers:
       yauzl:
         specifier: 3.4.0
         version: 3.4.0
+
+  packages/db:
+    dependencies:
+      '@galley/shared':
+        specifier: workspace:*
+        version: link:../shared
+      drizzle-orm:
+        specifier: 0.45.4
+        version: 0.45.4(@opentelemetry/api@1.10.0)(postgres@3.4.9)
+      postgres:
+        specifier: 3.4.9
+        version: 3.4.9
 
   packages/shared:
     dependencies:

@@ -1,7 +1,7 @@
 import type { Manifest } from '@galley/shared';
 import { eq } from 'drizzle-orm';
 import type { AppContext } from './context.js';
-import { files, yjsStates } from './db/schema.js';
+import { files, yjsStates } from '@galley/db';
 import { sha256 } from './files/classify.js';
 import { mimeTypeFor } from './files/ingest.js';
 import { nodePaths } from './files/tree.js';

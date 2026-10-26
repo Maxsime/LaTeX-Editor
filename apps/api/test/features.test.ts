@@ -13,9 +13,8 @@ import { buildApp } from '../src/app.js';
 import { DEFAULT_ARCHIVE_LIMITS } from '../src/archive/limits.js';
 import { ensureSetupCode } from '../src/auth/setup.js';
 import { readConfig } from '../src/config.js';
-import { createDatabase, type Database } from '../src/db/client.js';
+import { createDatabase, type Database, projects } from '@galley/db';
 import { runMigrations } from '../src/db/migrate.js';
-import { projects } from '../src/db/schema.js';
 import { purgeTrash } from '../src/projects/purge.js';
 import { createS3Client, ensureBucket } from '../src/storage/s3.js';
 import {

@@ -12,7 +12,7 @@ import type { FastifyInstance } from 'fastify';
 import * as z from 'zod/mini';
 import { requireAuth } from '../auth/plugin.js';
 import type { AppContext } from '../context.js';
-import { projects } from '../db/schema.js';
+import { projects } from '@galley/db';
 import { getNode, writeFiles } from '../files/tree.js';
 import { parse } from '../http/validate.js';
 import { loadProject } from '../projects/access.js';

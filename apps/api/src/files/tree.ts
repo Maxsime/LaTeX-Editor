@@ -1,8 +1,6 @@
 import { ApiError, type TreeNode } from '@galley/shared';
 import { and, eq, isNull, sql } from 'drizzle-orm';
-import type { Executor } from '../db/client.js';
-import { uniqueViolation } from '../db/errors.js';
-import { files, projects, yjsStates } from '../db/schema.js';
+import { type Executor, uniqueViolation, files, projects, yjsStates } from '@galley/db';
 import { stateToText, textToState } from '../yjs/text.js';
 import { detectMainFile } from './main-file.js';
 import type { IncomingFile } from './ingest.js';

@@ -2,8 +2,7 @@ import { createReadStream } from 'node:fs';
 import type { Readable } from 'node:stream';
 import { GetObjectCommand, PutObjectCommand, type S3Client } from '@aws-sdk/client-s3';
 import { inArray } from 'drizzle-orm';
-import type { Executor } from '../db/client.js';
-import { blobs } from '../db/schema.js';
+import { type Executor, blobs } from '@galley/db';
 
 /** Content to store, either already in memory or spooled to a temporary file. */
 export type BlobSource =

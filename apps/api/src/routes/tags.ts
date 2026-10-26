@@ -4,8 +4,7 @@ import type { FastifyInstance } from 'fastify';
 import * as z from 'zod/mini';
 import { requireAuth } from '../auth/plugin.js';
 import type { AppContext } from '../context.js';
-import { uniqueViolation } from '../db/errors.js';
-import { projectTags, tags } from '../db/schema.js';
+import { uniqueViolation, projectTags, tags } from '@galley/db';
 import { parse } from '../http/validate.js';
 import { loadProject } from '../projects/access.js';
 

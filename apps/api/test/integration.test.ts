@@ -8,7 +8,7 @@ import type { StartedTestContainer } from 'testcontainers';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { buildApp } from '../src/app.js';
 import { readConfig, type ApiConfig } from '../src/config.js';
-import { createDatabase, type Database } from '../src/db/client.js';
+import { createDatabase, type Database } from '@galley/db';
 import { runMigrations } from '../src/db/migrate.js';
 import { createS3Client, ensureBucket, headBucket } from '../src/storage/s3.js';
 import {

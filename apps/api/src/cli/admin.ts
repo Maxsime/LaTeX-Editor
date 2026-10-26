@@ -7,9 +7,8 @@ import { deleteUserSessions } from '../auth/sessions.js';
 import { randomToken, tokenDigest } from '../auth/tokens.js';
 import { createUser, findUserByLogin } from '../auth/users.js';
 import { readConfig } from '../config.js';
-import { createDatabase, type Database } from '../db/client.js';
+import { createDatabase, type Database, registrationInvites, users } from '@galley/db';
 import { runMigrations } from '../db/migrate.js';
-import { registrationInvites, users } from '../db/schema.js';
 
 const usage = `Usage: admin <command> [options]
 

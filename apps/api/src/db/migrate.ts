@@ -1,6 +1,6 @@
 import { fileURLToPath } from 'node:url';
 import { migrate } from 'drizzle-orm/postgres-js/migrator';
-import type { Database } from './client.js';
+import type { Database } from '@galley/db';
 
 /** Arbitrary constant identifying the migration lock among PostgreSQL advisory locks. */
 const MIGRATION_LOCK_KEY = 7_265_830_141;
