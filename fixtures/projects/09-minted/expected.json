@@ -1,0 +1,36 @@
+{
+  "description": "minted selon le mode de shell-escape. Désactivé : minted signale qu'il ne peut pas colorer et compose le code sans couleur. Restreint : latexminted figure dans la liste restreinte de TeX Live depuis 2024, la coloration fonctionne. Complet : la coloration fonctionne.",
+  "runs": [
+    {
+      "main": "main.tex",
+      "shellEscape": "disabled",
+      "expect": {
+        "outcome": "failure",
+        "pdf": true,
+        "errors": [
+          {
+            "file": "main.tex",
+            "line": 7,
+            "message": "minted executable is unavailable or disabled"
+          }
+        ]
+      }
+    },
+    {
+      "main": "main.tex",
+      "shellEscape": "restricted",
+      "expect": {
+        "outcome": "success",
+        "minPages": 1
+      }
+    },
+    {
+      "main": "main.tex",
+      "shellEscape": "full",
+      "expect": {
+        "outcome": "success",
+        "minPages": 1
+      }
+    }
+  ]
+}

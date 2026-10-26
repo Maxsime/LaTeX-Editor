@@ -1,0 +1,75 @@
+{
+  "description": "Tentatives malveillantes : rien hors du projet et du texmf ne doit être lu, aucune commande ne doit atteindre le réseau ni l'hôte, aucune écriture ne doit sortir du projet. Les cas avec shell-escape tournent en mode complet, le pire cas.",
+  "runs": [
+    {
+      "main": "read-files.tex",
+      "expect": {
+        "outcome": "success",
+        "forbidden": [
+          "root:x:0:0",
+          "texlive:x:1000",
+          "$CANARY",
+          "S3_SECRET",
+          "HOSTNAME=",
+          "NETWORK-REACHED",
+          "Example Domain"
+        ],
+        "logContains": [
+          "ABSENT /etc/shadow",
+          "ABSENT /etc/hostname",
+          "READ /etc/passwd: galley:x:1000"
+        ]
+      }
+    },
+    {
+      "main": "shell-escape.tex",
+      "shellEscape": "full",
+      "expect": {
+        "outcome": "success",
+        "forbidden": [
+          "root:x:0:0",
+          "texlive:x:1000",
+          "$CANARY",
+          "S3_SECRET",
+          "HOSTNAME=",
+          "NETWORK-REACHED",
+          "Example Domain"
+        ],
+        "logContains": [
+          "READ shell-net.txt: NO-NETWORK"
+        ]
+      }
+    },
+    {
+      "main": "write-outside.tex",
+      "expect": {
+        "pdf": false,
+        "forbiddenPaths": [
+          "../escape.txt",
+          "../../escape.txt",
+          "/tmp/escape.txt"
+        ]
+      }
+    },
+    {
+      "main": "lua-escape.tex",
+      "engine": "lualatex",
+      "shellEscape": "full",
+      "expect": {
+        "forbidden": [
+          "root:x:0:0",
+          "texlive:x:1000",
+          "$CANARY",
+          "S3_SECRET",
+          "HOSTNAME=",
+          "NETWORK-REACHED",
+          "Example Domain"
+        ],
+        "logContains": [
+          "LUA socket: no network",
+          "LUA valkey:"
+        ]
+      }
+    }
+  ]
+}

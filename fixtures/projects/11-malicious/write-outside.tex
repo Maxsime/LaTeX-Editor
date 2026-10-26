@@ -1,0 +1,11 @@
+\documentclass{article}
+\begin{document}
+\newwrite\out
+\immediate\openout\out=../../escape.txt
+\immediate\write\out{escaped}
+\immediate\closeout\out
+\immediate\openout\out=/tmp/escape.txt
+\immediate\write\out{escaped}
+\immediate\closeout\out
+Écritures hors du projet tentées.
+\end{document}

@@ -1,0 +1,12 @@
+\documentclass{article}
+\usepackage{makeidx}
+\usepackage[acronym]{glossaries}
+\makeindex
+\makeglossaries
+\newglossaryentry{compiler}{name={compilateur},description={programme qui produit le PDF}}
+\newacronym{pdf}{PDF}{Portable Document Format}
+\begin{document}
+Le \gls{compiler} produit un \gls{pdf}\index{PDF}. La typographie\index{typographie} compte.
+\printglossaries
+\printindex
+\end{document}

@@ -1,0 +1,12 @@
+{
+  "description": "Article minimal sous pdfLaTeX.",
+  "runs": [
+    {
+      "main": "main.tex",
+      "expect": {
+        "outcome": "success",
+        "minPages": 1
+      }
+    }
+  ]
+}

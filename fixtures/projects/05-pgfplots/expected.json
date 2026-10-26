@@ -1,0 +1,12 @@
+{
+  "description": "TikZ et pgfplots lisant un fichier CSV du projet.",
+  "runs": [
+    {
+      "main": "main.tex",
+      "expect": {
+        "outcome": "success",
+        "minPages": 1
+      }
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+\documentclass{article}
+\usepackage{tikz}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.18}
+\begin{document}
+\begin{tikzpicture}
+  \draw[thick,->] (0,0) -- (2,1) node[right] {TikZ};
+\end{tikzpicture}
+
+\begin{tikzpicture}
+  \begin{axis}[xlabel={$x$}, ylabel={$y$}]
+    \addplot table[col sep=comma] {data/measures.csv};
+  \end{axis}
+\end{tikzpicture}
+\end{document}

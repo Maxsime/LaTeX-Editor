@@ -1,0 +1,18 @@
+\documentclass[a4paper,11pt]{report}
+\usepackage[T1]{fontenc}
+\usepackage[french]{babel}
+\usepackage{lipsum}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage[backend=biber]{biblatex}
+\addbibresource{references.bib}
+\title{Rapport de trente pages}
+\author{Galley}
+\begin{document}
+\maketitle
+\tableofcontents
+\include{chapters/one}
+\include{chapters/two}
+\include{chapters/three}
+\printbibliography
+\end{document}

@@ -1,0 +1,21 @@
+{
+  "description": "XeLaTeX et LuaLaTeX avec fontspec.",
+  "runs": [
+    {
+      "main": "xelatex.tex",
+      "engine": "xelatex",
+      "expect": {
+        "outcome": "success",
+        "minPages": 1
+      }
+    },
+    {
+      "main": "lualatex.tex",
+      "engine": "lualatex",
+      "expect": {
+        "outcome": "success",
+        "minPages": 1
+      }
+    }
+  ]
+}

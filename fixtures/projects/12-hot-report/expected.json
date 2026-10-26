@@ -1,0 +1,14 @@
+{
+  "description": "Rapport de trente pages avec bibliographie : la recompilation après une modification, bibliographie inchangée, doit prendre moins de 4 s (SPEC §7).",
+  "runs": [
+    {
+      "main": "main.tex",
+      "hotEdit": "chapters/two.tex",
+      "expect": {
+        "outcome": "success",
+        "minPages": 30,
+        "hotRecompileMs": 4000
+      }
+    }
+  ]
+}

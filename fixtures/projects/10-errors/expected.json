@@ -1,0 +1,69 @@
+{
+  "description": "Erreurs volontaires, chacune attendue avec son fichier et sa ligne.",
+  "runs": [
+    {
+      "main": "undefined-command.tex",
+      "expect": {
+        "outcome": "failure",
+        "pdf": true,
+        "errors": [
+          {
+            "file": "chapters/body.tex",
+            "line": 3,
+            "message": "Undefined control sequence"
+          }
+        ]
+      }
+    },
+    {
+      "main": "missing-brace.tex",
+      "expect": {
+        "outcome": "failure",
+        "pdf": false,
+        "errors": [
+          {
+            "file": "missing-brace.tex",
+            "line": 4,
+            "message": "File ended while scanning use of \\textbf"
+          }
+        ]
+      }
+    },
+    {
+      "main": "missing-file.tex",
+      "expect": {
+        "outcome": "failure",
+        "pdf": false,
+        "errors": [
+          {
+            "file": "missing-file.tex",
+            "line": 3,
+            "message": "chapitre-absent.tex' not found"
+          }
+        ]
+      }
+    },
+    {
+      "main": "undefined-reference.tex",
+      "expect": {
+        "outcome": "success",
+        "minPages": 1,
+        "warnings": [
+          {
+            "file": "undefined-reference.tex",
+            "line": 3,
+            "message": "Reference `sec:absente' on page 1 undefined"
+          }
+        ]
+      }
+    },
+    {
+      "main": "infinite-loop.tex",
+      "timeoutS": 10,
+      "expect": {
+        "outcome": "timeout",
+        "pdf": false
+      }
+    }
+  ]
+}

@@ -1,0 +1,43 @@
+\documentclass{article}
+\begin{document}
+\directlua{
+  local function try(label, fn)
+    local ok, result = pcall(fn)
+    texio.write_nl("term and log", "LUA " .. label .. ": " .. (ok and tostring(result) or "refused"))
+  end
+  try("open", function()
+    local file = io.open("/etc/passwd", "r")
+    if not file then return "no file" end
+    local text = file:read("*a")
+    file:close()
+    return text
+  end)
+  try("execute", function() return os.execute("id > lua-id.txt") end)
+  try("popen", function()
+    local pipe = io.popen("cat /proc/1/environ")
+    if not pipe then return "no pipe" end
+    return pipe:read("*a")
+  end)
+  try("socket", function()
+    local socket = require("socket")
+    local client = assert(socket.tcp())
+    client:settimeout(2)
+    local ok = client:connect("1.1.1.1", 80)
+    if ok then return "NETWORK-" .. "REACHED" end
+    return "no network"
+  end)
+  try("valkey", function()
+    local socket = require("socket")
+    local client = assert(socket.tcp())
+    client:settimeout(2)
+    local ok = client:connect("valkey", 6379)
+    if ok then return "NETWORK-" .. "REACHED" end
+    return "no network"
+  end)
+  try("symlink", function()
+    % A symlink in the output folder must not make the worker publish a host file.
+    return lfs.link("/proc/self/environ", "/out/lua-escape.blg", true)
+  end)
+}
+Tentatives depuis Lua.
+\end{document}
