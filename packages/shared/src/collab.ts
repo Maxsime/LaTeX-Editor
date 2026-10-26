@@ -1,4 +1,5 @@
 import * as z from 'zod/mini';
+import { compileStatus } from './compile-job.js';
 
 /** Name of the shared text holding a file's content, fixed for the whole application. */
 export const TEXT_KEY = 'content';
@@ -43,6 +44,12 @@ export const projectEvent = z.discriminatedUnion('type', [
   z.object({ type: z.literal('tree.changed') }),
   z.object({ type: z.literal('project.updated') }),
   z.object({ type: z.literal('project.deleted') }),
+  /** A compilation of the project changed state; clients fetch it to refresh the PDF. */
+  z.object({
+    type: z.literal('compile.updated'),
+    compileId: z.uuid(),
+    status: compileStatus,
+  }),
 ]);
 export type ProjectEvent = z.infer<typeof projectEvent>;
 

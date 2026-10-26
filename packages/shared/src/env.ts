@@ -118,10 +118,28 @@ export const collabEnv = z.object({
 });
 export type CollabConfig = z.output<typeof collabEnv>;
 
+const positiveInt = z.coerce.number().check(z.int(), z.gte(1));
+
 export const compilerEnv = z.object({
   ...commonEnv.shape,
   ...valkeyEnv.shape,
+  ...s3Env.shape,
   COMPILER_HEALTH_PORT: z._default(port, 3002),
   COMPILER_CONCURRENCY: z._default(z.coerce.number().check(z.int(), z.gte(1), z.lte(64)), 1),
+  /** Persistent working directories, one per project, kept between compilations. */
+  COMPILER_WORK_DIR: z._default(z.string(), '/var/lib/galley/work'),
+  /** Disk budget of all working directories; the least recently used are evicted beyond it. */
+  COMPILER_WORK_QUOTA_MB: z._default(positiveInt, 20_480),
+  /** Read-only assets of the sandbox built into the image (passwd, latexmkrc, caches). */
+  COMPILER_ASSETS_DIR: z._default(z.string(), '/opt/galley'),
+  /** Wall-clock limit of one compilation (SPEC §6.3). */
+  COMPILER_TIMEOUT_S: z._default(positiveInt, 180),
+  /** Address space limit of each process of a compilation. */
+  COMPILER_MEMORY_MB: z._default(positiveInt, 2_048),
+  COMPILER_MAX_PROCESSES: z._default(positiveInt, 64),
+  /** Size limit of the output folder of a compilation. */
+  COMPILER_MAX_OUTPUT_MB: z._default(positiveInt, 500),
+  /** Whether projects may compile with unrestricted shell-escape (still inside the sandbox). */
+  COMPILER_ALLOW_FULL_SHELL_ESCAPE: z._default(booleanFlag, false),
 });
 export type CompilerConfig = z.output<typeof compilerEnv>;
