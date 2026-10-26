@@ -175,6 +175,12 @@ importers:
 
   apps/compiler:
     dependencies:
+      '@aws-sdk/client-s3':
+        specifier: 3.1156.0
+        version: 3.1156.0
+      '@galley/latex-log':
+        specifier: workspace:*
+        version: link:../../packages/latex-log
       '@galley/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -187,6 +193,9 @@ importers:
       prom-client:
         specifier: 15.1.3
         version: 15.1.3
+      zod:
+        specifier: 4.6.7
+        version: 4.6.7
     devDependencies:
       testcontainers:
         specifier: 12.2.1

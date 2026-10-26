@@ -1,6 +1,10 @@
 # syntax=docker/dockerfile:1
 # Builds one Node service of the monorepo: docker build --build-arg SERVICE=api ...
 ARG NODE_IMAGE=node:22.23.4-alpine
+# TeX Live 2026 (texlive/texlive:latest-full of 2026-10-25), frozen by digest; changing
+# the year is described in docs/operations.md. Node is copied from a glibc image for it.
+ARG TEXLIVE_IMAGE=texlive/texlive:latest-full@sha256:540d736c78e2803cdd7b6a196bd21339c30185948db55e04e75a415959102ca8
+ARG NODE_GLIBC_IMAGE=node:22.23.4-bookworm-slim
 
 FROM ${NODE_IMAGE} AS base
 # Optional build secret `extra_ca_cert`: CA bundle of a TLS-inspecting proxy, for builds
@@ -28,6 +32,38 @@ ARG SERVICE
 RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
     rm -rf node_modules apps/*/node_modules packages/*/node_modules && \
     pnpm install --prod --offline --frozen-lockfile --filter "@galley/${SERVICE}..."
+
+# Compiler worker: TeX Live with the worker beside it (SPEC §6.3).
+FROM ${NODE_GLIBC_IMAGE} AS node-glibc
+
+FROM ${TEXLIVE_IMAGE} AS compiler-runtime
+ENV NODE_ENV=production
+COPY --from=node-glibc /usr/local/bin/node /usr/local/bin/node
+# Warm the caches that every sandbox mounts read-only, so that a first LuaLaTeX or
+# Biber run does not spend 10 to 20 s rebuilding them. Biber (a PAR archive) unpacks
+# itself into PAR_GLOBAL_TEMP; doing it as the worker user keeps the files usable there.
+RUN set -eu; \
+    tl=$(kpsewhich -var-value SELFAUTOPARENT); \
+    TEXMFVAR="$tl/texmf-var" luaotfload-tool --update --force >/dev/null; \
+    install -d -o texlive -g texlive /opt/galley/par-cache /var/lib/galley/work; \
+    cd /tmp; \
+    printf '@book{a,title={T},author={A},year={2000}}' > warm.bib; \
+    printf '%s' '\documentclass{article}\usepackage[backend=biber]{biblatex}\addbibresource{warm.bib}\begin{document}\cite{a}\printbibliography\end{document}' > warm.tex; \
+    pdflatex -interaction=batchmode warm.tex >/dev/null; \
+    chown texlive warm.*; \
+    su texlive -s /bin/sh -c 'PAR_GLOBAL_TEMP=/opt/galley/par-cache biber warm >/dev/null'; \
+    rm -f /tmp/warm.*; \
+    printf 'galley:x:1000:1000::/tmp:/usr/sbin/nologin\n' > /opt/galley/passwd; \
+    printf 'galley:x:1000:\n' > /opt/galley/group
+COPY infra/compiler/latexmkrc /opt/galley/latexmkrc
+WORKDIR /app
+COPY --from=prod-deps --chown=texlive:texlive /repo/package.json ./
+COPY --from=prod-deps --chown=texlive:texlive /repo/node_modules ./node_modules
+COPY --from=prod-deps --chown=texlive:texlive /repo/packages ./packages
+COPY --from=prod-deps --chown=texlive:texlive /repo/apps/compiler ./apps/compiler
+WORKDIR /app/apps/compiler
+USER texlive
+CMD ["node", "dist/server.js"]
 
 FROM ${NODE_IMAGE} AS runtime
 ARG SERVICE

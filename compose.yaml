@@ -118,16 +118,44 @@ services:
     build:
       context: .
       dockerfile: infra/docker/node-service.Dockerfile
+      target: compiler-runtime
       args: { SERVICE: compiler }
     image: galley/compiler:dev
+    environment:
+      <<: *node-env
+      S3_ENDPOINT: http://storage:8333
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-galley}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-galley-dev-secret}
+      S3_BUCKET: ${S3_BUCKET:-galley}
+      COMPILER_CONCURRENCY: ${COMPILER_CONCURRENCY:-2}
+      COMPILER_TIMEOUT_S: ${COMPILER_TIMEOUT_S:-180}
+      COMPILER_MEMORY_MB: ${COMPILER_MEMORY_MB:-2048}
+      COMPILER_MAX_PROCESSES: ${COMPILER_MAX_PROCESSES:-64}
+      COMPILER_MAX_OUTPUT_MB: ${COMPILER_MAX_OUTPUT_MB:-500}
+      COMPILER_WORK_QUOTA_MB: ${COMPILER_WORK_QUOTA_MB:-20480}
+      COMPILER_ALLOW_FULL_SHELL_ESCAPE: ${COMPILER_ALLOW_FULL_SHELL_ESCAPE:-false}
+    volumes:
+      - compile-work:/var/lib/galley/work
+    # Each compilation runs under bubblewrap (SPEC §6.3), which needs to create user
+    # namespaces and mount a fresh /proc: the seccomp profile is Docker's default plus
+    # the namespace calls, and systempaths=unconfined lifts the /proc masks that would
+    # forbid the mount. The container itself keeps no capability and a read-only root.
+    security_opt:
+      - no-new-privileges:true
+      - seccomp=./infra/compiler/seccomp.json
+      - systempaths=unconfined
+    cap_drop: [ALL]
+    read_only: true
+    tmpfs: [/tmp]
     depends_on:
       valkey: { condition: service_healthy }
+      storage: { condition: service_healthy }
     networks: [data]
     healthcheck:
-      test: ['CMD', 'wget', '-q', '-O', '/dev/null', 'http://127.0.0.1:3002/health/ready']
+      test: ['CMD', 'curl', '-fsS', '-o', '/dev/null', 'http://127.0.0.1:3002/health/ready']
       interval: 5s
       timeout: 3s
-      start_period: 10s
+      start_period: 20s
       retries: 20
 
   caddy:
@@ -165,6 +193,7 @@ networks:
 
 volumes:
   postgres-data: {}
+  compile-work: {}
   valkey-data: {}
   storage-data: {}
   caddy-data: {}
