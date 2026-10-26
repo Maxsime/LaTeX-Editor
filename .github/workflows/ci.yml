@@ -35,10 +35,11 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v4
+      # No dependency cache: the audit reads the lockfile only, and an empty store
+      # would make the cache step fail the job.
       - uses: actions/setup-node@v5
         with:
           node-version-file: .nvmrc
-          cache: pnpm
       - run: pnpm audit --audit-level=high
 
   stack:
