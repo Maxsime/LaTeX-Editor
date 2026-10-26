@@ -15,6 +15,11 @@ export function toSupportedLanguage(tag: string | undefined): Language {
   return supportedLanguages.find((language) => language === base) ?? 'fr';
 }
 
+// Registered before init so the language detected at startup is applied too.
+i18n.on('languageChanged', (language) => {
+  document.documentElement.lang = toSupportedLanguage(language);
+});
+
 void i18n
   .use(LanguageDetector)
   .use(initReactI18next)
@@ -30,9 +35,5 @@ void i18n
       caches: ['localStorage'],
     },
   });
-
-i18n.on('languageChanged', (language) => {
-  document.documentElement.lang = toSupportedLanguage(language);
-});
 
 export default i18n;
