@@ -4,7 +4,7 @@
     "tagline": "Self-hosted collaborative LaTeX editor"
   },
   "home": {
-    "intro": "The foundations are in place. Projects, the editor and compilation arrive in the next milestones.",
+    "intro": "Galley is under construction: accounts, projects and files are available; the editor and compilation are coming.",
     "status": {
       "title": "Service status",
       "checking": "Checking…",
@@ -39,5 +39,170 @@
     "RATE_LIMITED": "Too many requests, try again later.",
     "SERVICE_UNAVAILABLE": "Service temporarily unavailable.",
     "INTERNAL_ERROR": "Internal error."
+  },
+  "common": {
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "save": "Save",
+    "create": "Create",
+    "close": "Close",
+    "loading": "Loading…",
+    "retry": "Retry"
+  },
+  "nav": {
+    "projects": "Projects",
+    "status": "Service status",
+    "logout": "Sign out",
+    "signedInAs": "Signed in as {{name}}"
+  },
+  "auth": {
+    "fields": {
+      "login": "E-mail address or username",
+      "email": "E-mail address",
+      "username": "Username",
+      "displayName": "Display name",
+      "password": "Password",
+      "passwordHint": "At least 10 characters.",
+      "setupCode": "Setup code"
+    },
+    "login": {
+      "title": "Sign in",
+      "submit": "Sign in",
+      "noAccount": "No account yet?",
+      "register": "Create an account"
+    },
+    "register": {
+      "title": "Create an account",
+      "submit": "Create account",
+      "haveAccount": "Already have an account?",
+      "login": "Sign in",
+      "closed": "Registration is closed on this instance. Ask its administrator for an account.",
+      "inviteRequired": "Registration is by invitation. Open the invitation link you received."
+    },
+    "setup": {
+      "title": "Create the administrator account",
+      "intro": "No account exists yet. The setup code is printed in the API service logs (docker compose logs api).",
+      "submit": "Create administrator account"
+    }
+  },
+  "validation": {
+    "too_small": "Value too short.",
+    "too_big": "Value too long.",
+    "invalid_format": "Invalid format.",
+    "invalid_type": "Missing or invalid value.",
+    "invalid_value": "Value not allowed.",
+    "custom": "Invalid value.",
+    "email_taken": "This e-mail address is already used.",
+    "username_taken": "This username is taken.",
+    "password_matches_identity": "The password must not repeat the e-mail address or username."
+  },
+  "archive": {
+    "CORRUPT": "The archive is unreadable or damaged.",
+    "ENCRYPTED": "Encrypted archives are not supported.",
+    "UNSAFE_PATH": "The archive contains a path leading outside the project: it is refused.",
+    "INVALID_NAME": "The archive contains an invalid file name.",
+    "SYMLINK": "The archive contains a symbolic link: it is refused.",
+    "SPECIAL_FILE": "The archive contains a special file: it is refused.",
+    "DUPLICATE_PATH": "The archive contains the same path twice.",
+    "TOO_MANY_ENTRIES": "The archive contains too many files.",
+    "TOO_DEEP": "The archive contains too many folder levels.",
+    "TOO_LARGE": "The archive is too large once decompressed.",
+    "COMPRESSION_RATIO": "Abnormal compression ratio (possible zip bomb): archive refused.",
+    "EMPTY": "The archive contains no file."
+  },
+  "warnings": {
+    "NOT_UTF8_TEXT": "{{path}} is not UTF-8: kept as is, not editable.",
+    "CASE_CONFLICT": "{{path}} differs from another name only by case: the export may fail on Windows and macOS.",
+    "IGNORED_ENTRY": "{{path}} was ignored."
+  },
+  "dashboard": {
+    "title": "Projects",
+    "search": "Search projects",
+    "newProject": "New project",
+    "import": "Import a zip",
+    "importing": "Importing…",
+    "imported": "Project “{{name}}” imported.",
+    "states": {
+      "active": "Projects",
+      "archived": "Archived",
+      "trashed": "Trash"
+    },
+    "sort": {
+      "label": "Sort by",
+      "updatedAt": "Last modified",
+      "createdAt": "Creation date",
+      "name": "Name"
+    },
+    "order": {
+      "asc": "Ascending",
+      "desc": "Descending"
+    },
+    "columns": {
+      "select": "Select",
+      "name": "Name",
+      "owner": "Owner",
+      "updated": "Modified",
+      "tags": "Tags"
+    },
+    "selectAll": "Select all",
+    "selected": "{{count}} selected",
+    "empty": "No project here.",
+    "trashNote": "Projects in the trash are deleted permanently after {{days}} days.",
+    "actions": {
+      "archive": "Archive",
+      "unarchive": "Unarchive",
+      "trash": "Move to trash",
+      "restore": "Restore",
+      "purge": "Delete permanently"
+    },
+    "confirmPurge": "Permanently delete {{count}} project(s)? This cannot be undone.",
+    "tags": {
+      "title": "Tags",
+      "all": "All",
+      "new": "New tag",
+      "name": "Tag name",
+      "color": "Colour",
+      "apply": "Project tags",
+      "delete": "Delete tag {{name}}"
+    },
+    "create": {
+      "title": "New project",
+      "name": "Project name",
+      "template": "Template",
+      "templates": {
+        "blank": "Blank project",
+        "article": "Article with bibliography"
+      }
+    }
+  },
+  "project": {
+    "back": "All projects",
+    "export": "Export (zip)",
+    "mainFile": "Main document",
+    "mainFileNone": "None",
+    "files": "Files",
+    "newFolder": "New folder",
+    "folderName": "Folder name",
+    "uploadFiles": "Upload files",
+    "uploadFolder": "Upload a folder",
+    "uploading": "Uploading…",
+    "dropHint": "Drop files or folders here to add them.",
+    "rename": "Rename",
+    "newName": "New name",
+    "move": "Move to…",
+    "moveTitle": "Move “{{name}}”",
+    "root": "Project root",
+    "delete": "Delete",
+    "confirmDelete": "Delete “{{name}}”? A folder's content is deleted with it.",
+    "actions": "Actions on {{name}}",
+    "main": "main",
+    "preview": {
+      "empty": "Select a file to display it.",
+      "folder": "Folder",
+      "none": "No preview for this file type.",
+      "openPdf": "Open the PDF in a new tab",
+      "download": "Download",
+      "readOnly": "Read-only preview: editing comes with the editor."
+    }
   }
 }

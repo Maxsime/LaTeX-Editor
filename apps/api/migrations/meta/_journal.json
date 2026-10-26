@@ -8,6 +8,13 @@
       "when": 1793036715301,
       "tag": "0000_extensions",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1793043081327,
+      "tag": "0001_accounts_projects_files",
+      "breakpoints": true
     }
   ]
 }

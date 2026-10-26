@@ -1,4 +1,5 @@
 import * as z from 'zod/mini';
+import { registrationMode } from './auth.js';
 
 /**
  * Raised when environment variables do not satisfy a service's schema.
@@ -78,6 +79,10 @@ export const apiEnv = z.object({
   ...s3Env.shape,
   API_HOST: z._default(z.string(), '0.0.0.0'),
   API_PORT: z._default(port, 3000),
+  REGISTRATION_MODE: z._default(registrationMode, 'invite'),
+  SESSION_TTL_DAYS: z._default(z.coerce.number().check(z.int(), z.gte(1), z.lte(365)), 30),
+  /** Scratch space for uploads and archive imports; must hold the largest accepted archive. */
+  API_TMP_DIR: z._default(z.string(), '/tmp'),
 });
 export type ApiConfig = z.output<typeof apiEnv>;
 

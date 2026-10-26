@@ -42,3 +42,43 @@ Alternatives écartées. Zod classique partout : poids du bundle. Validation man
 ## 2026-10-26 — Routage de l'interface
 
 TanStack Router est utilisé en routes déclarées dans le code, sans génération de fichier. Le passage au routage par fichiers sera réévalué quand l'arborescence des routes grandira (J1, J2).
+
+## 2026-10-26 — Validation des requêtes sans `fastify-type-provider-zod` (J1)
+
+Contexte. Le plan du J1 prévoyait `fastify-type-provider-zod`. Ce fournisseur suppose les schémas Zod classiques, alors que `packages/shared` est écrit en `zod/mini` pour le poids du bundle.
+
+Décision. Chaque route valide ses entrées par une aide `parse(schema, valeur)` (`apps/api/src/http/validate.ts`) qui lève une erreur `VALIDATION_FAILED` portant une clé i18n par champ. Aucune route ne lit un corps, une requête ou un paramètre non validé.
+
+Alternatives écartées. Dupliquer les schémas en Zod classique côté serveur : deux sources de vérité. Schémas JSON de Fastify : pas de types partagés avec le client.
+
+## 2026-10-26 — Fichiers texte et binaires, empreintes (J1)
+
+- Un fichier est texte si son extension est connue, s'il est en UTF-8 valide sans octet nul et s'il pèse au plus 4 Mio. Sinon il est binaire. Un fichier texte dans un autre encodage (Latin-1) reste binaire avec un avertissement : le convertir changerait son empreinte.
+- Le contenu texte est décodé avec `ignoreBOM`, ce qui conserve la marque d'ordre, les CRLF et l'absence de saut de ligne final : l'aller-retour Yjs restitue les octets exacts.
+- Les binaires sont adressés par SHA-256 sous `blobs/<empreinte>`. Une ligne `blobs` n'est écrite qu'après l'objet : une ligne garantit l'objet, un objet sans ligne n'est qu'un déchet ramassé au J6.
+- `materializeProject` stocke aussi le contenu texte en blobs, pour produire le manifeste `{chemin: empreinte}` de `SPEC.md` §6.2. L'export, puis la compilation et l'historique, lisent tous ce manifeste.
+
+## 2026-10-26 — Sessions, CSRF et limitation de débit (J1)
+
+- Session côté serveur, jeton de 256 bits dans le cookie `__Host-galley_session`, seule son empreinte est en base. Expiration glissante, prolongée au plus une fois par heure pour éviter une écriture par requête.
+- CSRF : jeton par session exigé dans `X-CSRF-Token` sur toute requête modifiante, plus une vérification de l'en-tête `Origin` quand il est présent.
+- La connexion est limitée à 10 tentatives par minute et par couple (adresse, identifiant) ; l'inscription et l'installation à 10 par minute et par adresse. Compter par adresse seule bloquait une salle entière derrière un même NAT. Compteurs dans Valkey.
+- Premier administrateur : code d'installation à usage unique, partagé entre instances par Valkey, affiché dans les journaux tant qu'aucun compte n'existe.
+
+## 2026-10-26 — Fichiers des utilisateurs servis sur l'origine de l'application (J1)
+
+Contexte. Les fichiers d'un projet sont servis par `/api/projects/:id/files/:fileId/content`, donc sur la même origine que l'application. Un fichier HTML ou SVG déposé pourrait s'y exécuter comme une page.
+
+Décision. Seuls les images matricielles, les PDF et les types `text/*` sont servis en ligne, avec une CSP `sandbox; default-src 'none'` (sans `sandbox` pour les PDF, que les visionneuses n'affichent pas sous ce régime mais qui n'exécutent pas de script de page). Tout le reste est téléchargé. Caddy pose sa CSP avec l'opérateur `?`, qui laisse en place celle, plus stricte, de l'API.
+
+Alternative écartée. Un domaine distinct pour les contenus : plus sûr encore, mais impose une seconde configuration DNS et TLS. À réévaluer au J10 pour l'hébergement public.
+
+## 2026-10-26 — Interface du J1
+
+- Zustand pour l'état d'interface (filtres et sélection du tableau de bord, état de l'arborescence, avertissements d'import) ; TanStack Query pour les données serveur.
+- Routage toujours déclaré dans le code : sept routes, la génération de fichiers n'apporte rien encore.
+- Modèles intégrés (vide, article) définis dans `apps/api/src/projects/templates.ts` plutôt que dans un dossier `templates/` : deux fichiers ne justifient pas une copie de plus dans l'image.
+
+## 2026-10-26 — Archive de référence des tests d'import (J1)
+
+L'export Prism réel fourni par Maxime reste privé et n'est pas versionné, le dépôt étant public. La CI utilise `fixtures/archives/reference-report.zip`, produite de façon déterministe par `build_reference.py` au même format (entrées de dossiers explicites, modes Unix, classe locale, figures PNG et PDF, `.bib`, fichiers CRLF, BOM, sans saut de ligne final et Latin-1). Le test d'intégration rejoue l'aller-retour sur une archive privée désignée par `GALLEY_PRIVATE_ARCHIVE` quand elle est fournie.

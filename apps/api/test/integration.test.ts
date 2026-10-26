@@ -1,3 +1,4 @@
+import { readFile } from 'node:fs/promises';
 import { ListBucketsCommand, type S3Client } from '@aws-sdk/client-s3';
 import { healthResponse } from '@galley/shared';
 import { createLogger } from '@galley/shared/node';
@@ -63,7 +64,11 @@ describe.skipIf(!dockerAvailable)('api against real dependencies', () => {
     }
     const applied = await database.sql<{ count: string }[]>`
       select count(*)::text as count from drizzle.__drizzle_migrations`;
-    expect(applied[0]?.count).toBe('1');
+    // One row per migration in the journal, however many times migrations ran.
+    const journal = JSON.parse(
+      await readFile(new URL('../migrations/meta/_journal.json', import.meta.url), 'utf8'),
+    ) as { entries: unknown[] };
+    expect(applied[0]?.count).toBe(String(journal.entries.length));
     const extensions = await database.sql<{ extname: string }[]>`
       select extname from pg_extension where extname = 'citext'`;
     expect(extensions).toHaveLength(1);

@@ -32,3 +32,18 @@ Les dépendances déclarées dans `compose.yaml` attendent l'état sain : `postg
 ## Configuration
 
 Chaque service valide son environnement au démarrage avec un schéma Zod (`packages/shared/src/env.ts`) et s'arrête en listant les variables fautives, sans jamais afficher leur valeur. Les valeurs par défaut de `compose.yaml` suffisent pour une instance locale ; `.env.example` documente chaque variable.
+
+## Comptes et sessions
+
+L'API tient les sessions en base (`sessions`) et les résout à chaque requête depuis le cookie `__Host-galley_session`. Les routes sous `/api` sont privées par défaut ; seules celles de connexion, d'inscription et d'installation sont publiques. Les requêtes modifiantes exigent l'en-tête `X-CSRF-Token` de la session. Les compteurs de limitation de débit vivent dans Valkey (`galley:rate-limit:*`).
+
+## Projets et fichiers
+
+- L'arborescence est dans `files` (dossiers, fichiers texte, fichiers binaires). Le contenu d'un fichier texte n'existe que dans son état Yjs (`yjs_states`, `Y.Text` nommé `content`) ; celui d'un binaire dans le stockage objet, sous `blobs/<sha256>`.
+- Le contrôle d'accès passe par `project_members` à chaque route ; un projet inaccessible répond 404.
+- Chaque modification de l'arborescence publie un événement sur le canal Valkey `project:<id>`, que `collab` relaiera aux navigateurs au J2.
+- Les projets mis à la corbeille depuis plus de 30 jours sont purgés par une tâche BullMQ horaire (file `maintenance`), planifiée par chaque instance de l'API de façon idempotente.
+
+## Import et export
+
+L'import reçoit l'archive dans un dossier temporaire (`API_TMP_DIR`), valide tout le répertoire central avant d'extraire quoi que ce soit, puis extrait chaque entrée en mesurant les octets réels. Les blobs sont envoyés ensuite, et l'arborescence est écrite en une transaction : un refus ou une panne ne laisse aucun projet partiel. L'export passe par `materializeProject` et produit le zip en flux, un blob à la fois.

@@ -1,22 +1,43 @@
 import { randomUUID } from 'node:crypto';
 import type { HealthProbe } from '@galley/shared';
+import multipart from '@fastify/multipart';
+import rateLimit from '@fastify/rate-limit';
 import Fastify, { type FastifyBaseLogger, type FastifyInstance } from 'fastify';
+import type { ArchiveLimits } from './archive/limits.js';
+import { registerAuth } from './auth/plugin.js';
+import type { AppContext } from './context.js';
 import { registerErrorHandling } from './errors.js';
 import { createMetrics } from './metrics.js';
+import { adminRoutes } from './routes/admin.js';
+import { archiveRoutes } from './routes/archive.js';
+import { authRoutes } from './routes/auth.js';
+import { fileRoutes } from './routes/files.js';
 import { healthRoutes } from './routes/health.js';
+import { projectRoutes } from './routes/projects.js';
+import { tagRoutes } from './routes/tags.js';
 
 export interface AppDependencies {
   logger: FastifyBaseLogger;
   version: string;
   /** Readiness probes keyed by dependency name. */
   probes: Record<string, HealthProbe>;
+  /** Dependencies of the feature routes; without them only health and metrics are served. */
+  context?: AppContext;
+  /** Overrides the archive limits, so tests can exercise them with small archives. */
+  archiveLimits?: ArchiveLimits;
 }
 
 const REQUEST_ID_HEADER = 'x-request-id';
 const REQUEST_ID_PATTERN = /^[A-Za-z0-9-]{8,64}$/;
 
 /** Builds the Fastify application without binding a port, so tests can use `inject`. */
-export function buildApp({ logger, version, probes }: AppDependencies): FastifyInstance {
+export function buildApp({
+  logger,
+  version,
+  probes,
+  context,
+  archiveLimits,
+}: AppDependencies): FastifyInstance {
   const app = Fastify({
     loggerInstance: logger,
     // Caddy is the only client that reaches the API directly.
@@ -51,6 +72,24 @@ export function buildApp({ logger, version, probes }: AppDependencies): FastifyI
 
   registerErrorHandling(app);
   healthRoutes(app, { version, probes });
+  if (context) {
+    // Encapsulated so that session and CSRF hooks only run for feature routes.
+    void app.register(async (api) => {
+      await api.register(rateLimit, {
+        global: false,
+        redis: context.redis,
+        nameSpace: 'galley:rate-limit:',
+      });
+      await api.register(multipart);
+      await registerAuth(api, context);
+      authRoutes(api, context);
+      adminRoutes(api, context);
+      projectRoutes(api, context);
+      tagRoutes(api, context);
+      fileRoutes(api, context);
+      archiveRoutes(api, context, archiveLimits);
+    });
+  }
 
   // Not proxied by Caddy: scraped on the internal network only.
   app.get('/metrics', async (_request, reply) => {

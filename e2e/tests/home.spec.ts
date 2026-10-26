@@ -2,14 +2,14 @@ import { request as httpsRequest } from 'node:https';
 import { expect, test } from '@playwright/test';
 import { caCertificate, host, httpsPort, httpURL } from '../support.js';
 
-test.describe('home page', () => {
+test.describe('status page', () => {
   test('is served over HTTPS and reports every dependency as operational', async ({ page }) => {
     const cspViolations: string[] = [];
     page.on('console', (message) => {
       if (message.type() === 'error') cspViolations.push(message.text());
     });
 
-    const response = await page.goto('/');
+    const response = await page.goto('/status');
     expect(response?.status()).toBe(200);
     expect(page.url()).toMatch(/^https:\/\//);
     expect(response?.headers()['content-security-policy']).toContain("default-src 'self'");
@@ -23,7 +23,7 @@ test.describe('home page', () => {
   });
 
   test('switches language and remembers the choice', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/status');
     await expect(page.locator('html')).toHaveAttribute('lang', 'fr');
     await expect(page.getByText('Éditeur LaTeX collaboratif auto-hébergé')).toBeVisible();
 
@@ -37,7 +37,7 @@ test.describe('home page', () => {
   });
 
   test('links to the source code (AGPL-3.0 §13)', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/status');
     await expect(page.getByRole('link', { name: 'Code source' })).toHaveAttribute(
       'href',
       /^https:\/\/github\.com\//,
@@ -49,7 +49,7 @@ test.describe('with an English browser', () => {
   test.use({ locale: 'en-US' });
 
   test('defaults to English', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/status');
     await expect(page.getByText('Self-hosted collaborative LaTeX editor')).toBeVisible();
     await expect(page.locator('html')).toHaveAttribute('lang', 'en');
   });

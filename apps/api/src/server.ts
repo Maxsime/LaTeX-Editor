@@ -2,9 +2,12 @@ import { ConfigError } from '@galley/shared';
 import { createLogger, readPackageVersion } from '@galley/shared/node';
 import { Redis } from 'ioredis';
 import { buildApp } from './app.js';
+import { ensureSetupCode } from './auth/setup.js';
+import { countUsers } from './auth/users.js';
 import { readConfig } from './config.js';
 import { createDatabase } from './db/client.js';
 import { runMigrations } from './db/migrate.js';
+import { startMaintenance } from './projects/purge.js';
 import { createS3Client, ensureBucket, headBucket } from './storage/s3.js';
 
 async function main(): Promise<void> {
@@ -22,9 +25,22 @@ async function main(): Promise<void> {
   logger.info({ bucket: config.S3_BUCKET }, 'object storage bucket ready');
   await redis.connect();
 
+  if ((await countUsers(database.db)) === 0) {
+    const { code } = await ensureSetupCode(redis);
+    // Printed on every start until the first account exists: the operator reads it from the logs.
+    logger.warn(
+      { setupCode: code },
+      'no account yet: open Galley and create the administrator with this setup code',
+    );
+  }
+  // BullMQ needs a connection that retries forever; it must not share the request one.
+  const queueRedis = new Redis(config.VALKEY_URL, { maxRetriesPerRequest: null });
+  const stopMaintenance = await startMaintenance(database.db, queueRedis, logger);
+
   const app = buildApp({
     logger,
     version,
+    context: { config, database, redis, s3 },
     probes: {
       postgres: () => database.sql`select 1`,
       valkey: () => redis.ping(),
@@ -39,7 +55,10 @@ async function main(): Promise<void> {
     logger.info({ signal }, 'shutting down');
     app
       .close()
-      .then(() => Promise.allSettled([database.sql.end({ timeout: 5 }), redis.quit()]))
+      .then(stopMaintenance)
+      .then(() =>
+        Promise.allSettled([database.sql.end({ timeout: 5 }), redis.quit(), queueRedis.quit()]),
+      )
       .then(() => {
         s3.destroy();
         process.exit(0);

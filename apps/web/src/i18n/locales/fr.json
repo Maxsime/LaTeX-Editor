@@ -4,7 +4,7 @@
     "tagline": "Éditeur LaTeX collaboratif auto-hébergé"
   },
   "home": {
-    "intro": "Les fondations sont en place. Les projets, l'éditeur et la compilation arrivent dans les prochains jalons.",
+    "intro": "Galley est en cours de construction : comptes, projets et fichiers sont disponibles, l'éditeur et la compilation arrivent.",
     "status": {
       "title": "État des services",
       "checking": "Vérification en cours…",
@@ -39,5 +39,170 @@
     "RATE_LIMITED": "Trop de requêtes, réessayez plus tard.",
     "SERVICE_UNAVAILABLE": "Service momentanément indisponible.",
     "INTERNAL_ERROR": "Erreur interne."
+  },
+  "common": {
+    "cancel": "Annuler",
+    "confirm": "Confirmer",
+    "save": "Enregistrer",
+    "create": "Créer",
+    "close": "Fermer",
+    "loading": "Chargement…",
+    "retry": "Réessayer"
+  },
+  "nav": {
+    "projects": "Projets",
+    "status": "État des services",
+    "logout": "Se déconnecter",
+    "signedInAs": "Connecté en tant que {{name}}"
+  },
+  "auth": {
+    "fields": {
+      "login": "Adresse e-mail ou nom d'utilisateur",
+      "email": "Adresse e-mail",
+      "username": "Nom d'utilisateur",
+      "displayName": "Nom affiché",
+      "password": "Mot de passe",
+      "passwordHint": "Au moins 10 caractères.",
+      "setupCode": "Code d'installation"
+    },
+    "login": {
+      "title": "Connexion",
+      "submit": "Se connecter",
+      "noAccount": "Pas encore de compte ?",
+      "register": "Créer un compte"
+    },
+    "register": {
+      "title": "Créer un compte",
+      "submit": "Créer le compte",
+      "haveAccount": "Déjà un compte ?",
+      "login": "Se connecter",
+      "closed": "Les inscriptions sont fermées sur cette instance. Demandez un compte à son administrateur.",
+      "inviteRequired": "Les inscriptions se font sur invitation. Ouvrez le lien d'invitation que vous avez reçu."
+    },
+    "setup": {
+      "title": "Créer le compte administrateur",
+      "intro": "Aucun compte n'existe encore. Le code d'installation figure dans les journaux du service API (docker compose logs api).",
+      "submit": "Créer le compte administrateur"
+    }
+  },
+  "validation": {
+    "too_small": "Valeur trop courte.",
+    "too_big": "Valeur trop longue.",
+    "invalid_format": "Format invalide.",
+    "invalid_type": "Valeur manquante ou invalide.",
+    "invalid_value": "Valeur non autorisée.",
+    "custom": "Valeur invalide.",
+    "email_taken": "Cette adresse e-mail est déjà utilisée.",
+    "username_taken": "Ce nom d'utilisateur est déjà pris.",
+    "password_matches_identity": "Le mot de passe ne doit pas reprendre l'adresse e-mail ou le nom d'utilisateur."
+  },
+  "archive": {
+    "CORRUPT": "L'archive est illisible ou endommagée.",
+    "ENCRYPTED": "Les archives chiffrées ne sont pas prises en charge.",
+    "UNSAFE_PATH": "L'archive contient un chemin qui sort du projet : elle est refusée.",
+    "INVALID_NAME": "L'archive contient un nom de fichier invalide.",
+    "SYMLINK": "L'archive contient un lien symbolique : elle est refusée.",
+    "SPECIAL_FILE": "L'archive contient un fichier spécial : elle est refusée.",
+    "DUPLICATE_PATH": "L'archive contient deux fois le même chemin.",
+    "TOO_MANY_ENTRIES": "L'archive contient trop de fichiers.",
+    "TOO_DEEP": "L'archive contient trop de niveaux de dossiers.",
+    "TOO_LARGE": "L'archive est trop volumineuse une fois décompressée.",
+    "COMPRESSION_RATIO": "Taux de compression anormal (bombe zip possible) : archive refusée.",
+    "EMPTY": "L'archive ne contient aucun fichier."
+  },
+  "warnings": {
+    "NOT_UTF8_TEXT": "{{path}} n'est pas en UTF-8 : conservé tel quel, non modifiable.",
+    "CASE_CONFLICT": "{{path}} ne diffère d'un autre nom que par la casse : l'export pourra poser problème sous Windows et macOS.",
+    "IGNORED_ENTRY": "{{path}} a été ignoré."
+  },
+  "dashboard": {
+    "title": "Projets",
+    "search": "Rechercher un projet",
+    "newProject": "Nouveau projet",
+    "import": "Importer un zip",
+    "importing": "Import en cours…",
+    "imported": "Projet « {{name}} » importé.",
+    "states": {
+      "active": "Projets",
+      "archived": "Archivés",
+      "trashed": "Corbeille"
+    },
+    "sort": {
+      "label": "Trier par",
+      "updatedAt": "Dernière modification",
+      "createdAt": "Date de création",
+      "name": "Nom"
+    },
+    "order": {
+      "asc": "Croissant",
+      "desc": "Décroissant"
+    },
+    "columns": {
+      "select": "Sélectionner",
+      "name": "Nom",
+      "owner": "Propriétaire",
+      "updated": "Modifié le",
+      "tags": "Étiquettes"
+    },
+    "selectAll": "Tout sélectionner",
+    "selected": "{{count}} sélectionné(s)",
+    "empty": "Aucun projet ici.",
+    "trashNote": "Les projets de la corbeille sont supprimés définitivement après {{days}} jours.",
+    "actions": {
+      "archive": "Archiver",
+      "unarchive": "Désarchiver",
+      "trash": "Mettre à la corbeille",
+      "restore": "Restaurer",
+      "purge": "Supprimer définitivement"
+    },
+    "confirmPurge": "Supprimer définitivement {{count}} projet(s) ? Cette action est irréversible.",
+    "tags": {
+      "title": "Étiquettes",
+      "all": "Toutes",
+      "new": "Nouvelle étiquette",
+      "name": "Nom de l'étiquette",
+      "color": "Couleur",
+      "apply": "Étiquettes du projet",
+      "delete": "Supprimer l'étiquette {{name}}"
+    },
+    "create": {
+      "title": "Nouveau projet",
+      "name": "Nom du projet",
+      "template": "Modèle",
+      "templates": {
+        "blank": "Projet vide",
+        "article": "Article avec bibliographie"
+      }
+    }
+  },
+  "project": {
+    "back": "Tous les projets",
+    "export": "Exporter (zip)",
+    "mainFile": "Document principal",
+    "mainFileNone": "Aucun",
+    "files": "Fichiers",
+    "newFolder": "Nouveau dossier",
+    "folderName": "Nom du dossier",
+    "uploadFiles": "Déposer des fichiers",
+    "uploadFolder": "Déposer un dossier",
+    "uploading": "Envoi en cours…",
+    "dropHint": "Glissez des fichiers ou des dossiers ici pour les ajouter.",
+    "rename": "Renommer",
+    "newName": "Nouveau nom",
+    "move": "Déplacer vers…",
+    "moveTitle": "Déplacer « {{name}} »",
+    "root": "Racine du projet",
+    "delete": "Supprimer",
+    "confirmDelete": "Supprimer « {{name}} » ? Le contenu d'un dossier est supprimé avec lui.",
+    "actions": "Actions sur {{name}}",
+    "main": "principal",
+    "preview": {
+      "empty": "Sélectionnez un fichier pour l'afficher.",
+      "folder": "Dossier",
+      "none": "Pas d'aperçu pour ce type de fichier.",
+      "openPdf": "Ouvrir le PDF dans un nouvel onglet",
+      "download": "Télécharger",
+      "readOnly": "Aperçu en lecture seule : l'édition arrive avec l'éditeur."
+    }
   }
 }
