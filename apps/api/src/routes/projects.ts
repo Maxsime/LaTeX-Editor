@@ -48,7 +48,9 @@ export function projectRoutes(app: FastifyInstance, context: AppContext): void {
           size: textBytes(file.content).length,
         };
       });
-      const [main] = await writeFiles(tx, row.id, null, files);
+      const {
+        rows: [main],
+      } = await writeFiles(tx, row.id, null, files);
       const [updated] = await tx
         .update(projects)
         .set({ mainFileId: main?.id ?? null })

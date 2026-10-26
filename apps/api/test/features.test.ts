@@ -10,6 +10,7 @@ import { Redis } from 'ioredis';
 import type { StartedTestContainer } from 'testcontainers';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { buildApp } from '../src/app.js';
+import { createDocumentGateway } from '../src/collab/documents.js';
 import { DEFAULT_ARCHIVE_LIMITS } from '../src/archive/limits.js';
 import { ensureSetupCode } from '../src/auth/setup.js';
 import { readConfig } from '../src/config.js';
@@ -137,11 +138,18 @@ describe.skipIf(!dockerAvailable)('accounts, projects and files', () => {
     s3 = createS3Client(config);
     await runMigrations(database);
     await ensureBucket(s3, config.S3_BUCKET);
+    const logger = createLogger({ service: 'api-test', level: 'silent' });
     app = buildApp({
-      logger: createLogger({ service: 'api-test', level: 'silent' }),
+      logger,
       version: 'test',
       probes: {},
-      context: { config, database, redis, s3 },
+      context: {
+        config,
+        database,
+        redis,
+        s3,
+        documents: createDocumentGateway(config, database, logger),
+      },
       archiveLimits: {
         ...DEFAULT_ARCHIVE_LIMITS,
         maxEntries: 100,

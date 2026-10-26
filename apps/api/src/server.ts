@@ -2,11 +2,11 @@ import { ConfigError } from '@galley/shared';
 import { createLogger, readPackageVersion } from '@galley/shared/node';
 import { Redis } from 'ioredis';
 import { buildApp } from './app.js';
+import { createDocumentGateway } from './collab/documents.js';
 import { ensureSetupCode } from './auth/setup.js';
 import { countUsers } from './auth/users.js';
 import { readConfig } from './config.js';
-import { createDatabase } from '@galley/db';
-import { runMigrations } from '@galley/db';
+import { createDatabase, runMigrations } from '@galley/db';
 import { startMaintenance } from './projects/purge.js';
 import { createS3Client, ensureBucket, headBucket } from './storage/s3.js';
 
@@ -40,7 +40,13 @@ async function main(): Promise<void> {
   const app = buildApp({
     logger,
     version,
-    context: { config, database, redis, s3 },
+    context: {
+      config,
+      database,
+      redis,
+      s3,
+      documents: createDocumentGateway(config, database, logger),
+    },
     probes: {
       postgres: () => database.sql`select 1`,
       valkey: () => redis.ping(),

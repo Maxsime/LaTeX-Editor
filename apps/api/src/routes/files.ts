@@ -76,7 +76,7 @@ function sendUserFile(reply: FastifyReply, name: string, body: Buffer | Readable
 }
 
 export function fileRoutes(app: FastifyInstance, context: AppContext): void {
-  const { database, redis, s3, config } = context;
+  const { database, redis, s3, config, documents } = context;
   const { db } = database;
 
   async function treeChanged(projectId: string): Promise<void> {
@@ -153,17 +153,18 @@ export function fileRoutes(app: FastifyInstance, context: AppContext): void {
         config.S3_BUCKET,
         incoming.flatMap((file) => (file.kind === 'binary' ? [file.blob] : [])),
       );
-      const nodes = await db.transaction(async (tx) => {
+      const { nodes, changes } = await db.transaction(async (tx) => {
         const before = new Set((await listNodes(tx, id)).map((row) => row.id));
         const written = await writeFiles(tx, id, parentId, incoming);
         await ensureMainFile(tx, id);
         // Report created folders too, so the client can update its tree in one go.
-        const writtenIds = new Set(written.map((row) => row.id));
+        const writtenIds = new Set(written.rows.map((row) => row.id));
         const created = (await listNodes(tx, id)).filter(
           (row) => !before.has(row.id) && !writtenIds.has(row.id),
         );
-        return [...created, ...written];
+        return { nodes: [...created, ...written.rows], changes: written };
       });
+      await documents.apply(changes);
       await treeChanged(id);
       const response: UploadResponse = { nodes: nodes.map(toTreeNode), warnings };
       void reply.status(201);
@@ -187,7 +188,8 @@ export function fileRoutes(app: FastifyInstance, context: AppContext): void {
     const auth = requireAuth(request);
     const { id, fileId } = parse(fileParams, request.params);
     await loadProject(db, id, auth.user.id, 'editor');
-    await deleteNode(db, id, fileId);
+    const closed = await deleteNode(db, id, fileId);
+    await documents.apply({ replaced: [], closed });
     await treeChanged(id);
     return reply.status(204).send();
   });
@@ -199,6 +201,7 @@ export function fileRoutes(app: FastifyInstance, context: AppContext): void {
     const node = await getNode(db, id, fileId);
     if (node.kind === 'folder') throw new ApiError('BAD_REQUEST', 'folders have no content');
     if (node.kind === 'text') {
+      await documents.flushProject(id);
       const [row] = await db.select().from(yjsStates).where(eq(yjsStates.fileId, node.id));
       const bytes = textBytes(row ? stateToText(row.state) : '');
       return sendUserFile(reply, node.name, Buffer.from(bytes));

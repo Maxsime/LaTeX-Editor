@@ -20,13 +20,15 @@ export interface MaterializedProject {
  * Snapshots a project into content-addressed blobs. Compilation, history,
  * export and Git all read projects through this function only.
  *
- * Text content comes from the stored Yjs states; from J2 on it will come from
- * the Hocuspocus server state, without changing this contract.
+ * Text content comes from the stored Yjs states, made current by asking
+ * collab to write the documents it holds first.
  */
 export async function materializeProject(
-  { database, s3, config }: AppContext,
+  { database, s3, config, documents }: AppContext,
   projectId: string,
 ): Promise<MaterializedProject> {
+  // Open documents are written at most every few seconds; read their current state.
+  await documents.flushProject(projectId);
   const { db } = database;
   const rows = await db.select().from(files).where(eq(files.projectId, projectId));
   const states = await db
