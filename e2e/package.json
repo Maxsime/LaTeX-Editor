@@ -10,6 +10,8 @@
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
-    "@playwright/test": "1.63.0"
+    "@playwright/test": "1.63.0",
+    "@types/yauzl": "3.4.0",
+    "yauzl": "3.4.0"
   }
 }
