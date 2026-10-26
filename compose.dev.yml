@@ -1,0 +1,41 @@
+# Datastores only, for `pnpm dev`: services run on the host and reach them on localhost.
+name: galley-dev
+
+services:
+  postgres:
+    image: postgres:16.15-alpine
+    environment:
+      POSTGRES_USER: galley
+      POSTGRES_PASSWORD: galley-dev-password
+      POSTGRES_DB: galley
+    ports: ['127.0.0.1:5432:5432']
+    volumes: [postgres-data:/var/lib/postgresql/data]
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U galley -d galley']
+      interval: 5s
+      retries: 20
+
+  valkey:
+    image: valkey/valkey:8.1.10-alpine
+    ports: ['127.0.0.1:6379:6379']
+    healthcheck:
+      test: ['CMD', 'valkey-cli', 'ping']
+      interval: 5s
+      retries: 20
+
+  storage:
+    image: chrislusf/seaweedfs:4.50
+    command: ['server', '-s3', '-ip.bind=0.0.0.0']
+    environment:
+      AWS_ACCESS_KEY_ID: galley
+      AWS_SECRET_ACCESS_KEY: galley-dev-secret
+    ports: ['127.0.0.1:8333:8333']
+    volumes: [storage-data:/data]
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '-O', '/dev/null', 'http://127.0.0.1:8333/healthz']
+      interval: 5s
+      retries: 30
+
+volumes:
+  postgres-data: {}
+  storage-data: {}
