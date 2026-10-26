@@ -203,7 +203,56 @@
       "none": "Pas d'aperçu pour ce type de fichier.",
       "openPdf": "Ouvrir le PDF dans un nouvel onglet",
       "download": "Télécharger",
-      "readOnly": "Aperçu en lecture seule : l'édition arrive avec l'éditeur."
+      "readOnly": "Fichier non modifiable dans l'éditeur (il n'est pas en UTF-8) : aperçu en lecture seule."
+    },
+    "newFile": "Nouveau fichier",
+    "fileName": "Nom du fichier"
+  },
+  "editor": {
+    "empty": "Ouvrez un fichier dans l'arborescence pour l'éditer.",
+    "tabs": "Fichiers ouverts",
+    "closeTab": "Fermer {{name}}",
+    "panels": "Panneaux",
+    "panel": {
+      "files": "Fichiers",
+      "outline": "Plan",
+      "search": "Recherche"
+    },
+    "status": {
+      "connecting": "Connexion…",
+      "saved": "Synchronisé",
+      "saving": "Synchronisation…",
+      "offline": "Hors ligne : modifications conservées",
+      "denied": "Accès refusé"
+    },
+    "preferences": {
+      "theme": "Thème",
+      "light": "Clair",
+      "dark": "Sombre",
+      "fontSize": "Taille",
+      "wrap": "Retour à la ligne"
+    },
+    "outline": {
+      "title": "Plan du document",
+      "empty": "Aucune section dans le document.",
+      "noMain": "Choisissez un document principal pour afficher le plan.",
+      "untitled": "(sans titre)"
+    },
+    "search": {
+      "query": "Rechercher dans le projet",
+      "caseSensitive": "Respecter la casse",
+      "wholeWord": "Mot entier",
+      "regex": "Expression régulière",
+      "submit": "Rechercher",
+      "replacement": "Remplacer par",
+      "replaceAll": "Tout remplacer",
+      "confirm_one": "Remplacer {{count}} occurrence dans {{files}} fichier(s) ?",
+      "confirm_other": "Remplacer {{count}} occurrences dans {{files}} fichier(s) ?",
+      "replaced_one": "{{count}} remplacement dans {{files}} fichier(s).",
+      "replaced_other": "{{count}} remplacements dans {{files}} fichier(s).",
+      "count_one": "{{count}} résultat dans {{files}} fichier(s).",
+      "count_other": "{{count}} résultats dans {{files}} fichier(s).",
+      "truncated": "Plus de {{count}} résultats : affinez la recherche."
     }
   }
 }

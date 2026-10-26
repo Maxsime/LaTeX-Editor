@@ -1,5 +1,5 @@
 import { useMutation } from '@tanstack/react-query';
-import { Link, Outlet, useNavigate } from '@tanstack/react-router';
+import { Link, Outlet, useNavigate, useRouterState } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
 import { LanguageSwitcher } from '../components/LanguageSwitcher.js';
 import { Button } from '../components/ui.js';
@@ -39,6 +39,10 @@ function UserMenu() {
 
 export function RootLayout() {
   const { t } = useTranslation();
+  // The editor uses the whole window width; other pages keep a readable measure.
+  const wide = useRouterState({
+    select: (state) => state.location.pathname.startsWith('/projects/'),
+  });
   return (
     <div className="flex min-h-screen flex-col bg-white text-ink">
       <header className="flex items-center gap-4 border-b border-slate-200 px-6 py-3">
@@ -50,7 +54,9 @@ export function RootLayout() {
           <LanguageSwitcher />
         </div>
       </header>
-      <main className="mx-auto w-full max-w-6xl flex-1 px-6 py-8">
+      <main
+        className={wide ? 'w-full flex-1 px-4 py-4' : 'mx-auto w-full max-w-6xl flex-1 px-6 py-8'}
+      >
         <Outlet />
       </main>
       <footer className="border-t border-slate-200 px-6 py-3 text-center text-xs text-slate-600">
