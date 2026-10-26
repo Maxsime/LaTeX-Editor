@@ -1,0 +1,50 @@
+{
+	# The admin API is not needed at runtime and would be one more open port.
+	admin off
+}
+
+# Internal health endpoint for the container health check, never published.
+http://:2019 {
+	respond /healthz "ok" 200
+}
+
+{$GALLEY_HOST:localhost} {
+	# Local CA; set GALLEY_TLS to an e-mail address to use ACME on a public host (J10).
+	tls {$GALLEY_TLS:internal}
+	encode zstd gzip
+
+	header {
+		Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'"
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+		Cross-Origin-Opener-Policy "same-origin"
+		-Server
+	}
+
+	handle /api/* {
+		reverse_proxy api:3000 {
+			header_up X-Request-Id {http.request.uuid}
+		}
+	}
+
+	# Only WebSocket upgrades reach collab; its probes and metrics stay internal.
+	@collab {
+		path /collab /collab/*
+		header Connection *Upgrade*
+		header Upgrade websocket
+	}
+	handle @collab {
+		uri strip_prefix /collab
+		reverse_proxy collab:3001
+	}
+
+	handle {
+		root * /srv
+		@assets path /assets/*
+		header @assets Cache-Control "public, max-age=31536000, immutable"
+		try_files {path} /index.html
+		file_server
+	}
+}
