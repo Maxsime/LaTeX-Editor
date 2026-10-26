@@ -1,0 +1,43 @@
+{
+  "app": {
+    "name": "Galley",
+    "tagline": "Self-hosted collaborative LaTeX editor"
+  },
+  "home": {
+    "intro": "The foundations are in place. Projects, the editor and compilation arrive in the next milestones.",
+    "status": {
+      "title": "Service status",
+      "checking": "Checking…",
+      "ok": "Operational",
+      "error": "Unavailable",
+      "unreachable": "API unreachable"
+    },
+    "version": "Version {{version}}"
+  },
+  "dependencies": {
+    "postgres": "Database",
+    "valkey": "Queue and messaging",
+    "storage": "File storage"
+  },
+  "language": {
+    "label": "Language",
+    "fr": "Français",
+    "en": "English"
+  },
+  "footer": {
+    "license": "Free software under the AGPL-3.0 licence.",
+    "source": "Source code"
+  },
+  "errors": {
+    "BAD_REQUEST": "Invalid request.",
+    "VALIDATION_FAILED": "Some values are invalid.",
+    "UNAUTHENTICATED": "Sign-in required.",
+    "FORBIDDEN": "Access denied.",
+    "NOT_FOUND": "Not found.",
+    "CONFLICT": "Conflicts with the current state.",
+    "PAYLOAD_TOO_LARGE": "Content too large.",
+    "RATE_LIMITED": "Too many requests, try again later.",
+    "SERVICE_UNAVAILABLE": "Service temporarily unavailable.",
+    "INTERNAL_ERROR": "Internal error."
+  }
+}
