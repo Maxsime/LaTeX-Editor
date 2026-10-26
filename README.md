@@ -2,7 +2,7 @@
 
 Éditeur LaTeX collaboratif, auto-hébergé, avec assistant IA intégré. Le cahier des charges est dans [`SPEC.md`](SPEC.md), les consignes de développement dans [`CLAUDE.md`](CLAUDE.md).
 
-État : jalon J0 (fondations). L'instance démarre et sert une page d'accueil en HTTPS ; les projets, l'éditeur et la compilation arrivent aux jalons suivants (`SPEC.md` §9).
+État : jalon J1 (comptes, projets, fichiers). On crée un compte, on gère ses projets, on importe un projet Overleaf ou Prism en zip, on organise ses fichiers et on réexporte le projet à l'identique. L'éditeur et la compilation arrivent aux jalons suivants (`SPEC.md` §9).
 
 ## Démarrer une instance
 
@@ -24,13 +24,52 @@ docker compose cp caddy:/data/caddy/pki/authorities/local/root.crt galley-root.c
 
 Importer ensuite `galley-root.crt` comme autorité de confiance : trousseau Système sous macOS, `certutil` ou les paramètres du navigateur sous Linux, magasin « Autorités de certification racines de confiance » sous Windows. Le certificat est conservé dans le volume `caddy-data` et reste valable entre deux redémarrages.
 
+### Créer le compte administrateur
+
+Au premier démarrage, aucun compte n'existe. L'API écrit alors dans ses journaux un code d'installation à usage unique :
+
+```sh
+docker compose logs api | grep setupCode
+```
+
+Ouvrir <https://localhost>, qui redirige vers la page « Créer le compte administrateur », et saisir ce code. Il empêche un inconnu de s'approprier une instance fraîchement exposée. Le code reste valable jusqu'à la création du compte, et il est réaffiché à chaque redémarrage tant qu'aucun compte n'existe.
+
+### Comptes et invitations
+
+Le mode d'inscription se règle par `REGISTRATION_MODE` :
+
+| Valeur            | Effet                                         |
+| ----------------- | --------------------------------------------- |
+| `invite` (défaut) | inscription uniquement par lien d'invitation  |
+| `open`            | inscription libre                             |
+| `closed`          | comptes créés uniquement par l'administrateur |
+
+Les opérations d'administration passent par une commande exécutée dans le conteneur de l'API :
+
+```sh
+# Lien d'invitation valable 7 jours (1 à 90)
+docker compose exec api node dist/cli/admin.js create-invite --days 7
+# Compte créé directement, mot de passe temporaire affiché
+docker compose exec api node dist/cli/admin.js create-user --email ada@example.org --username ada --name "Ada Lovelace" [--admin]
+# Mot de passe oublié : nouveau mot de passe temporaire, toutes les sessions sont fermées
+docker compose exec api node dist/cli/admin.js reset-password ada
+```
+
+Le lien d'invitation affiché est relatif : le préfixer par l'adresse de l'instance (`https://localhost/register?invite=…`). Les administrateurs peuvent aussi créer des invitations par l'API (`POST /api/admin/invites`). En développement, la même commande s'utilise avec `pnpm --filter @galley/api admin <commande>`.
+
+### Importer un projet existant
+
+Le bouton « Importer un zip » du tableau de bord accepte l'export d'un projet Overleaf ou Prism, ou n'importe quel dossier compressé. Aucune organisation n'est imposée : le document principal est le fichier `.tex` racine qui déclare `\documentclass`, et il se change depuis la page du projet. Les fichiers texte en UTF-8 sont stockés comme documents texte, éditables dès que l'éditeur arrivera (J2) ; les autres (images, PDF, fichiers texte dans un autre encodage) sont conservés octet pour octet. L'export redonne exactement les mêmes fichiers.
+
+Limites d'une archive : 5 000 entrées, 500 Mio décompressés, 100 Mio par fichier, 32 niveaux de dossiers. Les archives contenant des chemins sortant du projet, des liens symboliques ou un taux de compression anormal sont refusées en entier.
+
 ### Vérifier l'état des services
 
 ```sh
 scripts/compose-healthy.sh
 ```
 
-Le script démarre la pile et échoue si un service n'atteint pas l'état sain. La page d'accueil affiche aussi l'état de la base de données, de la file et du stockage.
+Le script démarre la pile et échoue si un service n'atteint pas l'état sain. La page « État des services » (lien en pied de page, `/status`) affiche aussi l'état de la base de données, de la file et du stockage.
 
 ## Développer
 
@@ -73,6 +112,7 @@ apps/api        API HTTP Fastify
 apps/collab     serveur Hocuspocus (Yjs)
 apps/compiler   worker de compilation (BullMQ)
 packages/shared schémas, configuration, journalisation partagés
+fixtures/       archives de référence pour les tests
 e2e/            tests Playwright
 infra/          Dockerfiles et configuration de Caddy
 scripts/        scripts d'exploitation
