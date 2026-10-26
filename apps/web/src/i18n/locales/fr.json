@@ -37,6 +37,7 @@
     "CONFLICT": "Conflit avec l'état actuel.",
     "PAYLOAD_TOO_LARGE": "Contenu trop volumineux.",
     "RATE_LIMITED": "Trop de requêtes, réessayez plus tard.",
+    "INVALID_PATTERN": "Expression régulière invalide.",
     "SERVICE_UNAVAILABLE": "Service momentanément indisponible.",
     "INTERNAL_ERROR": "Erreur interne."
   },

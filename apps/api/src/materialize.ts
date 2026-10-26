@@ -59,3 +59,40 @@ export async function materializeProject(
   await storeBlobs(db, s3, config.S3_BUCKET, textBlobs);
   return { manifest, folders: folders.sort() };
 }
+
+/** A text file of a project, with its current content. */
+export interface ProjectText {
+  id: string;
+  path: string;
+  text: string;
+}
+
+/**
+ * Reads every text file of a project with its current content, after asking
+ * collab to write the documents it holds. Used by outline, index and search.
+ */
+export async function readProjectTexts(
+  { database, documents }: AppContext,
+  projectId: string,
+): Promise<ProjectText[]> {
+  await documents.flushProject(projectId);
+  const { db } = database;
+  const rows = await db.select().from(files).where(eq(files.projectId, projectId));
+  const states = await db
+    .select({ fileId: yjsStates.fileId, state: yjsStates.state })
+    .from(yjsStates)
+    .innerJoin(files, eq(files.id, yjsStates.fileId))
+    .where(eq(files.projectId, projectId));
+  const stateById = new Map(states.map((row) => [row.fileId, row.state]));
+  const paths = nodePaths(rows);
+  return rows
+    .filter((row) => row.kind === 'text')
+    .map((row) => {
+      const state = stateById.get(row.id);
+      return {
+        id: row.id,
+        path: paths.get(row.id) ?? row.name,
+        text: state ? stateToText(state) : '',
+      };
+    });
+}

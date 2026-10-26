@@ -1,7 +1,12 @@
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import type { S3Client } from '@aws-sdk/client-s3';
-import { SESSION_COOKIE } from '@galley/shared';
+import {
+  outlineResponse,
+  projectIndexResponse,
+  searchResponse,
+  SESSION_COOKIE,
+} from '@galley/shared';
 import { createLogger } from '@galley/shared/node';
 import type { StartedPostgreSqlContainer } from '@testcontainers/postgresql';
 import { eq } from 'drizzle-orm';
@@ -618,6 +623,90 @@ describe.skipIf(!dockerAvailable)('accounts, projects and files', () => {
     });
   });
 
+  describe('editor routes', () => {
+    let projectId: string;
+
+    beforeAll(async () => {
+      projectId = (await alice.send('POST', '/api/projects', { json: { name: 'Thèse' } })).json<{
+        project: { id: string };
+      }>().project.id;
+      const upload = await alice.send('POST', `/api/projects/${projectId}/files`, {
+        form: multipart([
+          { name: 'path', value: 'main.tex' },
+          {
+            name: 'file',
+            filename: 'main.tex',
+            data: Buffer.from(
+              '\\newcommand{\\R}{\\mathbb{R}}\n\\section{Intro}\\label{sec:intro}\n\\input{chapters/one}\n\\section{End}\n',
+            ),
+          },
+          { name: 'path', value: 'chapters/one.tex' },
+          {
+            name: 'file',
+            filename: 'one.tex',
+            data: Buffer.from('\\subsection{Détails}\nalpha Beta alphabet\n'),
+          },
+        ]),
+      });
+      expect(upload.statusCode).toBe(201);
+    });
+
+    it('builds the outline across included files', async () => {
+      const response = await alice.send('GET', `/api/projects/${projectId}/outline`);
+      expect(response.statusCode).toBe(200);
+      const body = outlineResponse.parse(response.json());
+      expect(body.entries.map(({ path, title, line }) => [path, title, line])).toEqual([
+        ['main.tex', 'Intro', 2],
+        ['chapters/one.tex', 'Détails', 1],
+        ['main.tex', 'End', 4],
+      ]);
+    });
+
+    it('indexes definitions and labels', async () => {
+      const body = projectIndexResponse.parse(
+        (await alice.send('GET', `/api/projects/${projectId}/index`)).json(),
+      );
+      expect(body.commands.map((command) => command.name)).toEqual(['R']);
+      expect(body.labels.map((label) => label.name)).toEqual(['sec:intro']);
+    });
+
+    it('searches with literal, whole-word and regular expression queries', async () => {
+      const search = async (query: string) =>
+        searchResponse.parse(
+          (await alice.send('GET', `/api/projects/${projectId}/search?${query}`)).json(),
+        );
+      expect((await search('q=alpha')).matches).toHaveLength(2);
+      expect((await search('q=alpha&wholeWord=true')).matches).toHaveLength(1);
+      expect((await search('q=beta&caseSensitive=true')).matches).toHaveLength(0);
+      const regex = await search(`q=${encodeURIComponent('\\\\(sub)?section')}&regex=true`);
+      expect(regex.matches.map(({ path, line, column }) => [path, line, column])).toEqual([
+        ['chapters/one.tex', 1, 0],
+        ['main.tex', 2, 0],
+        ['main.tex', 4, 0],
+      ]);
+      const invalid = await alice.send('GET', `/api/projects/${projectId}/search?q=(&regex=true`);
+      expect(invalid.statusCode).toBe(400);
+      expect(invalid.json<{ error: Body }>().error.code).toBe('INVALID_PATTERN');
+    });
+
+    it('replaces across the project, for editors only', async () => {
+      const replaced = await alice.send('POST', `/api/projects/${projectId}/replace`, {
+        json: { q: '(al)pha', regex: true, wholeWord: true, replacement: '$1PHA' },
+      });
+      expect(replaced.json()).toEqual({ files: 1, replacements: 1 });
+      const hits = searchResponse.parse(
+        (
+          await alice.send('GET', `/api/projects/${projectId}/search?q=alPHA&caseSensitive=true`)
+        ).json(),
+      );
+      expect(hits.matches.map((match) => match.preview)).toEqual(['alPHA Beta alphabet']);
+      const invalid = await alice.send('POST', `/api/projects/${projectId}/replace`, {
+        json: { q: '', replacement: 'x' },
+      });
+      expect(invalid.statusCode).toBe(400);
+    });
+  });
+
   describe('isolation between users', () => {
     it("answers 404 on every route of someone else's project", async () => {
       bob = await register('bob');
@@ -644,6 +733,10 @@ describe.skipIf(!dockerAvailable)('accounts, projects and files', () => {
         ['PATCH', `/api/projects/${id}/files/${fileId}`, { name: 'x.tex' }],
         ['DELETE', `/api/projects/${id}/files/${fileId}`],
         ['GET', `/api/projects/${id}/files/${fileId}/content`],
+        ['GET', `/api/projects/${id}/outline`],
+        ['GET', `/api/projects/${id}/index`],
+        ['GET', `/api/projects/${id}/search?q=x`],
+        ['POST', `/api/projects/${id}/replace`, { q: 'x', replacement: 'y' }],
         ['PUT', `/api/projects/${id}/tags/${tagId}`],
         ['DELETE', `/api/projects/${id}/tags/${tagId}`],
       ];
