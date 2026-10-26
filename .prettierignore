@@ -1,0 +1,7 @@
+pnpm-lock.yaml
+LICENSE
+SPEC.md
+CLAUDE.md
+docs/plans/
+**/migrations/meta/
+**/routeTree.gen.ts
