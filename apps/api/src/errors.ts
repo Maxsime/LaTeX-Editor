@@ -1,5 +1,6 @@
 import { ApiError, type ApiErrorBody, type ErrorCode, httpStatusFor } from '@galley/shared';
 import type { FastifyError, FastifyInstance } from 'fastify';
+import { ValidationError } from './http/validate.js';
 
 function body(code: ErrorCode, requestId: string): ApiErrorBody {
   return { error: { code, messageKey: `errors.${code}`, requestId } };
@@ -32,6 +33,11 @@ function codeForStatus(status: number): ErrorCode {
  */
 export function registerErrorHandling(app: FastifyInstance): void {
   app.setErrorHandler((error: FastifyError, request, reply) => {
+    if (error instanceof ValidationError) {
+      return reply.status(error.statusCode).send({
+        error: { ...body(error.code, request.id).error, fields: error.fields },
+      });
+    }
     if (error instanceof ApiError) {
       return reply.status(error.statusCode).send(body(error.code, request.id));
     }
