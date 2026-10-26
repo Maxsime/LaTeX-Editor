@@ -277,7 +277,7 @@ describe.skipIf(!dockerAvailable)('accounts, projects and files', () => {
       expect(foreign.statusCode).toBe(403);
     });
 
-    it('rate-limits sign-in attempts per address', async () => {
+    it('rate-limits sign-in attempts per address and account', async () => {
       const attacker = client();
       const statuses: number[] = [];
       for (let attempt = 0; attempt < 11; attempt++) {
@@ -288,6 +288,11 @@ describe.skipIf(!dockerAvailable)('accounts, projects and files', () => {
       }
       expect(statuses.slice(0, 10).every((status) => status === 401)).toBe(true);
       expect(statuses[10]).toBe(429);
+      // Another account from the same address is still served.
+      const other = await attacker.send('POST', '/api/auth/login', {
+        json: { login: 'bob', password: 'guess' },
+      });
+      expect(other.statusCode).toBe(401);
     });
   });
 

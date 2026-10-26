@@ -8,7 +8,7 @@ import {
   setupRequest,
 } from '@galley/shared';
 import { and, eq, gt, isNull, sql } from 'drizzle-orm';
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { clearSessionCookie, requireAuth, setSessionCookie } from '../auth/plugin.js';
 import { verifyAgainstDummy, verifyPassword } from '../auth/password.js';
 import { createSession, deleteSession } from '../auth/sessions.js';
@@ -21,6 +21,30 @@ import { parse } from '../http/validate.js';
 
 /** Brute-force guard for credential endpoints, per client address. */
 const credentialRateLimit = { rateLimit: { max: 10, timeWindow: '1 minute' } };
+
+/**
+ * Sign-in attempts are counted per address and account, so that a password
+ * guessing run is stopped without locking out a whole classroom behind one NAT.
+ * The body is only parsed by the preHandler stage, hence the hook.
+ */
+const loginRateLimit = {
+  rateLimit: {
+    max: 10,
+    timeWindow: '1 minute',
+    hook: 'preHandler' as const,
+    keyGenerator: (request: FastifyRequest): string => {
+      const body = request.body;
+      const login =
+        typeof body === 'object' &&
+        body !== null &&
+        'login' in body &&
+        typeof body.login === 'string'
+          ? body.login.toLowerCase().slice(0, 320)
+          : '';
+      return `login:${request.ip}:${login}`;
+    },
+  },
+};
 
 /** Arbitrary constant serialising first-account creation across API instances. */
 const SETUP_LOCK_KEY = 7_265_830_142;
@@ -124,7 +148,7 @@ export function authRoutes(app: FastifyInstance, context: AppContext): void {
 
   app.post(
     '/api/auth/login',
-    { config: { public: true, ...credentialRateLimit } },
+    { config: { public: true, ...loginRateLimit } },
     async (request, reply) => {
       const body = parse(loginRequest, request.body);
       const row = await findUserByLogin(database.db, body.login);
