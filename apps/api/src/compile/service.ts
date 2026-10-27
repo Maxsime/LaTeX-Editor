@@ -285,17 +285,18 @@ export async function reconcile(
   logger: FastifyBaseLogger,
 ): Promise<CompileRunRow> {
   if (!PENDING.includes(row.status)) return row;
-  const job: Job<CompileJob, unknown> | undefined = await context.compileQueue.getJob(row.id);
-  if (job === undefined) {
+  // The state first, then the job: a job read before it completes would carry no
+  // return value, even if it is completed by the time its state is asked.
+  const state = await context.compileQueue.getJobState(row.id);
+  if (state === 'unknown') {
     await fail(context, row.id, compileFailureCodes.lost, logger);
-  } else {
-    const state = await job.getState();
-    if (state === 'completed') await finish(context, row.id, job.returnvalue, logger);
-    else if (state === 'failed') {
-      await fail(context, row.id, compileFailureCodes.workerFailed, logger);
-    } else if (state === 'active' && row.status === 'queued') {
-      await transition(context, [row.id], { status: 'running', startedAt: new Date() }, ['queued']);
-    }
+  } else if (state === 'completed') {
+    const job: Job<CompileJob, unknown> | undefined = await context.compileQueue.getJob(row.id);
+    await finish(context, row.id, job?.returnvalue, logger);
+  } else if (state === 'failed') {
+    await fail(context, row.id, compileFailureCodes.workerFailed, logger);
+  } else if (state === 'active' && row.status === 'queued') {
+    await transition(context, [row.id], { status: 'running', startedAt: new Date() }, ['queued']);
   }
   const [current] = await context.database.db
     .select()
