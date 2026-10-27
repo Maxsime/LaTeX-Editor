@@ -2,7 +2,7 @@ import { ConfigError } from '@galley/shared';
 import { createLogger, readPackageVersion } from '@galley/shared/node';
 import { readConfig } from './config.js';
 import { checkSandbox } from './sandbox.js';
-import { createS3Client, putOutput, readBlob } from './storage.js';
+import { createS3Client, putOutput, readBlob, readOutput } from './storage.js';
 import { detectTexLive } from './texlive.js';
 import { createCompilerService } from './worker.js';
 
@@ -17,6 +17,7 @@ async function main(): Promise<void> {
   const service = createCompilerService(config, logger, version, {
     texlive,
     fetchBlob: (hash) => readBlob(s3, config.S3_BUCKET, hash),
+    fetchOutput: (compileId, name) => readOutput(s3, config.S3_BUCKET, compileId, name),
     publish: (compileId, name, body, size) =>
       putOutput(s3, config.S3_BUCKET, compileId, name, body, size),
   });

@@ -33,6 +33,11 @@ export const SANDBOX_OUT = '/out';
 /** Platform directory of the TeX Live binaries in the worker image. */
 const TEXLIVE_ARCH = 'x86_64-linux';
 
+/** Folder of the TeX Live binaries of an installation. */
+export function texliveBinDir(texliveDir: string): string {
+  return `${texliveDir}/bin/${TEXLIVE_ARCH}`;
+}
+
 /**
  * Arguments of `bwrap` running `argv` in a fresh sandbox: no network, own PID,
  * IPC, UTS, cgroup and user namespaces, a file system reduced to what TeX needs,
@@ -79,7 +84,7 @@ export function bwrapArgs(
     ...['--bind', paths.srcDir, SANDBOX_PROJECT],
     ...['--bind', paths.outDir, SANDBOX_OUT],
     ...['--chdir', cwd === '' ? SANDBOX_PROJECT : `${SANDBOX_PROJECT}/${cwd}`],
-    ...['--setenv', 'PATH', `${tl}/bin/${TEXLIVE_ARCH}:/usr/bin:/bin`],
+    ...['--setenv', 'PATH', `${texliveBinDir(tl)}:/usr/bin:/bin`],
     ...['--setenv', 'HOME', '/tmp'],
     ...['--setenv', 'TMPDIR', '/tmp'],
     ...['--setenv', 'LANG', 'C.UTF-8'],

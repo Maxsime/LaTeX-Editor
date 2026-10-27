@@ -10,6 +10,10 @@ import {
   type CompileOutput,
   type CompileResult,
   runHealthChecks,
+  SYNCTEX_QUEUE,
+  type SynctexJob,
+  synctexJob,
+  type SynctexResult,
   TEXLIVE_VERSION_KEY,
 } from '@galley/shared';
 import { createProbeServer, type Logger } from '@galley/shared/node';
@@ -20,7 +24,8 @@ import { collectDefaultMetrics, Counter, Histogram, Registry } from 'prom-client
 import { type CompileEnvironment, compileProject, type LocalCompileResult } from './compile.js';
 import type { CompilerConfig } from './config.js';
 import { enforceQuota, recordSize } from './evict.js';
-import type { SandboxLimits } from './sandbox.js';
+import { type SandboxLimits, texliveBinDir } from './sandbox.js';
+import { type OutputFetcher, runSynctex, type SynctexEnvironment } from './synctex.js';
 import type { TexLiveInfo } from './texlive.js';
 import { type BlobFetcher, openSandboxFile } from './workdir.js';
 
@@ -28,6 +33,11 @@ import { type BlobFetcher, openSandboxFile } from './workdir.js';
 export const failureReasons = {
   invalidJob: 'INVALID_JOB',
 } as const;
+
+/** SyncTeX queries handled at once, beside compilations. */
+const SYNCTEX_CONCURRENCY = 4;
+/** Compilations whose SyncTeX data stays on disk for further queries. */
+const SYNCTEX_CACHE_ENTRIES = 32;
 
 /** Delay before a job whose project is already compiling elsewhere is retried. */
 const LOCK_RETRY_MS = 500;
@@ -39,8 +49,12 @@ const RELEASE_LOCK = `if redis.call('get', KEYS[1]) == ARGV[1] then return redis
 export interface CompilerDependencies {
   texlive: TexLiveInfo;
   fetchBlob: BlobFetcher;
+  /** Opens a file published by a compilation, for SyncTeX queries. */
+  fetchOutput: OutputFetcher;
   /** Stores one output file under `compiles/<compileId>/<name>`. */
   publish: (compileId: string, name: string, body: Readable, size: number) => Promise<void>;
+  /** Answers SyncTeX jobs; defaults to the sandboxed binary. */
+  synctex?: (job: SynctexJob) => Promise<SynctexResult>;
   compile?: (
     job: CompileJob,
     env: CompileEnvironment,
@@ -50,6 +64,7 @@ export interface CompilerDependencies {
 
 export interface CompilerService {
   worker: Worker<unknown, CompileResult>;
+  synctexWorker: Worker<unknown, SynctexResult>;
   probeServer: Server;
   close(): Promise<void>;
 }
@@ -180,13 +195,43 @@ export function createCompilerService(
     logger.error({ err: error }, 'worker error');
   });
 
+  const synctexEnvironment: SynctexEnvironment = {
+    // Not a project id, so the eviction of working directories leaves it alone.
+    cacheDir: join(config.COMPILER_WORK_DIR, 'synctex-cache'),
+    maxEntries: SYNCTEX_CACHE_ENTRIES,
+    texliveBin: texliveBinDir(dependencies.texlive.dir),
+    fetchOutput: dependencies.fetchOutput,
+  };
+  const synctex =
+    dependencies.synctex ?? ((job: SynctexJob) => runSynctex(synctexEnvironment, job));
+  const synctexWorker = new Worker<unknown, SynctexResult>(
+    SYNCTEX_QUEUE,
+    async (job) => {
+      const parsed = synctexJob.safeParse(job.data);
+      if (!parsed.success) throw new UnrecoverableError(failureReasons.invalidJob);
+      return synctex(parsed.data);
+    },
+    {
+      connection: { url: config.VALKEY_URL, maxRetriesPerRequest: null },
+      concurrency: SYNCTEX_CONCURRENCY,
+    },
+  );
+  synctexWorker.on('failed', (job, error) => {
+    logger.warn({ jobId: job?.id, reason: error.message }, 'synctex job failed');
+  });
+  synctexWorker.on('error', (error) => {
+    logger.error({ err: error }, 'synctex worker error');
+  });
+
   const probeServer = createProbeServer({
     live: () => ({ status: 'ok', service: 'compiler', version }),
     ready: async () => {
       const { status, checks } = await runHealthChecks({
         valkey: () => redis.ping(),
         worker: () =>
-          worker.isRunning() ? Promise.resolve() : Promise.reject(new Error('worker stopped')),
+          worker.isRunning() && synctexWorker.isRunning()
+            ? Promise.resolve()
+            : Promise.reject(new Error('worker stopped')),
       });
       return { status, service: 'compiler', version, checks };
     },
@@ -195,6 +240,7 @@ export function createCompilerService(
 
   return {
     worker,
+    synctexWorker,
     probeServer,
     async close() {
       await new Promise<void>((resolve) =>
@@ -203,7 +249,7 @@ export function createCompilerService(
         }),
       );
       for (const controller of running.values()) controller.abort();
-      await worker.close();
+      await Promise.all([worker.close(), synctexWorker.close()]);
       subscriber.disconnect();
       redis.disconnect();
     },

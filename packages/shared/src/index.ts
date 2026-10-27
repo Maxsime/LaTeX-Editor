@@ -9,3 +9,4 @@ export * from './files.js';
 export * from './health.js';
 export * from './names.js';
 export * from './projects.js';
+export * from './synctex.js';
