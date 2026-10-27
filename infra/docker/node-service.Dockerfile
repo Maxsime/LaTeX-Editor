@@ -40,11 +40,14 @@ FROM ${TEXLIVE_IMAGE} AS compiler-runtime
 ENV NODE_ENV=production
 COPY --from=node-glibc /usr/local/bin/node /usr/local/bin/node
 # Warm the caches that every sandbox mounts read-only, so that a first LuaLaTeX or
-# Biber run does not spend 10 to 20 s rebuilding them. Biber (a PAR archive) unpacks
+# Biber run does not spend 10 to 20 s rebuilding them. The fontconfig cache of the base
+# image does not match TeX Live's font folders: without a rebuild, every XeLaTeX run
+# rescans them into a sandbox /tmp that is thrown away, about 100 s each time. Biber (a PAR archive) unpacks
 # itself into PAR_GLOBAL_TEMP; doing it as the worker user keeps the files usable there.
 RUN set -eu; \
     tl=$(kpsewhich -var-value SELFAUTOPARENT); \
     TEXMFVAR="$tl/texmf-var" luaotfload-tool --update --force >/dev/null; \
+    fc-cache --system-only --really-force >/dev/null; \
     install -d -o texlive -g texlive /opt/galley/par-cache /var/lib/galley/work; \
     cd /tmp; \
     printf '@book{a,title={T},author={A},year={2000}}' > warm.bib; \
