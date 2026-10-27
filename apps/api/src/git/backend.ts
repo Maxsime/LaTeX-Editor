@@ -1,29 +1,24 @@
 import { spawn } from 'node:child_process';
 import { PassThrough, type Readable, Transform } from 'node:stream';
+import { createGunzip } from 'node:zlib';
 import { gitEnvironment } from './run.js';
 
-export interface CgiResponse {
-  status: number;
-  headers: Record<string, string>;
-  body: Readable;
-}
+export type GitService = 'upload-pack' | 'receive-pack';
 
-export interface BackendRequest {
-  projectRoot: string;
-  /** `/<repository>/<service path>`, already validated. */
-  pathInfo: string;
-  method: 'GET' | 'POST';
-  query: string;
-  contentType: string | undefined;
-  contentEncoding: string | undefined;
-  gitProtocol: string | undefined;
-  remoteUser: string;
-  remoteAddress: string;
+export interface ServiceRequest {
+  gitDir: string;
+  service: GitService;
+  /** `advertise` answers `info/refs`; `rpc` answers the POST that follows. */
+  mode: 'advertise' | 'rpc';
+  /** Request body of an `rpc` call. */
   body: Readable | null;
+  gzip: boolean;
+  /** Value of the client's Git-Protocol header, already validated. */
+  gitProtocol: string | undefined;
   /** Largest request body accepted, compressed. */
   maxBodyBytes: number;
   /** Variables for the push hook. */
-  hookEnv?: Record<string, string>;
+  env?: Record<string, string>;
   onTooLarge: () => void;
 }
 
@@ -43,98 +38,60 @@ function byteLimit(limit: number, onExceeded: () => void): Transform {
   });
 }
 
-/** Splits CGI output into its header block and the body that follows. */
-function readHead(stdout: Readable): Promise<{ head: string; body: Readable }> {
-  return new Promise((resolve, reject) => {
-    let buffered = Buffer.alloc(0);
-    const onData = (chunk: Buffer) => {
-      buffered = Buffer.concat([buffered, chunk]);
-      const crlf = buffered.indexOf('\r\n\r\n');
-      const lf = buffered.indexOf('\n\n');
-      const end = crlf >= 0 && (lf < 0 || crlf < lf) ? crlf + 4 : lf >= 0 ? lf + 2 : -1;
-      if (end < 0) {
-        if (buffered.length > 64 * 1024) reject(new Error('CGI header too long'));
-        return;
-      }
-      stdout.off('data', onData);
-      stdout.off('end', onEnd);
-      const body = new PassThrough();
-      body.write(buffered.subarray(end));
-      stdout.pipe(body);
-      resolve({ head: buffered.subarray(0, end).toString('latin1'), body });
-    };
-    const onEnd = () => {
-      reject(new Error('CGI output ended before its headers'));
-    };
-    stdout.on('data', onData);
-    stdout.on('end', onEnd);
-  });
+/** A pkt-line, the framing of the Git protocol. */
+function pktLine(text: string): string {
+  return `${(text.length + 4).toString(16).padStart(4, '0')}${text}`;
+}
+
+/** Content type of a smart HTTP response. */
+export function serviceContentType(service: GitService, mode: ServiceRequest['mode']): string {
+  return mode === 'advertise'
+    ? `application/x-git-${service}-advertisement`
+    : `application/x-git-${service}-result`;
 }
 
 /**
- * Runs `git http-backend` for one request, as a CGI program with an
- * environment reduced to what it needs.
+ * Runs `git upload-pack` or `git receive-pack` in stateless RPC mode for one
+ * smart HTTP request, the way `git http-backend` does, and returns its output
+ * as the response body. Protocol v2 clients get no service header.
  */
-export async function runHttpBackend(request: BackendRequest): Promise<CgiResponse> {
+export function runService(request: ServiceRequest): Readable {
   const env = gitEnvironment({
-    GIT_PROJECT_ROOT: request.projectRoot,
-    GIT_HTTP_EXPORT_ALL: '1',
-    PATH_INFO: request.pathInfo,
-    REQUEST_METHOD: request.method,
-    QUERY_STRING: request.query,
-    REMOTE_USER: request.remoteUser,
-    REMOTE_ADDR: request.remoteAddress,
-    ...(request.contentType === undefined ? {} : { CONTENT_TYPE: request.contentType }),
-    ...(request.contentEncoding === undefined
-      ? {}
-      : { HTTP_CONTENT_ENCODING: request.contentEncoding }),
     ...(request.gitProtocol === undefined ? {} : { GIT_PROTOCOL: request.gitProtocol }),
-    ...request.hookEnv,
+    ...request.env,
   });
-  const child = spawn('git', ['http-backend'], { env, stdio: ['pipe', 'pipe', 'pipe'] });
-  const stderr: Buffer[] = [];
-  child.stderr.on('data', (chunk: Buffer) => {
-    if (stderr.length < 64) stderr.push(chunk);
-  });
+  const args = [
+    request.service,
+    '--stateless-rpc',
+    ...(request.mode === 'advertise' ? ['--http-backend-info-refs'] : []),
+    request.gitDir,
+  ];
+  const child = spawn('git', args, { env, stdio: ['pipe', 'pipe', 'ignore'] });
   child.stdin.on('error', () => undefined);
   if (request.body) {
-    request.body
-      .pipe(
-        byteLimit(request.maxBodyBytes, () => {
-          request.onTooLarge();
-          child.kill('SIGKILL');
-        }),
-      )
-      .on('error', () => child.stdin.destroy())
-      .pipe(child.stdin);
+    const limit = () =>
+      byteLimit(request.maxBodyBytes, () => {
+        request.onTooLarge();
+        child.kill('SIGKILL');
+      });
+    // The limit applies before and after decompression, against gzip bombs.
+    const stages: NodeJS.ReadWriteStream[] = request.gzip
+      ? [limit(), createGunzip(), limit()]
+      : [limit()];
+    let input: NodeJS.ReadableStream = request.body;
+    for (const stage of stages) {
+      stage.on('error', () => child.stdin.destroy());
+      input = input.pipe(stage);
+    }
+    input.pipe(child.stdin);
   } else {
     child.stdin.end();
   }
-  const exited = new Promise<void>((resolve) => {
-    child.on('close', () => {
-      resolve();
-    });
-  });
-  try {
-    const { head, body } = await readHead(child.stdout);
-    let status = 200;
-    const headers: Record<string, string> = {};
-    for (const line of head.split(/\r?\n/)) {
-      const colon = line.indexOf(':');
-      if (colon <= 0) continue;
-      const name = line.slice(0, colon).trim().toLowerCase();
-      const value = line.slice(colon + 1).trim();
-      if (name === 'status') status = Number.parseInt(value, 10) || 500;
-      else if (['content-type', 'cache-control', 'expires', 'pragma'].includes(name)) {
-        headers[name] = value;
-      }
-    }
-    return { status, headers, body };
-  } catch (error) {
-    child.kill('SIGKILL');
-    await exited;
-    throw new Error(`git http-backend failed: ${Buffer.concat(stderr).toString('utf8')}`, {
-      cause: error,
-    });
+  const output = new PassThrough();
+  if (request.mode === 'advertise' && !request.gitProtocol?.includes('version=2')) {
+    output.write(`${pktLine(`# service=git-${request.service}\n`)}0000`);
   }
+  child.stdout.pipe(output);
+  child.on('error', (error) => output.destroy(error));
+  return output;
 }

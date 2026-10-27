@@ -44,7 +44,6 @@ export async function ensureRepository(config: ApiConfig, projectId: string): Pr
     ['receive.denyDeletes', 'true'],
     ['receive.fsckObjects', 'true'],
     ['receive.maxInputSize', String(config.GIT_MAX_PUSH_MB * 1024 * 1024)],
-    ['http.receivepack', 'true'],
   ];
   for (const [key, value] of settings) await git(path, ['config', key, value]);
   // The hook names the running Node binary and script, which change with the image.

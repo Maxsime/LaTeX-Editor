@@ -6,10 +6,10 @@ import * as z from 'zod/mini';
 import { authenticateAccessToken } from '../auth/access-tokens.js';
 import { randomToken, safeEqual } from '../auth/tokens.js';
 import type { AppContext } from '../context.js';
-import { runHttpBackend } from '../git/backend.js';
+import { type GitService, runService, serviceContentType } from '../git/backend.js';
 import { serveCurrentState } from '../git/commit.js';
 import { applyPush, type PushRefusal, PushRefused, type RefUpdate } from '../git/push.js';
-import { ensureRepository, repositoryName } from '../git/repository.js';
+import { ensureRepository } from '../git/repository.js';
 import { loadProject } from '../projects/access.js';
 
 /** Failed sign-ins tolerated per address before Git requests are refused for a while. */
@@ -169,42 +169,33 @@ export function gitRoutes(
     request: FastifyRequest,
     reply: FastifyReply,
     projectId: string,
-    service: 'info/refs' | 'git-upload-pack' | 'git-receive-pack',
-    userId: string,
-    hookEnv?: Record<string, string>,
+    service: GitService,
+    mode: 'advertise' | 'rpc',
+    env?: Record<string, string>,
   ) {
-    const { service: queried } = serviceQuery.parse(request.query);
-    const maxBodyBytes = service === 'git-receive-pack' ? maxPushBytes : MAX_FETCH_BODY_BYTES;
+    const maxBodyBytes = service === 'receive-pack' ? maxPushBytes : MAX_FETCH_BODY_BYTES;
     if (Number(request.headers['content-length'] ?? 0) > maxBodyBytes) {
       return plain(reply, 413, 'Request too large.');
     }
-    const body = { tooLarge: false };
-    const response = await runHttpBackend({
-      projectRoot: config.GIT_DATA_DIR,
-      pathInfo: `/${repositoryName(projectId)}/${service}`,
-      method: request.method === 'POST' ? 'POST' : 'GET',
-      query: queried === undefined ? '' : `service=${queried}`,
-      contentType: request.headers['content-type'],
-      contentEncoding: request.headers['content-encoding'] === 'gzip' ? 'gzip' : undefined,
-      gitProtocol: /^[\w=:.]{1,64}$/.test(String(request.headers['git-protocol'] ?? ''))
-        ? String(request.headers['git-protocol'])
-        : undefined,
-      remoteUser: userId,
-      remoteAddress: request.ip,
+    const protocol = String(request.headers['git-protocol'] ?? '');
+    const body = runService({
+      gitDir: await ensureRepository(config, projectId),
+      service,
+      mode,
       // The content-type parser above hands POST bodies over as the raw stream.
-      body: request.method === 'POST' ? (request.body as Readable) : null,
+      body: mode === 'rpc' ? (request.body as Readable) : null,
+      gzip: request.headers['content-encoding'] === 'gzip',
+      gitProtocol: /^[\w=:.]{1,64}$/.test(protocol) ? protocol : undefined,
       maxBodyBytes,
-      ...(hookEnv === undefined ? {} : { hookEnv }),
+      ...(env === undefined ? {} : { env }),
       onTooLarge: () => {
-        body.tooLarge = true;
+        request.log.warn({ projectId }, 'git request body too large');
       },
-    }).catch((error: unknown) => {
-      // A chunked body past the limit kills Git before it answers.
-      if (body.tooLarge) return null;
-      throw error;
     });
-    if (response === null) return plain(reply, 413, 'Request too large.');
-    return reply.status(response.status).headers(response.headers).send(response.body);
+    return reply
+      .header('content-type', serviceContentType(service, mode))
+      .header('cache-control', 'no-cache, max-age=0, must-revalidate')
+      .send(body);
   }
 
   function projectOf(request: FastifyRequest): string {
@@ -224,15 +215,20 @@ export function gitRoutes(
     );
     if (userId === null) return reply;
     await serveCurrentState(context, projectId);
-    return backend(request, reply, projectId, 'info/refs', userId);
+    return backend(
+      request,
+      reply,
+      projectId,
+      service === 'git-receive-pack' ? 'receive-pack' : 'upload-pack',
+      'advertise',
+    );
   });
 
   app.post('/git/:repo/git-upload-pack', async (request, reply) => {
     const projectId = projectOf(request);
     const userId = await authorize(request, reply, projectId, 'reader');
     if (userId === null) return reply;
-    await ensureRepository(config, projectId);
-    return backend(request, reply, projectId, 'git-upload-pack', userId);
+    return backend(request, reply, projectId, 'upload-pack', 'rpc');
   });
 
   app.post('/git/:repo/git-receive-pack', async (request, reply) => {
@@ -245,7 +241,7 @@ export function gitRoutes(
     const { port } = app.server.address() as AddressInfo;
     pending.set(token, { projectId, userId, gitDir, locale: localeOf(request) });
     reply.raw.on('close', () => pending.delete(token));
-    return backend(request, reply, projectId, 'git-receive-pack', userId, {
+    return backend(request, reply, projectId, 'receive-pack', 'rpc', {
       GALLEY_HOOK_URL: `http://127.0.0.1:${String(port)}/internal/git/pre-receive`,
       GALLEY_PUSH_TOKEN: token,
     });

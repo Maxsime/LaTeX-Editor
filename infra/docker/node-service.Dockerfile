@@ -77,8 +77,8 @@ COPY --from=prod-deps --chown=node:node /repo/package.json ./
 COPY --from=prod-deps --chown=node:node /repo/node_modules ./node_modules
 COPY --from=prod-deps --chown=node:node /repo/packages ./packages
 COPY --from=prod-deps --chown=node:node /repo/apps/${SERVICE} ./apps/${SERVICE}
-# The API serves projects over Git (SPEC §6.7): git and http-backend, from the Alpine
-# release of the Node image, and the folder of the git-data volume.
+# The API serves projects over Git (SPEC §6.7): git from the Alpine release of the Node
+# image, and the folder of the git-data volume.
 RUN if [ "$SERVICE" = api ]; then \
       apk add --no-cache git && install -d -o node -g node /var/lib/galley/git; \
     fi
