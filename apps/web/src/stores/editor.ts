@@ -23,6 +23,20 @@ export interface EditorSelectionState {
   to: number;
 }
 
+// Outside the store: it changes at every keystroke and is only read when the
+// assistant is asked, so no component needs to render for it.
+let selection: EditorSelectionState | null = null;
+
+/** Records the cursor and main selection of the active tab. */
+export function setSelection(next: EditorSelectionState): void {
+  selection = next;
+}
+
+/** Cursor and main selection of the active tab, as offsets, for the assistant's context. */
+export function currentSelection(): EditorSelectionState | null {
+  return selection;
+}
+
 export interface Insertion {
   fileId: string;
   text: string;
@@ -41,8 +55,6 @@ interface EditorState {
   insertion: Insertion | null;
   /** Line of the cursor in the active tab, for the outline highlight. */
   cursorLine: number;
-  /** Cursor and main selection of the active tab, as offsets, for the assistant's context. */
-  selection: EditorSelectionState | null;
   /** Bumped on every local edit, to refresh the outline after a pause. */
   editCount: number;
   /** Resets tabs when another project is opened. */
@@ -56,7 +68,6 @@ interface EditorState {
   /** Opens the file and inserts the text once its editor is ready. */
   insert: (request: Omit<Insertion, 'nonce'>) => void;
   setCursorLine: (line: number) => void;
-  setSelection: (selection: EditorSelectionState) => void;
   noteEdit: () => void;
 }
 
@@ -75,7 +86,6 @@ export const useEditor = create<EditorState>()((set, get) => ({
   reveal: null,
   insertion: null,
   cursorLine: 1,
-  selection: null,
   editCount: 0,
   openProject: (projectId) => {
     if (get().projectId === projectId) return;
@@ -87,8 +97,8 @@ export const useEditor = create<EditorState>()((set, get) => ({
       reveal: null,
       insertion: null,
       cursorLine: 1,
-      selection: null,
     });
+    selection = null;
   },
   openTab: (fileId) => {
     set(({ tabs }) => ({
@@ -128,17 +138,6 @@ export const useEditor = create<EditorState>()((set, get) => ({
   },
   setCursorLine: (cursorLine) => {
     if (get().cursorLine !== cursorLine) set({ cursorLine });
-  },
-  setSelection: (selection) => {
-    const current = get().selection;
-    if (
-      current?.fileId !== selection.fileId ||
-      current.head !== selection.head ||
-      current.from !== selection.from ||
-      current.to !== selection.to
-    ) {
-      set({ selection });
-    }
   },
   noteEdit: () => {
     set(({ editCount }) => ({ editCount: editCount + 1 }));

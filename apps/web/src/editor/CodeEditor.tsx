@@ -6,7 +6,7 @@ import { EditorView } from '@codemirror/view';
 import { useEffect, useRef } from 'react';
 import i18n from '../i18n/index.js';
 import { appendedBlock } from '../lib/writing.js';
-import { type Insertion, useEditor, usePreferences } from '../stores/editor.js';
+import { type Insertion, setSelection, useEditor, usePreferences } from '../stores/editor.js';
 import { pendingHunksOf, useAi } from '../stores/ai.js';
 import { useReview } from '../stores/review.js';
 import { aiExtension, setProposals } from './ai.js';
@@ -111,7 +111,7 @@ export function CodeEditor({
     const parent = host.current;
     if (!parent) return;
     const document = connection.open(fileId);
-    const { setCursorLine, setSelection, noteEdit } = useEditor.getState();
+    const { setCursorLine, noteEdit } = useEditor.getState();
     const preferences = usePreferences.getState();
     const options: ReviewOptions = {
       text: document.text,

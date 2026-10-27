@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { formatCost, hunkDiff, hunksByFile } from '../lib/ai.js';
 import { type AiMessage, useAi } from '../stores/ai.js';
-import { useEditor } from '../stores/editor.js';
+import { currentSelection, useEditor } from '../stores/editor.js';
 import { Button, ErrorAlert } from './ui.js';
 
 const DIFF_STYLE = {
@@ -171,7 +171,10 @@ function AssistantMessage({ message, canEdit }: { message: AiMessage; canEdit: b
           ))}
         </ul>
       )}
-      {message.text !== '' && <p className="break-words whitespace-pre-wrap">{message.text}</p>}
+      {/* An inline edit's answer is its code, shown as the proposal below. */}
+      {message.text !== '' && !(message.mode === 'inline' && message.changesetIds.length > 0) && (
+        <p className="break-words whitespace-pre-wrap">{message.text}</p>
+      )}
       {!message.done && message.text === '' && message.tools.length === 0 && (
         <p className="text-slate-500">{t('ai.thinking')}</p>
       )}
@@ -256,6 +259,21 @@ function InlinePrompt({ canEdit }: { canEdit: boolean }) {
   );
 }
 
+/** The open file, cursor and selection, sent with a question as its context. */
+function editorContext() {
+  const { activeId } = useEditor.getState();
+  const selection = currentSelection();
+  if (activeId === null) return {};
+  if (selection?.fileId !== activeId) return { fileId: activeId };
+  return {
+    fileId: activeId,
+    cursor: selection.head,
+    ...(selection.from === selection.to
+      ? {}
+      : { selection: { from: selection.from, to: selection.to } }),
+  };
+}
+
 /**
  * The assistant of a project (SPEC §3.8): a conversation that knows the
  * project, whose proposed changes are applied only once accepted.
@@ -263,8 +281,6 @@ function InlinePrompt({ canEdit }: { canEdit: boolean }) {
 export function AiPanel({ status, canEdit }: { status: AiStatus; canEdit: boolean }) {
   const { t } = useTranslation();
   const { messages, busy, send, stop, clear, decisionError } = useAi();
-  const activeId = useEditor((state) => state.activeId);
-  const selection = useEditor((state) => state.selection);
   const [text, setText] = useState('');
   const end = useRef<HTMLDivElement>(null);
   const last = messages.at(-1);
@@ -274,19 +290,6 @@ export function AiPanel({ status, canEdit }: { status: AiStatus; canEdit: boolea
   }, [last?.id, last?.text.length, last?.changesetIds.length]);
 
   if (!status.available) return <Unavailable status={status} />;
-
-  const context =
-    activeId === null
-      ? {}
-      : selection?.fileId === activeId
-        ? {
-            fileId: activeId,
-            cursor: selection.head,
-            ...(selection.from === selection.to
-              ? {}
-              : { selection: { from: selection.from, to: selection.to } }),
-          }
-        : { fileId: activeId };
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-2">
@@ -318,7 +321,7 @@ export function AiPanel({ status, canEdit }: { status: AiStatus; canEdit: boolea
         className="space-y-1"
         onSubmit={(event) => {
           event.preventDefault();
-          void send({ mode: 'chat', text, context });
+          void send({ mode: 'chat', text, context: editorContext() });
           setText('');
         }}
       >
