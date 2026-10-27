@@ -1,10 +1,12 @@
-import type { ProjectEventMessage, TreeNode } from '@galley/shared';
+import type { Diagnostic, ProjectEventMessage, TreeNode } from '@galley/shared';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { FilePreview } from '../components/FilePreview.js';
+import { compileKey } from '../lib/compile.js';
 import { indexKey, outlineKey, useProjectIndex } from '../lib/editor.js';
+import { useCompileStore } from '../stores/compile.js';
 import { FONT_SIZES, useEditor, usePreferences } from '../stores/editor.js';
 import { CodeEditor } from './CodeEditor.js';
 import type { CompletionSources } from './completion.js';
@@ -16,7 +18,14 @@ interface EditorAreaProps {
   /** Project-relative path of each node. */
   paths: ReadonlyMap<string, string>;
   readOnly: boolean;
+  /** Diagnostics of the last compilation, by project-relative path. */
+  diagnostics: ReadonlyMap<string, readonly Diagnostic[]>;
 }
+
+const NO_DIAGNOSTICS: readonly Diagnostic[] = [];
+
+/** Longest wait for the server to acknowledge edits before compiling anyway. */
+const SAVE_WAIT_MS = 5000;
 
 const STATUS_STYLE: Record<SyncStatus, string> = {
   connecting: 'bg-slate-400',
@@ -85,7 +94,13 @@ function Preferences() {
  * also carries project events: tree changes refresh the file list, deletion
  * of the project returns to the dashboard.
  */
-export default function EditorArea({ projectId, nodes, paths, readOnly }: EditorAreaProps) {
+export default function EditorArea({
+  projectId,
+  nodes,
+  paths,
+  readOnly,
+  diagnostics,
+}: EditorAreaProps) {
   const { t } = useTranslation();
   const client = useQueryClient();
   const navigate = useNavigate();
@@ -97,6 +112,10 @@ export default function EditorArea({ projectId, nodes, paths, readOnly }: Editor
     onEventRef.current = (event) => {
       if (event.type === 'project.deleted') {
         void navigate({ to: '/projects' });
+        return;
+      }
+      if (event.type === 'compile.updated') {
+        void client.invalidateQueries({ queryKey: compileKey(projectId) });
         return;
       }
       void client.invalidateQueries({ queryKey: ['project', projectId] });
@@ -113,7 +132,14 @@ export default function EditorArea({ projectId, nodes, paths, readOnly }: Editor
       if (connection.hasPendingChanges()) event.preventDefault();
     };
     window.addEventListener('beforeunload', warn);
+    useCompileStore.getState().setWaitForSaved(async () => {
+      const deadline = Date.now() + SAVE_WAIT_MS;
+      while (connection.hasPendingChanges() && Date.now() < deadline) {
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      }
+    });
     return () => {
+      useCompileStore.getState().setWaitForSaved(() => Promise.resolve());
       window.removeEventListener('beforeunload', warn);
       connection.stop();
     };
@@ -241,6 +267,7 @@ export default function EditorArea({ projectId, nodes, paths, readOnly }: Editor
               active={id === activeId}
               readOnly={readOnly}
               completion={completion}
+              diagnostics={diagnostics.get(paths.get(id) ?? '') ?? NO_DIAGNOSTICS}
             />
           );
         })}

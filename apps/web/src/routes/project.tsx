@@ -1,15 +1,19 @@
 import { hasRole } from '@galley/shared';
+import { ToggleGroup } from 'radix-ui';
 import { Link, useParams } from '@tanstack/react-router';
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { CompilePane } from '../components/CompilePane.js';
 import { FileTree, type TreeActions } from '../components/FileTree.js';
 import { OutlinePanel } from '../components/OutlinePanel.js';
 import { SearchPanel } from '../components/SearchPanel.js';
 import { Button, ErrorAlert, NameDialog } from '../components/ui.js';
 import { ApiRequestError } from '../lib/api.js';
+import { diagnosticsByFile, isPending, useLatestCompile } from '../lib/compile.js';
 import { useProject, useTree, useTreeMutations, useUpdateProject } from '../lib/projects.js';
 import { buildTree, flatten } from '../lib/tree.js';
 import { fromFileList } from '../lib/upload.js';
+import { useCompilePreferences, type ViewMode } from '../stores/compile.js';
 import { useEditor } from '../stores/editor.js';
 import { useNotices } from '../stores/notices.js';
 import { useTreeState } from '../stores/tree.js';
@@ -19,6 +23,13 @@ const EditorArea = lazy(() => import('../editor/EditorArea.js'));
 
 type Panel = 'files' | 'outline' | 'search';
 const PANELS: readonly Panel[] = ['files', 'outline', 'search'];
+const VIEW_MODES: readonly ViewMode[] = ['editor', 'both', 'pdf'];
+
+const GRID: Record<ViewMode, string> = {
+  both: 'md:grid-cols-[16rem_minmax(0,1fr)_minmax(0,1fr)]',
+  editor: 'md:grid-cols-[16rem_minmax(0,1fr)]',
+  pdf: 'md:grid-cols-[16rem_minmax(0,1fr)]',
+};
 
 function Warnings({ projectId }: { projectId: string }) {
   const { t } = useTranslation();
@@ -64,6 +75,8 @@ export function ProjectPage() {
   const folderInput = useRef<HTMLInputElement>(null);
   const [panel, setPanel] = useState<Panel>('files');
   const [newFile, setNewFile] = useState(false);
+  const compiles = useLatestCompile(projectId);
+  const { viewMode, setViewMode } = useCompilePreferences();
 
   useEffect(() => {
     open(projectId);
@@ -76,6 +89,12 @@ export function ProjectPage() {
   const paths = useMemo(() => new Map(all.map((item) => [item.id, item.path])), [all]);
   const selected = nodes.find((node) => node.id === selectedId);
   const canEdit = project.data !== undefined && hasRole(project.data.role, 'editor');
+  const fileIds = useMemo(() => new Map(all.map((item) => [item.path, item.id])), [all]);
+  const latest = compiles.data?.latest ?? null;
+  const lastPdf = compiles.data?.lastPdf ?? null;
+  // Markers come from the last finished compilation, kept while a new one runs.
+  const shownRun = latest !== null && !isPending(latest) ? latest : lastPdf;
+  const diagnostics = useMemo(() => diagnosticsByFile(shownRun?.diagnostics ?? []), [shownRun]);
 
   // Selecting a file in the tree opens it; switching tabs selects it in the tree.
   useEffect(() => {
@@ -146,6 +165,26 @@ export function ProjectPage() {
             ))}
           </select>
         </label>
+        <ToggleGroup.Root
+          type="single"
+          value={viewMode}
+          aria-label={t('compile.view.label')}
+          onValueChange={(value) => {
+            const mode = VIEW_MODES.find((item) => item === value);
+            if (mode) setViewMode(mode);
+          }}
+          className="flex rounded-md border border-slate-300 text-sm"
+        >
+          {VIEW_MODES.map((mode) => (
+            <ToggleGroup.Item
+              key={mode}
+              value={mode}
+              className="px-2 py-1 data-[state=on]:bg-slate-200 data-[state=on]:font-medium"
+            >
+              {t(`compile.view.${mode}`)}
+            </ToggleGroup.Item>
+          ))}
+        </ToggleGroup.Root>
         <a
           href={`/api/projects/${projectId}/export`}
           className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium hover:bg-slate-50"
@@ -156,7 +195,7 @@ export function ProjectPage() {
       </div>
       <Warnings projectId={projectId} />
       <ErrorAlert error={updateProject.error} />
-      <div className="grid h-[calc(100vh-11rem)] min-h-[28rem] gap-3 md:grid-cols-[18rem_1fr]">
+      <div className={`grid h-[calc(100vh-11rem)] min-h-[28rem] gap-3 ${GRID[viewMode]}`}>
         <aside className="flex min-h-0 flex-col">
           <div role="tablist" aria-label={t('editor.panels')} className="mb-2 flex gap-1">
             {PANELS.map((name) => (
@@ -233,7 +272,9 @@ export function ProjectPage() {
             {panel === 'search' && <SearchPanel projectId={projectId} canEdit={canEdit} />}
           </div>
         </aside>
-        <section className="min-h-0 min-w-0 overflow-hidden rounded-md border border-slate-200">
+        <section
+          className={`min-h-0 min-w-0 overflow-hidden rounded-md border border-slate-200 ${viewMode === 'pdf' ? 'hidden' : ''}`}
+        >
           <Suspense fallback={<p className="p-4 text-slate-600">{t('common.loading')}</p>}>
             {project.data && (
               <EditorArea
@@ -242,9 +283,25 @@ export function ProjectPage() {
                 nodes={nodes}
                 paths={paths}
                 readOnly={!canEdit}
+                diagnostics={diagnostics}
               />
             )}
           </Suspense>
+        </section>
+        <section
+          aria-label={t('compile.pane')}
+          className={`min-h-0 min-w-0 overflow-hidden rounded-md border border-slate-200 ${viewMode === 'editor' ? 'hidden' : ''}`}
+        >
+          {project.data && (
+            <CompilePane
+              project={project.data}
+              latest={latest}
+              lastPdf={lastPdf}
+              loaded={compiles.isSuccess}
+              canEdit={canEdit}
+              fileIds={fileIds}
+            />
+          )}
         </section>
       </div>
       <NameDialog

@@ -255,5 +255,92 @@
       "count_other": "{{count}} résultats dans {{files}} fichier(s).",
       "truncated": "Plus de {{count}} résultats : affinez la recherche."
     }
+  },
+  "compile": {
+    "pane": "Compilation et aperçu",
+    "compile": "Compiler",
+    "compiling": "Compilation…",
+    "cancel": "Annuler",
+    "shortcut": "Compiler (Ctrl+S ou Ctrl+Entrée)",
+    "cleanAndCompile": "Nettoyer et recompiler",
+    "firstCompile": "Compilation en cours…",
+    "noPdf": "Aucun PDF pour l'instant. Compilez pour l'afficher.",
+    "texlive": "Distribution : {{release}}",
+    "logButton": "Journal ({{error}} erreurs, {{warning}} avertissements)",
+    "log": "Journal de compilation",
+    "noLog": "Cette compilation n'a pas produit de journal.",
+    "logFailed": "Le journal n'a pas pu être chargé.",
+    "noIssues": "Aucune erreur ni aucun avertissement.",
+    "truncated": "Liste tronquée : seules les premières entrées sont affichées.",
+    "shellEscapeDowngraded": "Le shell-escape complet n'est pas autorisé sur cette instance : la compilation s'est faite en mode restreint.",
+    "showBadBoxes_one": "Afficher {{count}} boîte mal remplie",
+    "showBadBoxes_other": "Afficher {{count}} boîtes mal remplies",
+    "tabs": {
+      "issues": "Erreurs ({{error}}) et avertissements ({{warning}})",
+      "raw": "Journal brut",
+      "files": "Fichiers produits"
+    },
+    "status": {
+      "queued": "En attente d'un compilateur…",
+      "running": "Compilation…",
+      "success": "Compilé",
+      "successIn": "Compilé en {{seconds}} s",
+      "failure": "Échec de la compilation",
+      "timeout": "Délai de compilation dépassé",
+      "cancelled": "Compilation annulée",
+      "superseded": "Remplacée par une compilation plus récente",
+      "error": "Le compilateur a rencontré une erreur"
+    },
+    "codes": {
+      "TIMEOUT": "La compilation a dépassé la durée maximale de {{value}} s et a été arrêtée.",
+      "OUTPUT_LIMIT": "La compilation a dépassé la taille de sortie maximale de {{value}} Mio et a été arrêtée.",
+      "NO_OUTPUT": "La compilation n'a produit aucun PDF."
+    },
+    "view": {
+      "label": "Disposition",
+      "editor": "Éditeur",
+      "both": "Côte à côte",
+      "pdf": "PDF"
+    },
+    "engines": {
+      "pdflatex": "pdfLaTeX",
+      "xelatex": "XeLaTeX",
+      "lualatex": "LuaLaTeX"
+    },
+    "bibTools": {
+      "biber": "Biber",
+      "bibtex": "BibTeX"
+    },
+    "shellEscapeModes": {
+      "disabled": "Désactivé",
+      "restricted": "Restreint",
+      "full": "Complet"
+    },
+    "options": {
+      "title": "Options",
+      "project": "Projet",
+      "session": "Cette session",
+      "engine": "Moteur",
+      "bibTool": "Bibliographie",
+      "shellEscape": "Shell-escape",
+      "auto": "Compiler à l'arrêt de la frappe",
+      "autoDelay": "Délai avant compilation",
+      "seconds_one": "{{count}} s",
+      "seconds_other": "{{count}} s",
+      "draft": "Mode brouillon (images remplacées par des cadres)",
+      "haltOnError": "S'arrêter à la première erreur"
+    }
+  },
+  "pdf": {
+    "zoom": "Zoom",
+    "scale": {
+      "page-width": "Largeur de page",
+      "page-fit": "Page entière",
+      "auto": "Automatique"
+    },
+    "pages_one": "{{count}} page",
+    "pages_other": "{{count}} pages",
+    "download": "Télécharger le PDF",
+    "loadFailed": "Le PDF n'a pas pu être affiché."
   }
 }

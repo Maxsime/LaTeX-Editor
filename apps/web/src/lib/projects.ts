@@ -7,6 +7,7 @@ import type {
   ProjectTree,
   Tag,
   TreeNode,
+  UpdateProjectRequest,
   UploadResponse,
 } from '@galley/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -131,7 +132,7 @@ export function useTagMutations() {
 export function useUpdateProject(id: string) {
   const invalidate = useInvalidate();
   return useMutation({
-    mutationFn: (change: { name?: string; mainFileId?: string | null }) =>
+    mutationFn: (change: UpdateProjectRequest) =>
       api<ProjectDetails>('PATCH', `/api/projects/${id}`, { json: change }),
     onSuccess: () => invalidate(projectKey(id), projectsKey),
   });

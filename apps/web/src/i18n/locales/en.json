@@ -255,5 +255,92 @@
       "count_other": "{{count}} results in {{files}} file(s).",
       "truncated": "More than {{count}} results: refine the search."
     }
+  },
+  "compile": {
+    "pane": "Compilation and preview",
+    "compile": "Compile",
+    "compiling": "Compiling…",
+    "cancel": "Cancel",
+    "shortcut": "Compile (Ctrl+S or Ctrl+Enter)",
+    "cleanAndCompile": "Clean and recompile",
+    "firstCompile": "Compiling…",
+    "noPdf": "No PDF yet. Compile to show it.",
+    "texlive": "Distribution: {{release}}",
+    "logButton": "Log ({{error}} errors, {{warning}} warnings)",
+    "log": "Compilation log",
+    "noLog": "This compilation produced no log.",
+    "logFailed": "The log could not be loaded.",
+    "noIssues": "No errors or warnings.",
+    "truncated": "List truncated: only the first entries are shown.",
+    "shellEscapeDowngraded": "Full shell-escape is not allowed on this instance: the compilation ran in restricted mode.",
+    "showBadBoxes_one": "Show {{count}} bad box",
+    "showBadBoxes_other": "Show {{count}} bad boxes",
+    "tabs": {
+      "issues": "Errors ({{error}}) and warnings ({{warning}})",
+      "raw": "Raw log",
+      "files": "Output files"
+    },
+    "status": {
+      "queued": "Waiting for a compiler…",
+      "running": "Compiling…",
+      "success": "Compiled",
+      "successIn": "Compiled in {{seconds}} s",
+      "failure": "Compilation failed",
+      "timeout": "Compilation timed out",
+      "cancelled": "Compilation cancelled",
+      "superseded": "Replaced by a newer compilation",
+      "error": "The compiler ran into an error"
+    },
+    "codes": {
+      "TIMEOUT": "The compilation exceeded the {{value}} s limit and was stopped.",
+      "OUTPUT_LIMIT": "The compilation exceeded the {{value}} MiB output limit and was stopped.",
+      "NO_OUTPUT": "The compilation produced no PDF."
+    },
+    "view": {
+      "label": "Layout",
+      "editor": "Editor",
+      "both": "Side by side",
+      "pdf": "PDF"
+    },
+    "engines": {
+      "pdflatex": "pdfLaTeX",
+      "xelatex": "XeLaTeX",
+      "lualatex": "LuaLaTeX"
+    },
+    "bibTools": {
+      "biber": "Biber",
+      "bibtex": "BibTeX"
+    },
+    "shellEscapeModes": {
+      "disabled": "Disabled",
+      "restricted": "Restricted",
+      "full": "Full"
+    },
+    "options": {
+      "title": "Options",
+      "project": "Project",
+      "session": "This session",
+      "engine": "Engine",
+      "bibTool": "Bibliography",
+      "shellEscape": "Shell-escape",
+      "auto": "Compile when typing stops",
+      "autoDelay": "Delay before compiling",
+      "seconds_one": "{{count}} s",
+      "seconds_other": "{{count}} s",
+      "draft": "Draft mode (images replaced by frames)",
+      "haltOnError": "Stop at the first error"
+    }
+  },
+  "pdf": {
+    "zoom": "Zoom",
+    "scale": {
+      "page-width": "Page width",
+      "page-fit": "Whole page",
+      "auto": "Automatic"
+    },
+    "pages_one": "{{count}} page",
+    "pages_other": "{{count}} pages",
+    "download": "Download PDF",
+    "loadFailed": "The PDF could not be shown."
   }
 }
