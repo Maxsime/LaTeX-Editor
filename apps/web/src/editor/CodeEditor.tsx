@@ -1,12 +1,19 @@
-import { lintGutter, setDiagnostics } from '@codemirror/lint';
+import { lintGutter } from '@codemirror/lint';
 import { EditorSelection } from '@codemirror/state';
+import type { LintIssue } from '@galley/latex-index';
 import type { Diagnostic } from '@galley/shared';
 import { EditorView } from '@codemirror/view';
 import { useEffect, useRef } from 'react';
+import i18n from '../i18n/index.js';
 import { useEditor, usePreferences } from '../stores/editor.js';
 import type { CompletionSources } from './completion.js';
 import type { ProjectConnection } from './connection.js';
-import { toLintDiagnostics } from './lint.js';
+import {
+  lintExtension,
+  type ProjectLintContext,
+  setCompileMarkers,
+  toLintDiagnostics,
+} from './lint.js';
 import { EditorSettings, editorExtensions } from './setup.js';
 
 interface CodeEditorProps {
@@ -18,8 +25,17 @@ interface CodeEditorProps {
   readOnly: boolean;
   /** Must be stable: a new function rebuilds the editor. */
   completion: () => CompletionSources;
+  /** Must be stable, like `completion`. */
+  lintContext: () => ProjectLintContext | null;
   /** Diagnostics of the last compilation located in this file. */
   diagnostics: readonly Diagnostic[];
+}
+
+/** Only documents are checked as they are typed: packages define environments in pieces. */
+const LIVE_LINT = /\.(tex|ltx)$/i;
+
+function issueMessage(issue: LintIssue): string {
+  return i18n.t(`editor.lint.${issue.code}`, { name: issue.name, expected: issue.expected ?? '' });
 }
 
 /**
@@ -34,6 +50,7 @@ export function CodeEditor({
   active,
   readOnly,
   completion,
+  lintContext,
   diagnostics,
 }: CodeEditorProps) {
   const host = useRef<HTMLDivElement>(null);
@@ -55,6 +72,12 @@ export function CodeEditor({
       parent,
       extensions: [
         lintGutter(),
+        lintExtension({
+          latex: LIVE_LINT.test(fileName),
+          project: lintContext,
+          translate: issueMessage,
+          source: i18n.t('editor.lint.sourceEditor'),
+        }),
         editorExtensions({
           fileName,
           text: document.text,
@@ -80,7 +103,7 @@ export function CodeEditor({
       editor.destroy();
       connection.release(fileId);
     };
-  }, [connection, fileId, fileName, completion]);
+  }, [connection, fileId, fileName, completion, lintContext]);
 
   // Editing opens once the server has sent the content and granted write access.
   const writable = !readOnly && (status === 'saved' || status === 'saving' || status === 'offline');
@@ -100,7 +123,11 @@ export function CodeEditor({
   useEffect(() => {
     const editor = view.current;
     if (!editor) return;
-    editor.dispatch(setDiagnostics(editor.state, toLintDiagnostics(editor.state.doc, diagnostics)));
+    editor.dispatch({
+      effects: setCompileMarkers.of(
+        toLintDiagnostics(editor.state.doc, diagnostics, i18n.t('editor.lint.sourceCompile')),
+      ),
+    });
   }, [diagnostics, status]);
 
   useEffect(() => {

@@ -6,18 +6,23 @@ import {
   shellEscapeMode as shellEscapeModes,
 } from '@galley/shared';
 import { Popover } from 'radix-ui';
-import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   countLevels,
+  diagnosticStep,
   isCompileShortcut,
+  isForwardSearchShortcut,
   isPending,
+  navigableDiagnostics,
+  nextStop,
   outputUrl,
   useCancelCompile,
   useCompile,
   useCompilerInfo,
 } from '../lib/compile.js';
 import { useUpdateProject } from '../lib/projects.js';
+import { type SynctexNotice, useSynctex } from '../lib/synctex.js';
 import { AUTO_COMPILE_DELAYS, useCompilePreferences, useCompileStore } from '../stores/compile.js';
 import { useEditor } from '../stores/editor.js';
 import { LogPanel } from './LogPanel.js';
@@ -162,6 +167,22 @@ function Options({ project, canEdit }: { project: ProjectDetails; canEdit: boole
   );
 }
 
+function Notice({ notice }: { notice: SynctexNotice | null }) {
+  const { t } = useTranslation();
+  if (notice === null) return null;
+  return (
+    <p
+      role="status"
+      data-testid="synctex-notice"
+      className="border-b border-slate-200 bg-amber-50 px-2 py-1 text-xs text-amber-900"
+    >
+      {notice.kind === 'external'
+        ? t('compile.synctex.external', { file: notice.file })
+        : t(`compile.synctex.${notice.kind}`)}
+    </p>
+  );
+}
+
 function Status({ run }: { run: CompileRun | null }) {
   const { t } = useTranslation();
   if (run === null) return null;
@@ -201,6 +222,7 @@ export function CompilePane({
   const cancel = useCancelCompile(project.id);
   const { autoCompile, autoCompileDelay } = useCompilePreferences();
   const editCount = useEditor((state) => state.editCount);
+  const revealAt = useEditor((state) => state.revealAt);
   const [logOpen, setLogOpen] = useState(false);
   const pending = isPending(latest) || compile.isPending;
   const shown = latest !== null && !isPending(latest) ? latest : lastPdf;
@@ -229,6 +251,46 @@ export function CompilePane({
     };
   }, [start]);
 
+  const pdfRun = lastPdf;
+  const synctex = useSynctex(project.id, pdfRun?.pdf != null ? pdfRun.id : null);
+  const { toPdf } = synctex;
+
+  // F8 walks through the errors and warnings of the compilation shown, in log order.
+  const shownDiagnostics = shown?.diagnostics;
+  const stops = useMemo(() => navigableDiagnostics(shownDiagnostics ?? []), [shownDiagnostics]);
+  const shownId = shown?.id ?? null;
+  const [stop, setStop] = useState({ runId: shownId, index: -1 });
+  const stopIndex = stop.runId === shownId ? stop.index : -1;
+  const goToStop = useCallback(
+    (direction: 1 | -1, from = stopIndex) => {
+      const index = nextStop(stops.length, from, direction);
+      const target = stops[index];
+      if (target?.file == null || target.line === null) return;
+      setStop({ runId: shownId, index });
+      const fileId = fileIds.get(target.file);
+      if (fileId !== undefined) revealAt({ fileId, line: target.line });
+    },
+    [stops, stopIndex, shownId, fileIds, revealAt],
+  );
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      const step = diagnosticStep(event);
+      if (step !== null) {
+        event.preventDefault();
+        goToStop(step);
+      } else if (isForwardSearchShortcut(event)) {
+        event.preventDefault();
+        event.stopPropagation();
+        void toPdf();
+      }
+    };
+    window.addEventListener('keydown', onKey, { capture: true });
+    return () => {
+      window.removeEventListener('keydown', onKey, { capture: true });
+    };
+  }, [goToStop, toPdf]);
+
   useEffect(() => {
     if (!autoCompile || editCount === 0) return;
     const timer = setTimeout(() => {
@@ -255,7 +317,6 @@ export function CompilePane({
     if (failedId !== null) setLogOpen(true);
   }
 
-  const pdfRun = lastPdf;
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 bg-slate-50 px-2 py-1">
@@ -282,13 +343,31 @@ export function CompilePane({
         <Status run={latest} />
         <Button
           variant="ghost"
-          aria-pressed={logOpen}
+          disabled={pdfRun?.pdf == null}
           onClick={() => {
-            setLogOpen(!logOpen);
+            void toPdf();
           }}
+          title={t('compile.synctex.toPdfTitle')}
           className="ml-auto"
         >
-          {t('compile.logButton', counts)}
+          {t('compile.synctex.toPdf')}
+        </Button>
+        <Button
+          variant="ghost"
+          aria-pressed={logOpen}
+          onClick={() => {
+            // Opening the log also takes the editor to the first error.
+            if (!logOpen && counts.error > 0) {
+              goToStop(1, -1);
+            }
+            setLogOpen(!logOpen);
+          }}
+          title={t('compile.logButtonTitle')}
+        >
+          {t('compile.logButton', {
+            errors: t('compile.errorCount', { count: counts.error }),
+            warnings: t('compile.warningCount', { count: counts.warning }),
+          })}
         </Button>
         <Popover.Root>
           <Popover.Trigger asChild>
@@ -314,6 +393,7 @@ export function CompilePane({
         </Popover.Root>
       </div>
       <ErrorAlert error={compile.error ?? cancel.error} />
+      <Notice notice={synctex.notice} />
       <div className="flex min-h-0 flex-1 flex-col">
         <div className={logOpen ? 'min-h-0 flex-[3]' : 'min-h-0 flex-1'}>
           {pdfRun?.pdf != null ? (
@@ -323,6 +403,10 @@ export function CompilePane({
               <PdfViewer
                 url={outputUrl(project.id, pdfRun.id, pdfRun.pdf)}
                 downloadName={`${project.name}.pdf`}
+                onSynctex={(point) => {
+                  void synctex.toSource(point);
+                }}
+                highlight={synctex.highlight}
               />
             </Suspense>
           ) : (

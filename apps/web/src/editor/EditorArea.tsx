@@ -10,6 +10,7 @@ import { useCompileStore } from '../stores/compile.js';
 import { FONT_SIZES, useEditor, usePreferences } from '../stores/editor.js';
 import { CodeEditor } from './CodeEditor.js';
 import type { CompletionSources } from './completion.js';
+import type { ProjectLintContext } from './lint.js';
 import { ProjectConnection, type SyncStatus } from './connection.js';
 
 interface EditorAreaProps {
@@ -171,6 +172,8 @@ export default function EditorArea({
     environments: [],
     paths: [],
     directory: '',
+    labels: [],
+    citations: [],
   });
   useEffect(() => {
     sourcesRef.current = {
@@ -180,9 +183,35 @@ export default function EditorArea({
         .filter((node) => node.kind !== 'folder')
         .map((node) => paths.get(node.id) ?? node.name),
       directory: dirname(activeId === null ? '' : (paths.get(activeId) ?? '')),
+      // The edited file's labels come from its live text, not from the index.
+      labels: (index.data?.labels ?? [])
+        .filter((label) => label.fileId !== activeId)
+        .map((label) => label.name),
+      citations: index.data?.citations ?? [],
     };
   }, [index.data, nodes, paths, activeId]);
   const completion = useCallback(() => sourcesRef.current, []);
+
+  const lintRef = useRef<ProjectLintContext | null>(null);
+  useEffect(() => {
+    if (index.data === undefined) {
+      lintRef.current = null;
+      return;
+    }
+    // The edited file's own labels and \bibitem keys are read from its live text.
+    const labelCounts = new Map<string, number>();
+    for (const label of index.data.labels) {
+      if (label.fileId !== activeId)
+        labelCounts.set(label.name, (labelCounts.get(label.name) ?? 0) + 1);
+    }
+    const citationKeys = new Set(
+      index.data.citations
+        .filter((entry) => entry.type !== 'bibitem' || entry.fileId !== activeId)
+        .map((entry) => entry.key),
+    );
+    lintRef.current = { labelCounts, citationKeys };
+  }, [index.data, activeId]);
+  const lintContext = useCallback(() => lintRef.current, []);
 
   if (tabs.length === 0) {
     return (
@@ -267,6 +296,7 @@ export default function EditorArea({
               active={id === activeId}
               readOnly={readOnly}
               completion={completion}
+              lintContext={lintContext}
               diagnostics={diagnostics.get(paths.get(id) ?? '') ?? NO_DIAGNOSTICS}
             />
           );

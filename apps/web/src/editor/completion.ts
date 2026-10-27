@@ -4,7 +4,9 @@ import {
   type CompletionResult,
   snippetCompletion,
 } from '@codemirror/autocomplete';
+import { CITATION_COMMANDS, extractStructure, REFERENCE_COMMANDS } from '@galley/latex-index';
 import { builtinCommands, builtinEnvironments, FILE_ARGUMENT_COMMANDS } from './latex-data.js';
+import { CLASS_OPTIONS, PACKAGE_OPTIONS } from './package-options.js';
 
 /** What the project contributes to completion, refreshed from the API. */
 export interface CompletionSources {
@@ -14,6 +16,17 @@ export interface CompletionSources {
   paths: readonly string[];
   /** Directory of the file being edited, for paths relative to it. */
   directory: string;
+  /** Labels of the project's other files; those of the edited file are read from its text. */
+  labels: readonly string[];
+  citations: readonly CitationEntry[];
+}
+
+/** A bibliography entry offered after `\cite{`. */
+export interface CitationEntry {
+  key: string;
+  title: string | null;
+  authors: readonly string[];
+  year: string | null;
 }
 
 /**
@@ -118,7 +131,112 @@ export function completeFilePath(
   return { from, options, validFor: /^[^}{\s]*$/ };
 }
 
-/** A single completion source combining the three contexts above. */
+/** Short form of an entry's authors and year, e.g. `Knuth et al. (1984)`. */
+export function citationDetail(entry: CitationEntry): string | undefined {
+  const [first] = entry.authors;
+  // Authors come as "Last, First"; the family name is enough to recognise an entry.
+  const family = first?.split(',')[0]?.trim();
+  const who = family === undefined ? '' : entry.authors.length > 1 ? `${family} et al.` : family;
+  const when = entry.year === null ? '' : `(${entry.year})`;
+  const detail = [who, when].filter((part) => part !== '').join(' ');
+  return detail === '' ? undefined : detail;
+}
+
+/** Start of the key being typed in a comma-separated argument. */
+function keyStart(argumentStart: number, typed: string): number {
+  const comma = typed.lastIndexOf(',');
+  const from = comma === -1 ? 0 : comma + 1;
+  return argumentStart + from + (typed.length - from - typed.slice(from).trimStart().length);
+}
+
+/**
+ * Completes labels after `\ref{` and its variants, and citation keys after
+ * `\cite{` and its variants, key by key in a comma-separated list.
+ */
+export function completeKey(
+  context: CompletionContext,
+  sources: CompletionSources,
+): CompletionResult | null {
+  // Earlier groups belong to multi-cite commands: `\cites[1]{a}[2]{b`.
+  const match = context.matchBefore(/\\([a-zA-Z]+)\*?(?:\[[^\]]*\]|\([^)]*\)|\{[^{}]*\})*\{[^{}]*/);
+  const command = match === null ? undefined : /^\\([a-zA-Z]+)/.exec(match.text)?.[1];
+  if (match === null || command === undefined) return null;
+  const brace = match.from + match.text.lastIndexOf('{') + 1;
+  const from = keyStart(brace, context.state.sliceDoc(brace, context.pos));
+  if (REFERENCE_COMMANDS.has(command)) {
+    const local = extractStructure(context.state.doc.toString()).labels.map((label) => label.name);
+    const names = [...new Set([...local, ...sources.labels])];
+    return {
+      from,
+      options: names.map((name) => ({ label: name, type: 'variable' })),
+      validFor: /^[^,}\s]*$/,
+    };
+  }
+  if (CITATION_COMMANDS.has(command)) {
+    const seen = new Set<string>();
+    const options: Completion[] = [];
+    for (const entry of sources.citations) {
+      if (seen.has(entry.key)) continue;
+      seen.add(entry.key);
+      const detail = citationDetail(entry);
+      options.push({
+        label: entry.key,
+        type: 'constant',
+        ...(detail === undefined ? {} : { detail }),
+        ...(entry.title === null ? {} : { info: entry.title }),
+      });
+    }
+    return { from, options, validFor: /^[^,}\s]*$/ };
+  }
+  return null;
+}
+
+/** Commands whose optional argument lists class or package options. */
+const OPTION_COMMANDS: Readonly<Record<string, Readonly<Record<string, readonly string[]>>>> = {
+  documentclass: CLASS_OPTIONS,
+  LoadClass: CLASS_OPTIONS,
+  usepackage: PACKAGE_OPTIONS,
+  RequirePackage: PACKAGE_OPTIONS,
+};
+
+/**
+ * Completes the options in `\usepackage[...]{name}` and `\documentclass[...]{name}`.
+ * The name follows the cursor, so it is read from the rest of the line.
+ */
+export function completeOption(context: CompletionContext): CompletionResult | null {
+  const match = context.matchBefore(/\\([a-zA-Z]+)\[[^\]]*/);
+  const command = match === null ? undefined : /^\\([a-zA-Z]+)/.exec(match.text)?.[1];
+  const table = command === undefined ? undefined : OPTION_COMMANDS[command];
+  if (match === null || table === undefined) return null;
+  const rest = context.state.sliceDoc(context.pos, context.state.doc.lineAt(context.pos).to);
+  const names = /^[^\]]*\]\s*\{([^}]*)\}/.exec(rest)?.[1];
+  if (names === undefined) return null;
+  const options = [...new Set(names.split(',').flatMap((name) => table[name.trim()] ?? []))];
+  if (options.length === 0) return null;
+  const bracket = match.from + match.text.indexOf('[') + 1;
+  return {
+    from: keyStart(bracket, context.state.sliceDoc(bracket, context.pos)),
+    options: options.map((option) => ({ label: option, type: 'property' })),
+    validFor: /^[^,\]\s=]*$/,
+  };
+}
+
+/** Completes package names in `\usepackage{` and class names in `\documentclass{`. */
+export function completePackageName(context: CompletionContext): CompletionResult | null {
+  const match = context.matchBefore(
+    /\\(usepackage|RequirePackage|documentclass)(?:\[[^\]]*\])?\{[^{}]*/,
+  );
+  if (match === null) return null;
+  const table = match.text.startsWith('\\documentclass') ? CLASS_OPTIONS : PACKAGE_OPTIONS;
+  const brace = match.from + match.text.lastIndexOf('{') + 1;
+  return {
+    from: keyStart(brace, context.state.sliceDoc(brace, context.pos)),
+    options: Object.keys(table).map((name) => ({ label: name, type: 'namespace' })),
+    validFor: /^[^,}\s]*$/,
+  };
+}
+
+/** A single completion source combining the contexts above. */
 export function latexCompletionSource(
   sources: () => CompletionSources,
 ): (context: CompletionContext) => CompletionResult | null {
@@ -126,6 +244,9 @@ export function latexCompletionSource(
     const current = sources();
     return (
       completeFilePath(context, current) ??
+      completeKey(context, current) ??
+      completeOption(context) ??
+      completePackageName(context) ??
       completeEnvironment(context, current) ??
       completeCommand(context, current)
     );
