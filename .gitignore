@@ -12,3 +12,5 @@ test-results/
 .DS_Store
 *.log
 .ca/
+# Captured compilation logs used as parser test fixtures.
+!packages/latex-log/src/__fixtures__/*.log
