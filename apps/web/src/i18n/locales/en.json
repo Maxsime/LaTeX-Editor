@@ -80,7 +80,8 @@
     "status": "Service status",
     "logout": "Sign out",
     "signedInAs": "Signed in as {{name}}",
-    "account": "My account"
+    "account": "My account",
+    "admin": "Administration"
   },
   "auth": {
     "fields": {
@@ -96,7 +97,9 @@
       "title": "Sign in",
       "submit": "Sign in",
       "noAccount": "No account yet?",
-      "register": "Create an account"
+      "register": "Create an account",
+      "oidc": "Sign in with {{name}}",
+      "or": "or with a password"
     },
     "register": {
       "title": "Create an account",
@@ -562,6 +565,18 @@
         "unpriced": "{{count}} requests on unpriced models are not counted.",
         "none": "No requests this month."
       }
+    },
+    "quotas": {
+      "title": "Storage and compile time",
+      "storage": "Storage",
+      "compile": "Compilation since {{since}}",
+      "unlimited": "{{used}} used, no limit",
+      "of": "{{used}} of {{limit}}",
+      "minutesUnlimited_one": "{{count}} minute, no limit",
+      "minutesUnlimited_other": "{{count}} minutes, no limit",
+      "minutesOf_one": "{{used}} of {{count}} minute",
+      "minutesOf_other": "{{used}} of {{count}} minutes",
+      "note": "Storage counts the files of the projects you own, trash included. Time counts the compilations you start, assistant previews included."
     }
   },
   "history": {
@@ -894,6 +909,121 @@
     "options": {
       "enabled": "AI assistant",
       "enabledHint": "When off, the assistant is offered to no member of the project."
+    }
+  },
+  "admin": {
+    "title": "Administration",
+    "forbidden": "This page is for the instance's administrators.",
+    "tabs": {
+      "users": "Users",
+      "invites": "Invitations",
+      "instance": "Registration and quotas",
+      "ai": "AI assistant",
+      "services": "Services"
+    },
+    "users": {
+      "search": "Search (name, username, address)",
+      "create": "Create an account",
+      "createTitle": "New account",
+      "makeAdmin": "Instance administrator",
+      "temporaryPassword": "Temporary password",
+      "temporaryPasswordNote": "Shown once. Give it to the person, who changes it after signing in.",
+      "resetNote": "Shown once. The person's open sessions were closed.",
+      "person": "Person",
+      "storage": "Storage",
+      "compile": "Compilation (month)",
+      "lastSeen": "Last activity",
+      "actions": "Actions",
+      "admin": "admin",
+      "disabled": "disabled",
+      "sso": "SSO",
+      "never": "never",
+      "manage": "Manage",
+      "minutes_one": "{{count}} min",
+      "minutes_other": "{{count}} min",
+      "total_one": "{{count}} account",
+      "total_other": "{{count}} accounts",
+      "previous": "Previous",
+      "next": "Next",
+      "enable": "Enable",
+      "disable": "Disable",
+      "grantAdmin": "Grant administration rights",
+      "revokeAdmin": "Revoke administration rights",
+      "resetPassword": "Reset the password",
+      "givePassword": "Give a password",
+      "quotas": "The person's quotas",
+      "quotasHint": "Empty: the instance default. -1: no limit."
+    },
+    "invites": {
+      "intro": "An invitation lets someone create an account when registration is by invitation. Each link works once.",
+      "validity": "Valid for",
+      "create": "Create an invitation",
+      "link": "Invitation link",
+      "once": "Shown once: copy it now.",
+      "pending": "Created {{created}}, valid until {{expires}}",
+      "used": "Used {{date}}",
+      "none": "No invitations."
+    },
+    "instance": {
+      "registration": "Registration",
+      "fromConsole": "Set in this console (takes precedence over the server configuration).",
+      "fromEnv": "Value of the server configuration (.env).",
+      "modes": {
+        "open": "Open to anyone",
+        "invite": "By invitation",
+        "closed": "Closed (accounts created by an administrator)"
+      }
+    },
+    "quotas": {
+      "title": "Default quotas",
+      "intro": "Apply to every account, unless a value of its own is set in the Users tab.",
+      "storageMb": "Storage per person (MB)",
+      "compileMinutes": "Compilation per month (minutes)",
+      "emptyUnlimited": "Empty: no limit.",
+      "invalid": "Enter a positive whole number, or leave empty."
+    },
+    "ai": {
+      "enabled": "Assistant enabled on the instance",
+      "default": "Default model",
+      "defaultIntro": "Offered to everyone without a provider of their own. The key is encrypted and never shown in full again.",
+      "baseUrlHint": "Required for an OpenAI-compatible server (Ollama, vLLM). Empty: the provider's official address.",
+      "vision": "Reads images",
+      "contextTokens": "Context window (tokens)",
+      "auto": "From the built-in table",
+      "autoHint": "Empty: from the built-in table.",
+      "yes": "Yes",
+      "no": "No",
+      "backToEnv": "Back to the server configuration",
+      "prices": "Model prices",
+      "pricesIntro": "One line per model: provider, model, price per million input tokens, output tokens, cached input tokens (empty if none), currency. They estimate the costs shown in My account.",
+      "badLine": "Line {{line}} is not valid.",
+      "savePrices": "Save prices",
+      "pricesSaved": "Prices saved."
+    },
+    "services": {
+      "version": "Galley version",
+      "texlive": "TeX Live release",
+      "unknown": "unknown (no worker started yet)",
+      "queue": "Compile queue",
+      "queueDetail": "{{waiting}} waiting, {{active}} running, {{failed}} failed",
+      "lastDay": "Compilations in the last 24 h",
+      "outcomes": {
+        "queued": "queued",
+        "running": "running",
+        "success": "succeeded",
+        "failure": "with errors",
+        "timeout": "timed out",
+        "cancelled": "cancelled",
+        "superseded": "superseded",
+        "error": "incidents"
+      },
+      "users": "Accounts",
+      "usersDetail": "{{total}} in all, {{active}} active in 30 days",
+      "projects": "Projects",
+      "storage": "Project storage",
+      "sso": "Single sign-on (OIDC)",
+      "ssoOff": "not configured",
+      "health": "Detailed service status"
     }
   }
 }

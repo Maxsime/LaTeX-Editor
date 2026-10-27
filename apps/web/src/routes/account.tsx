@@ -2,6 +2,7 @@ import type { AccessToken } from '@galley/shared';
 import { useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AiSection } from '../components/AccountAi.js';
+import { QuotaSection } from '../components/AccountQuotas.js';
 import { DictionarySection, ZoteroSection } from '../components/AccountWriting.js';
 import { Button, ConfirmDialog, ErrorAlert, TextField, useFieldError } from '../components/ui.js';
 import { useAccessTokenMutations, useAccessTokens } from '../lib/tokens.js';
@@ -55,6 +56,7 @@ export function AccountPage() {
   return (
     <div className="space-y-6">
       <h1 className="font-serif text-2xl font-semibold">{t('account.title')}</h1>
+      <QuotaSection />
       <section aria-labelledby="tokens-title" className="max-w-2xl space-y-3">
         <h2 id="tokens-title" className="text-lg font-semibold">
           {t('account.tokens.title')}
