@@ -60,7 +60,8 @@
     "projects": "Projects",
     "status": "Service status",
     "logout": "Sign out",
-    "signedInAs": "Signed in as {{name}}"
+    "signedInAs": "Signed in as {{name}}",
+    "account": "My account"
   },
   "auth": {
     "fields": {
@@ -441,5 +442,71 @@
     "alreadyMember": "You already have access to “{{project}}” ({{role}}).",
     "submit": "Join the project",
     "open": "Open the project"
+  },
+  "account": {
+    "title": "My account",
+    "tokens": {
+      "title": "Personal access tokens",
+      "intro": "A token is Git's password for cloning your projects, pulling and pushing changes. It has the same rights as you on your projects: keep it secret, revoke it if it leaks.",
+      "name": "Token name",
+      "namePlaceholder": "Laptop",
+      "expiry": "Valid for",
+      "create": "Create a token",
+      "created": "New token",
+      "once": "This token will not be shown again: copy it now.",
+      "list": "Active tokens",
+      "none": "No active token.",
+      "details": "created {{created}} · {{expires}} · last used: {{used}}",
+      "neverUsed": "never",
+      "revokeTitle": "Revoke the token",
+      "confirmRevoke": "Revoke “{{name}}”? Git will no longer be able to use it."
+    }
+  },
+  "history": {
+    "open": "History",
+    "title": "Project history",
+    "intro": "Every state of the project is kept. Restoring a version erases nothing: the replaced state stays in the history.",
+    "versions": "Versions",
+    "empty": "No version recorded yet.",
+    "more": "Older versions",
+    "pick": "Pick a version to see what changed since.",
+    "nameCurrent": "Name the current state",
+    "name": "Name",
+    "rename": "Rename",
+    "label": "Version name",
+    "download": "Download (zip)",
+    "restore": "Restore",
+    "restoreAll": "Restore this version",
+    "restoreFile": "Restore this file",
+    "confirmRestoreAll": "Replace every file of the project with this version's? The current state is recorded in the history first.",
+    "confirmRestoreFile": "Replace {{path}} with its content in this version? The current state is recorded in the history first.",
+    "sameAsCurrent": "This version is the same as the current state.",
+    "changesSince": "Changed since this version",
+    "showDiff": "Show differences",
+    "hideDiff": "Hide",
+    "diff": "Differences of {{path}}",
+    "unchangedLines_one": "{{count}} unchanged line",
+    "unchangedLines_other": "{{count}} unchanged lines",
+    "line": {
+      "added": "added: ",
+      "removed": "removed: "
+    },
+    "status": {
+      "added": "added",
+      "removed": "removed",
+      "modified": "modified"
+    },
+    "kind": {
+      "auto": "Automatic save",
+      "compile": "Successful compilation",
+      "named": "Named version",
+      "restore": "Restoration",
+      "git": "Git push"
+    },
+    "git": {
+      "title": "Clone with Git",
+      "hint": "Use a personal access token as password.",
+      "tokens": "Manage my tokens"
+    }
   }
 }

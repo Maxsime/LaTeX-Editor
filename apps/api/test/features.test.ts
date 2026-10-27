@@ -19,12 +19,14 @@ import { Redis } from 'ioredis';
 import type { StartedTestContainer } from 'testcontainers';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { buildApp } from '../src/app.js';
+import type { AppContext } from '../src/context.js';
 import { createDocumentGateway } from '../src/collab/documents.js';
 import { DEFAULT_ARCHIVE_LIMITS } from '../src/archive/limits.js';
 import { ensureSetupCode } from '../src/auth/setup.js';
 import { readConfig } from '../src/config.js';
-import { createDatabase, type Database, projectLinks, projects } from '@galley/db';
+import { createDatabase, type Database, projectLinks, projects, snapshots } from '@galley/db';
 import { runMigrations } from '@galley/db';
+import { pruneSnapshots, takeDueSnapshots } from '../src/history/snapshots.js';
 import { purgeTrash } from '../src/projects/purge.js';
 import { createS3Client, ensureBucket } from '../src/storage/s3.js';
 import {
@@ -57,6 +59,7 @@ describe.skipIf(!dockerAvailable)('accounts, projects and files', () => {
   let s3: S3Client;
   let app: FastifyInstance;
   let compileQueue: Queue<CompileJob, unknown>;
+  let context: AppContext;
   let ipCounter = 0;
   const client = (): Client => new Client(app, `10.0.0.${String(++ipCounter)}`);
 
@@ -111,19 +114,20 @@ describe.skipIf(!dockerAvailable)('accounts, projects and files', () => {
     await ensureBucket(s3, config.S3_BUCKET);
     const logger = createLogger({ service: 'api-test', level: 'silent' });
     compileQueue = new Queue(COMPILE_QUEUE, { connection: { url: config.VALKEY_URL } });
+    context = {
+      config,
+      database,
+      redis,
+      s3,
+      documents: createDocumentGateway(config, database, logger),
+      compileQueue,
+      synctex: () => Promise.reject(new Error('no SyncTeX in these tests')),
+    };
     app = buildApp({
       logger,
       version: 'test',
       probes: {},
-      context: {
-        config,
-        database,
-        redis,
-        s3,
-        documents: createDocumentGateway(config, database, logger),
-        compileQueue,
-        synctex: () => Promise.reject(new Error('no SyncTeX in these tests')),
-      },
+      context,
       archiveLimits: {
         ...DEFAULT_ARCHIVE_LIMITS,
         maxEntries: 100,
@@ -972,6 +976,253 @@ describe.skipIf(!dockerAvailable)('accounts, projects and files', () => {
           owner: expect.objectContaining({ displayName: 'bob' }) as unknown,
         }),
       );
+    });
+  });
+  describe('history', () => {
+    let projectId = '';
+    const later = () => new Date(Date.now() + 10 * 60_000);
+    const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0, 2]);
+
+    interface Summary {
+      id: string;
+      kind: string;
+      label: string | null;
+      authors: { displayName: string }[];
+      fileCount: number;
+    }
+    const history = async () =>
+      (await alice.send('GET', `/api/projects/${projectId}/history`)).json<{
+        snapshots: Summary[];
+      }>().snapshots;
+    const upload = (path: string, data: Buffer) =>
+      alice.send('POST', `/api/projects/${projectId}/files`, {
+        form: multipart([
+          { name: 'path', value: path },
+          { name: 'file', filename: path.split('/').at(-1) ?? path, data },
+        ]),
+      });
+    const content = async (version: string, path: string) =>
+      (
+        await alice.send(
+          'GET',
+          `/api/projects/${projectId}/history/${version}/content?path=${encodeURIComponent(path)}`,
+        )
+      ).body;
+
+    beforeAll(async () => {
+      const created = await alice.send('POST', '/api/projects', { json: { name: 'Historique' } });
+      projectId = created.json<{ project: { id: string } }>().project.id;
+    });
+
+    it('takes automatic snapshots of changed projects, with their authors', async () => {
+      await upload('main.tex', Buffer.from('\\documentclass{article}\nv1\n'));
+      await upload('figures/a.png', png);
+      expect(await takeDueSnapshots(context, later())).toBeGreaterThanOrEqual(1);
+      const [first] = await history();
+      expect(first).toMatchObject({ kind: 'auto', label: null, fileCount: 2 });
+      expect(first?.authors.map((author) => author.displayName)).toEqual(['alice']);
+      // Nothing changed since: no new snapshot, even when one is due.
+      const again = await takeDueSnapshots(context, new Date(Date.now() + 20 * 60_000));
+      expect(again).toBe(0);
+      expect(await history()).toHaveLength(1);
+    });
+
+    it('names versions and renames them', async () => {
+      const named = await alice.send('POST', `/api/projects/${projectId}/history`, {
+        json: { label: '  Rendu 1  ' },
+      });
+      expect(named.statusCode).toBe(201);
+      const { snapshot } = named.json<{ snapshot: Summary }>();
+      expect(snapshot).toMatchObject({ kind: 'named', label: 'Rendu 1' });
+      const renamed = await alice.send(
+        'PATCH',
+        `/api/projects/${projectId}/history/${snapshot.id}`,
+        { json: { label: null } },
+      );
+      expect(renamed.json<{ snapshot: Summary }>().snapshot.label).toBeNull();
+      await alice.send('PATCH', `/api/projects/${projectId}/history/${snapshot.id}`, {
+        json: { label: 'Rendu 1' },
+      });
+      const empty = await alice.send('POST', `/api/projects/${projectId}/history`, {
+        json: { label: '   ' },
+      });
+      expect(empty.statusCode).toBe(400);
+    });
+
+    it('compares versions and serves their contents', async () => {
+      const [named] = await history();
+      await upload('main.tex', Buffer.from('\\documentclass{article}\nv2\n'));
+      const tree = (await alice.send('GET', `/api/projects/${projectId}/tree`)).json<{
+        nodes: { id: string; name: string }[];
+      }>().nodes;
+      const image = tree.find((node) => node.name === 'a.png');
+      await alice.send('DELETE', `/api/projects/${projectId}/files/${image?.id ?? ''}`);
+      await upload('notes.md', Buffer.from('# notes\n'));
+
+      const compare = await alice.send(
+        'GET',
+        `/api/projects/${projectId}/history/compare?from=${named?.id ?? ''}`,
+      );
+      expect(compare.statusCode).toBe(200);
+      expect(
+        compare
+          .json<{ changes: { path: string; status: string; text: boolean }[] }>()
+          .changes.map(({ path, status, text }) => ({ path, status, text })),
+      ).toEqual([
+        { path: 'figures/a.png', status: 'removed', text: false },
+        { path: 'main.tex', status: 'modified', text: true },
+        { path: 'notes.md', status: 'added', text: true },
+      ]);
+      expect(await content(named?.id ?? '', 'main.tex')).toContain('v1');
+      expect(await content('current', 'main.tex')).toContain('v2');
+      const missing = await alice.send(
+        'GET',
+        `/api/projects/${projectId}/history/current/content?path=figures/a.png`,
+      );
+      expect(missing.statusCode).toBe(404);
+
+      const files = await alice.send(
+        'GET',
+        `/api/projects/${projectId}/history/${named?.id ?? ''}/files`,
+      );
+      expect(files.json<{ files: { path: string }[] }>().files.map((file) => file.path)).toEqual([
+        'figures/a.png',
+        'main.tex',
+      ]);
+    });
+
+    it('exports a version as a zip archive', async () => {
+      const [named] = await history();
+      const archive = await alice.send(
+        'GET',
+        `/api/projects/${projectId}/history/${named?.id ?? ''}/archive`,
+      );
+      expect(archive.headers['content-type']).toBe('application/zip');
+      const entries = await readZip(archive.rawPayload);
+      expect(entries.get('main.tex')?.toString()).toContain('v1');
+      expect(entries.get('figures/a.png')).toEqual(png);
+      expect(entries.has('notes.md')).toBe(false);
+    });
+
+    it('restores one file, then the whole project, without losing history', async () => {
+      const [named] = await history();
+      const before = (await history()).length;
+      const one = await alice.send(
+        'POST',
+        `/api/projects/${projectId}/history/${named?.id ?? ''}/restore`,
+        { json: { path: 'main.tex' } },
+      );
+      expect(one.statusCode).toBe(200);
+      expect(one.json<{ snapshot: Summary }>().snapshot.kind).toBe('restore');
+      expect(await content('current', 'main.tex')).toContain('v1');
+      // The other changes stay: the image is still gone, the notes still there.
+      const afterOne = await alice.send('GET', `/api/projects/${projectId}/history/current/files`);
+      expect(afterOne.json<{ files: { path: string }[] }>().files.map((file) => file.path)).toEqual(
+        ['main.tex', 'notes.md'],
+      );
+      // The state replaced was recorded first, then the restored one.
+      const listed = await history();
+      expect(listed.length).toBe(before + 2);
+      expect(listed.slice(0, 2).map((row) => row.kind)).toEqual(['restore', 'auto']);
+
+      const all = await alice.send(
+        'POST',
+        `/api/projects/${projectId}/history/${named?.id ?? ''}/restore`,
+        { json: {} },
+      );
+      expect(all.statusCode).toBe(200);
+      const files = await alice.send('GET', `/api/projects/${projectId}/history/current/files`);
+      expect(files.json<{ files: { path: string }[] }>().files.map((file) => file.path)).toEqual([
+        'figures/a.png',
+        'main.tex',
+      ]);
+      expect(await content('current', 'figures/a.png')).toEqual(png.toString());
+      expect((await history()).length).toBeGreaterThan(listed.length);
+
+      const absent = await alice.send(
+        'POST',
+        `/api/projects/${projectId}/history/${named?.id ?? ''}/restore`,
+        { json: { path: 'notes.md' } },
+      );
+      expect(absent.statusCode).toBe(404);
+    });
+
+    it('keeps one snapshot per hour after 30 days and per day after 90, and named ones', async () => {
+      const id = (await alice.send('POST', '/api/projects', { json: { name: 'Ancien' } })).json<{
+        project: { id: string };
+      }>().project.id;
+      const now = new Date();
+      const ago = (days: number, minutes = 0) =>
+        new Date(now.getTime() - days * 86_400_000 - minutes * 60_000);
+      // Hour buckets are aligned on the hour: anchor the old rows on one.
+      const hour = (days: number, minutes: number) => {
+        const date = ago(days);
+        date.setUTCMinutes(minutes, 0, 0);
+        return date;
+      };
+      const day = (days: number, hours: number) => {
+        const date = ago(days);
+        date.setUTCHours(hours, 0, 0, 0);
+        return date;
+      };
+      const row = (createdAt: Date, label: string | null = null) => ({
+        projectId: id,
+        kind: 'auto' as const,
+        label,
+        manifest: {},
+        folders: [],
+        digest: createdAt.toISOString(),
+        createdAt,
+      });
+      await database.db
+        .insert(snapshots)
+        .values([
+          row(ago(1)),
+          row(ago(1, 5)),
+          row(hour(40, 10)),
+          row(hour(40, 20)),
+          row(day(100, 3)),
+          row(day(100, 9)),
+          row(day(100, 6), 'Gardé'),
+        ]);
+      expect(await pruneSnapshots(database.db, now)).toBe(2);
+      const kept = await database.db
+        .select({ createdAt: snapshots.createdAt, label: snapshots.label })
+        .from(snapshots)
+        .where(eq(snapshots.projectId, id));
+      expect(kept).toHaveLength(5);
+      expect(kept.map((item) => item.createdAt.getTime())).toEqual(
+        expect.arrayContaining([hour(40, 20).getTime(), day(100, 9).getTime()]),
+      );
+      expect(kept.some((item) => item.label === 'Gardé')).toBe(true);
+    });
+
+    it('is reserved to members, and changes to editors', async () => {
+      const [named] = await history();
+      for (const url of [
+        `/api/projects/${projectId}/history`,
+        `/api/projects/${projectId}/history/current/files`,
+        `/api/projects/${projectId}/history/compare?from=${named?.id ?? ''}`,
+        `/api/projects/${projectId}/history/${named?.id ?? ''}/archive`,
+      ]) {
+        expect((await bob.send('GET', url)).statusCode).toBe(404);
+      }
+      const restore = await bob.send(
+        'POST',
+        `/api/projects/${projectId}/history/${named?.id ?? ''}/restore`,
+        { json: {} },
+      );
+      expect(restore.statusCode).toBe(404);
+
+      const link = await alice.send('POST', `/api/projects/${projectId}/links`, {
+        json: { role: 'reader' },
+      });
+      await bob.send('POST', `/api/links/${link.json<{ token: string }>().token}/join`);
+      expect((await bob.send('GET', `/api/projects/${projectId}/history`)).statusCode).toBe(200);
+      const forbidden = await bob.send('POST', `/api/projects/${projectId}/history`, {
+        json: { label: 'non' },
+      });
+      expect(forbidden.statusCode).toBe(403);
     });
   });
 });

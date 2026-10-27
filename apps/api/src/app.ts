@@ -3,7 +3,7 @@ import type { HealthProbe } from '@galley/shared';
 import multipart from '@fastify/multipart';
 import rateLimit from '@fastify/rate-limit';
 import Fastify, { type FastifyBaseLogger, type FastifyInstance } from 'fastify';
-import type { ArchiveLimits } from './archive/limits.js';
+import { type ArchiveLimits, DEFAULT_ARCHIVE_LIMITS } from './archive/limits.js';
 import { registerAuth } from './auth/plugin.js';
 import type { AppContext } from './context.js';
 import { registerErrorHandling } from './errors.js';
@@ -15,6 +15,9 @@ import { compileRoutes } from './routes/compile.js';
 import { editorRoutes } from './routes/editor.js';
 import { fileRoutes } from './routes/files.js';
 import { healthRoutes } from './routes/health.js';
+import { historyRoutes } from './routes/history.js';
+import { tokenRoutes } from './routes/tokens.js';
+import { gitRoutes } from './routes/git.js';
 import { projectRoutes } from './routes/projects.js';
 import { sharingRoutes } from './routes/sharing.js';
 import { tagRoutes } from './routes/tags.js';
@@ -94,6 +97,15 @@ export function buildApp({
       editorRoutes(api, context);
       archiveRoutes(api, context, archiveLimits);
       compileRoutes(api, context);
+      historyRoutes(api, context);
+      tokenRoutes(api, context);
+    });
+    // Git clients authenticate with access tokens, never with the session cookie.
+    void app.register((gitApp, _options, done) => {
+      gitRoutes(gitApp, context, {
+        maxEntries: (archiveLimits ?? DEFAULT_ARCHIVE_LIMITS).maxEntries,
+      });
+      done();
     });
   }
 

@@ -1,4 +1,5 @@
 import { createRootRoute, createRoute, createRouter } from '@tanstack/react-router';
+import { AccountPage } from './routes/account.js';
 import { IndexRedirect, LoginPage, RegisterPage, RequireAuth, SetupPage } from './routes/auth.js';
 import { DashboardPage } from './routes/dashboard.js';
 import { JoinPage } from './routes/join.js';
@@ -43,6 +44,11 @@ const projectRoute = route('/projects/$projectId', () => (
     <ProjectPage />
   </RequireAuth>
 ));
+const accountRoute = route('/account', () => (
+  <RequireAuth>
+    <AccountPage />
+  </RequireAuth>
+));
 const joinRoute = route('/join/$token', () => (
   <RequireAuth>
     <JoinPage />
@@ -59,6 +65,7 @@ export const router = createRouter({
     projectsRoute,
     projectRoute,
     joinRoute,
+    accountRoute,
   ]),
 });
 

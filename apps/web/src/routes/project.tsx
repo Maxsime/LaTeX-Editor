@@ -5,6 +5,7 @@ import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { CompilePane } from '../components/CompilePane.js';
 import { FileTree, type TreeActions } from '../components/FileTree.js';
+import { HistoryDialog } from '../components/HistoryDialog.js';
 import { OutlinePanel } from '../components/OutlinePanel.js';
 import { PresenceBadges } from '../components/PresenceBadges.js';
 import { SearchPanel } from '../components/SearchPanel.js';
@@ -78,6 +79,7 @@ export function ProjectPage() {
   const [panel, setPanel] = useState<Panel>('files');
   const [newFile, setNewFile] = useState(false);
   const [sharing, setSharing] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const compiles = useLatestCompile(projectId);
   const { viewMode, setViewMode } = useCompilePreferences();
 
@@ -164,6 +166,13 @@ export function ProjectPage() {
           }}
         >
           {t('share.open')}
+        </Button>
+        <Button
+          onClick={() => {
+            setHistoryOpen(true);
+          }}
+        >
+          {t('history.open')}
         </Button>
         <label className="flex items-center gap-2 text-sm">
           <span>{t('project.mainFile')}</span>
@@ -328,6 +337,12 @@ export function ProjectPage() {
       {project.data && (
         <ShareDialog project={project.data} open={sharing} onOpenChange={setSharing} />
       )}
+      <HistoryDialog
+        projectId={projectId}
+        canEdit={canEdit}
+        open={historyOpen}
+        onOpenChange={setHistoryOpen}
+      />
       <NameDialog
         open={newFile}
         onOpenChange={setNewFile}

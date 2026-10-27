@@ -32,6 +32,13 @@ http://:2019 {
 		}
 	}
 
+	# Git smart HTTP; the API authenticates with personal access tokens.
+	handle /git/* {
+		reverse_proxy api:3000 {
+			header_up X-Request-Id {http.request.uuid}
+		}
+	}
+
 	# Only WebSocket upgrades reach collab; its probes and metrics stay internal.
 	@collab {
 		path /collab /collab/*

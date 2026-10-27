@@ -92,6 +92,8 @@ export function createCollab({
 
   /** Project of each loaded document, to flush or close a project's documents. */
   const projectOf = new Map<string, string>();
+  /** Users who changed each document since its last write: the authors of the next snapshot. */
+  const editorsOf = new Map<string, Set<string>>();
   /** Documents being dropped: their pending writes must not reach the database. */
   const dropped = new Set<string>();
 
@@ -185,16 +187,29 @@ export function createCollab({
       if (stored.state !== null) Y.applyUpdate(document, stored.state);
     },
 
+    onChange({ documentName, context }) {
+      // Same context as in beforeHandleAwareness; server-side changes carry an empty one.
+      const identity = context as Partial<CollabContext> | undefined;
+      if (typeof identity?.userId !== 'string') return Promise.resolve();
+      const editors = editorsOf.get(documentName) ?? new Set<string>();
+      editors.add(identity.userId);
+      editorsOf.set(documentName, editors);
+      return Promise.resolve();
+    },
+
     async onStoreDocument({ documentName, document }) {
       const target = parseDocumentName(documentName);
       if (target?.kind !== 'file' || dropped.has(documentName)) return;
       const content = document.getText(TEXT_KEY).toJSON();
+      const authors = [...(editorsOf.get(documentName) ?? [])];
+      editorsOf.delete(documentName);
       try {
         const written = await storeFileState(
           db,
           target.id,
           Y.encodeStateAsUpdate(document),
           Buffer.byteLength(content, 'utf8'),
+          authors,
         );
         stores.inc({ result: written ? 'written' : 'gone' });
         if (!written) {
@@ -205,6 +220,9 @@ export function createCollab({
       } catch (error) {
         stores.inc({ result: 'failed' });
         logger.error({ err: error, fileId: target.id }, 'document store failed');
+        const editors = editorsOf.get(documentName) ?? new Set<string>();
+        for (const author of authors) editors.add(author);
+        editorsOf.set(documentName, editors);
         // Rethrown so that Hocuspocus keeps the document in memory and retries later.
         throw error;
       }
@@ -212,6 +230,7 @@ export function createCollab({
 
     afterUnloadDocument({ documentName }) {
       projectOf.delete(documentName);
+      editorsOf.delete(documentName);
       dropped.delete(documentName);
       return Promise.resolve();
     },

@@ -60,7 +60,8 @@
     "projects": "Projets",
     "status": "État des services",
     "logout": "Se déconnecter",
-    "signedInAs": "Connecté en tant que {{name}}"
+    "signedInAs": "Connecté en tant que {{name}}",
+    "account": "Mon compte"
   },
   "auth": {
     "fields": {
@@ -441,5 +442,71 @@
     "alreadyMember": "Vous avez déjà accès à « {{project}} » ({{role}}).",
     "submit": "Rejoindre le projet",
     "open": "Ouvrir le projet"
+  },
+  "account": {
+    "title": "Mon compte",
+    "tokens": {
+      "title": "Jetons d'accès personnels",
+      "intro": "Un jeton sert de mot de passe à Git pour cloner vos projets, récupérer et envoyer des modifications. Il donne les mêmes droits que vous sur vos projets : gardez-le secret, révoquez-le s'il fuit.",
+      "name": "Nom du jeton",
+      "namePlaceholder": "Ordinateur portable",
+      "expiry": "Validité",
+      "create": "Créer un jeton",
+      "created": "Nouveau jeton",
+      "once": "Ce jeton ne sera plus affiché : copiez-le maintenant.",
+      "list": "Jetons actifs",
+      "none": "Aucun jeton actif.",
+      "details": "créé le {{created}} · {{expires}} · dernier usage : {{used}}",
+      "neverUsed": "jamais",
+      "revokeTitle": "Révoquer le jeton",
+      "confirmRevoke": "Révoquer « {{name}} » ? Git ne pourra plus s'en servir."
+    }
+  },
+  "history": {
+    "open": "Historique",
+    "title": "Historique du projet",
+    "intro": "Chaque état du projet est conservé. Restaurer une version n'efface rien : l'état remplacé reste dans l'historique.",
+    "versions": "Versions",
+    "empty": "Aucune version enregistrée pour l'instant.",
+    "more": "Versions plus anciennes",
+    "pick": "Choisissez une version pour voir ce qui a changé depuis.",
+    "nameCurrent": "Nommer l'état actuel",
+    "name": "Nommer",
+    "rename": "Renommer",
+    "label": "Nom de la version",
+    "download": "Télécharger (zip)",
+    "restore": "Restaurer",
+    "restoreAll": "Restaurer cette version",
+    "restoreFile": "Restaurer ce fichier",
+    "confirmRestoreAll": "Remplacer tous les fichiers du projet par ceux de cette version ? L'état actuel est enregistré dans l'historique avant.",
+    "confirmRestoreFile": "Remplacer {{path}} par son contenu dans cette version ? L'état actuel est enregistré dans l'historique avant.",
+    "sameAsCurrent": "Cette version est identique à l'état actuel.",
+    "changesSince": "Modifié depuis cette version",
+    "showDiff": "Voir les différences",
+    "hideDiff": "Masquer",
+    "diff": "Différences de {{path}}",
+    "unchangedLines_one": "{{count}} ligne inchangée",
+    "unchangedLines_other": "{{count}} lignes inchangées",
+    "line": {
+      "added": "ajoutée : ",
+      "removed": "supprimée : "
+    },
+    "status": {
+      "added": "ajouté",
+      "removed": "supprimé",
+      "modified": "modifié"
+    },
+    "kind": {
+      "auto": "Enregistrement automatique",
+      "compile": "Compilation réussie",
+      "named": "Version nommée",
+      "restore": "Restauration",
+      "git": "Envoi Git"
+    },
+    "git": {
+      "title": "Cloner avec Git",
+      "hint": "Utilisez un jeton d'accès personnel comme mot de passe.",
+      "tokens": "Gérer mes jetons"
+    }
   }
 }

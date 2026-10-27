@@ -179,3 +179,25 @@ Invitations nominatives réservées aux comptes existants : sans SMTP, une invit
 Révocation immédiate par fermeture de la WebSocket entière de l'utilisateur concerné, et non du seul document (`Connection.close` de Hocuspocus) : un document fermé seul n'est jamais réautorisé par le client, qui resterait sans événements ni droits à jour. Alternative écartée : vérifier le rôle à chaque message, coûteux et redondant avec l'autorisation à la connexion.
 
 Identité de présence imposée par le serveur (`beforeHandleAwareness`) plutôt que validée : le client n'a aucune raison légitime d'annoncer une autre identité que la sienne.
+
+## 2026-10-27 — Historique (J6)
+
+Instantanés stockés comme manifestes (chemin vers empreinte de blob) dans PostgreSQL : les contenus sont déjà dans le stockage par adressage de contenu, un instantané ne coûte que sa liste. Les auteurs viennent d'une table `project_activity` remplie par `collab` (connexions ayant modifié un document) et par l'API (arborescence, remplacement, push), vidée à chaque instantané. Un balayage chaque minute (file de maintenance BullMQ) prend un instantané des projets actifs dont le dernier date de plus de 5 min ; une compilation réussie en prend un aussi. Les instantanés d'un projet sont sérialisés par un verrou Valkey.
+
+Restaurer un fichier ou tout le projet enregistre d'abord l'état remplacé, puis applique la cible en une transaction sur l'arborescence ; les textes ouverts sont remplacés par `collab`, donc visibles aussitôt dans les éditeurs. Rien n'est jamais supprimé de l'historique par une restauration.
+
+Comparaison dans le navigateur avec `diff` (jsdiff) 9.0.0 (BSD-3-Clause, environ 10 kB gzip, chargé avec le panneau). Alternative écartée : différentiel calculé par l'API, plus de charge serveur pour un affichage seulement.
+
+## 2026-10-27 — Pont Git (J6)
+
+Contexte. SPEC §4 prévoit Git natif servi en smart HTTP par `git http-backend`. Dans Alpine, `http-backend` est dans le paquet `git-daemon`, avec le démon et ses scripts de service.
+
+Décision. L'API lance directement `git upload-pack` et `git receive-pack` en mode `--stateless-rpc` (avec `--http-backend-info-refs` pour l'annonce des références), exactement ce que fait `http-backend`, sans couche CGI. Seul le paquet `git` est installé. Le corps des requêtes est transmis en flux, décompressé si besoin, et borné avant et après décompression.
+
+- Authentification HTTP Basic, mot de passe = jeton d'accès personnel (`glp_` + 32 octets aléatoires, seule l'empreinte SHA-256 est stockée). Lecture pour tout membre, écriture pour éditeur et propriétaire. 30 échecs d'authentification par adresse et par quart d'heure, au-delà de quoi les requêtes sont refusées.
+- Un dépôt nu par projet dans le volume `git-data`, branche `main`. À chaque annonce de références, si les fichiers du projet diffèrent du dernier commit servi, l'API crée un commit (plomberie : `hash-object`, `mktree`, `commit-tree`), avec les auteurs des instantanés de la période. Les identifiants d'objets Git sont gardés par empreinte de blob pour ne pas réhacher les fichiers inchangés.
+- Push : crochet `pre-receive` (`apps/api/hooks/pre-receive.mjs`) qui transmet les mises à jour à une route interne de l'API, authentifiée par un secret propre à chaque push. L'API lit l'arbre poussé dans le répertoire de quarantaine de Git (vérifié comme étant dans le dépôt), refuse autre chose que `main`, les liens symboliques, les sous-modules, les chemins invalides, les fichiers et pushs trop gros, puis applique l'arbre comme une restauration et prend un instantané `git`. Un push qui ne part pas du dernier commit servi, ou alors que le projet a changé, est refusé en entier : l'utilisateur fait `git pull`, Git fusionne chez lui.
+- Git ne connaît pas les dossiers vides : ceux du projet sont conservés par un push.
+- Messages de refus en français, ou en anglais si le client Git annonce l'anglais (`Accept-Language`, déduit de `LANG`).
+
+Alternatives écartées. `http-backend` avec `git-daemon` : un paquet et une couche CGI de plus pour le même résultat. Bibliothèque Git en JavaScript (isomorphic-git) : protocole serveur incomplet, moins éprouvée que Git. Fusion côté serveur des pushs en retard : conflits impossibles à présenter à l'utilisateur pendant un push.

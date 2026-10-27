@@ -17,6 +17,7 @@ import type { Job, Queue } from 'bullmq';
 import { and, desc, eq, inArray, isNotNull } from 'drizzle-orm';
 import type { FastifyBaseLogger } from 'fastify';
 import type { AppContext } from '../context.js';
+import { takeSnapshot } from '../history/snapshots.js';
 import { materializeProject } from '../materialize.js';
 import type { ProjectRow } from '../projects/access.js';
 import { publishProjectEvent } from '../projects/events.js';
@@ -224,7 +225,18 @@ async function finish(
     return;
   }
   const { outcome, ...result } = parsed.data;
-  await settle(context, [compileId], { status: outcome, result, finishedAt: new Date() }, logger);
+  const rows = await settle(
+    context,
+    [compileId],
+    { status: outcome, result, finishedAt: new Date() },
+    logger,
+  );
+  // A successful compilation marks a state worth keeping, if it is new (SPEC §6.7).
+  for (const row of outcome === 'success' ? rows : []) {
+    takeSnapshot(context, row.projectId, 'compile').catch((error: unknown) => {
+      logger.error({ err: error, projectId: row.projectId }, 'snapshot after compilation failed');
+    });
+  }
 }
 
 async function fail(

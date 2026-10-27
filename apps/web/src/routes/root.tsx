@@ -25,6 +25,9 @@ function UserMenu() {
       <span className="hidden text-slate-600 sm:inline">
         {t('nav.signedInAs', { name: user.displayName })}
       </span>
+      <Link to="/account" className="text-ink hover:underline">
+        {t('nav.account')}
+      </Link>
       <Button
         variant="ghost"
         onClick={() => {

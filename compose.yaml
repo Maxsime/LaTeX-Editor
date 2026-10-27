@@ -76,6 +76,10 @@ services:
       SESSION_TTL_DAYS: ${SESSION_TTL_DAYS:-30}
       COLLAB_INTERNAL_URL: http://collab:3001
       COLLAB_INTERNAL_TOKEN: ${COLLAB_INTERNAL_TOKEN:-galley-dev-internal-token-change-me}
+      GIT_MAX_PUSH_MB: ${GIT_MAX_PUSH_MB:-100}
+    volumes:
+      # One bare repository per project; rebuilt from the project if lost (SPEC §6.7).
+      - git-data:/var/lib/galley/git
     depends_on:
       postgres: { condition: service_healthy }
       valkey: { condition: service_healthy }
@@ -200,5 +204,6 @@ volumes:
   compile-work: {}
   valkey-data: {}
   storage-data: {}
+  git-data: {}
   caddy-data: {}
   caddy-config: {}

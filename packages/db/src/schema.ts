@@ -269,3 +269,88 @@ export const compileRuns = pgTable(
   },
   (table) => [index('compile_runs_project_idx').on(table.projectId, table.createdAt)],
 );
+
+export const snapshotKindEnum = pgEnum('snapshot_kind', [
+  'auto',
+  'compile',
+  'named',
+  'restore',
+  'git',
+]);
+
+/**
+ * A recorded state of a project (SPEC §6.7): every file path with the SHA-256
+ * of its content, plus the folders, so that empty ones survive a restore.
+ */
+export const snapshots = pgTable(
+  'snapshots',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    projectId: uuid('project_id')
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade' }),
+    kind: snapshotKindEnum('kind').notNull(),
+    /** Name given by a user; named versions are kept forever. */
+    label: text('label'),
+    /** Users who changed the project since the previous snapshot. */
+    authorIds: uuid('author_ids')
+      .array()
+      .notNull()
+      .default(sql`'{}'::uuid[]`),
+    manifest: jsonb('manifest').$type<Record<string, string>>().notNull(),
+    folders: jsonb('folders').$type<string[]>().notNull(),
+    /** SHA-256 of manifest and folders, to skip snapshots of an unchanged state. */
+    digest: text('digest').notNull(),
+    ...timestamps,
+  },
+  (table) => [index('snapshots_project_idx').on(table.projectId, table.createdAt)],
+);
+
+/** Who changed a project since its last snapshot; emptied by each snapshot. */
+export const projectActivity = pgTable(
+  'project_activity',
+  {
+    projectId: uuid('project_id')
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    /** First change since the last snapshot. */
+    since: timestamp('since', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [primaryKey({ columns: [table.projectId, table.userId] })],
+);
+
+/** Token a user creates to authenticate Git over HTTP (SPEC §3.5). */
+export const personalAccessTokens = pgTable(
+  'personal_access_tokens',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    tokenHash: text('token_hash').notNull().unique(),
+    /** Last four characters, so that the user can tell tokens apart. */
+    hint: text('hint').notNull(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }),
+    lastUsedAt: timestamp('last_used_at', { withTimezone: true }),
+    revokedAt: timestamp('revoked_at', { withTimezone: true }),
+    ...timestamps,
+  },
+  (table) => [index('personal_access_tokens_user_idx').on(table.userId)],
+);
+
+/** The last commit the Git bridge served for a project, and the state it holds. */
+export const gitRepositories = pgTable('git_repositories', {
+  projectId: uuid('project_id')
+    .primaryKey()
+    .references(() => projects.id, { onDelete: 'cascade' }),
+  commit: text('commit').notNull(),
+  /** Digest of the project state the commit was made from (see `snapshots.digest`). */
+  digest: text('digest').notNull(),
+  /** Git object id of each blob served or received, by SHA-256, to skip rehashing. */
+  objects: jsonb('objects').$type<Record<string, string>>().notNull().default({}),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
