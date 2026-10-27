@@ -17,6 +17,7 @@ import {
   fileDocumentName,
   healthResponse,
   projectChannel,
+  presenceUserOf,
   projectDocumentName,
   type ProjectRole,
   SESSION_COOKIE,
@@ -25,7 +26,7 @@ import {
 import { createLogger } from '@galley/shared/node';
 import { HocuspocusProvider, HocuspocusProviderWebsocket } from '@hocuspocus/provider';
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from '@testcontainers/postgresql';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { Redis } from 'ioredis';
 import { GenericContainer, type StartedTestContainer, Wait } from 'testcontainers';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -79,7 +80,7 @@ describe.skipIf(!dockerAvailable)('collab server', () => {
   const sockets: HocuspocusProviderWebsocket[] = [];
 
   /** Creates a user with a live session and returns the cookie token. */
-  async function signedInUser(): Promise<{ id: string; token: string }> {
+  async function signedInUser(): Promise<{ id: string; token: string; displayName: string }> {
     const suffix = randomUUID().slice(0, 8);
     const [user] = await database.db
       .insert(users)
@@ -98,7 +99,7 @@ describe.skipIf(!dockerAvailable)('collab server', () => {
       csrfToken: 'csrf',
       expiresAt: new Date(Date.now() + 3_600_000),
     });
-    return { id: user.id, token };
+    return { id: user.id, token, displayName: suffix };
   }
 
   /** A project owned by a fresh user, with one text file and optional extra members. */
@@ -108,8 +109,8 @@ describe.skipIf(!dockerAvailable)('collab server', () => {
   ): Promise<{
     projectId: string;
     fileId: string;
-    owner: { id: string; token: string };
-    others: { id: string; token: string }[];
+    owner: { id: string; token: string; displayName: string };
+    others: { id: string; token: string; displayName: string }[];
   }> {
     const owner = await signedInUser();
     const [project] = await database.db
@@ -447,6 +448,52 @@ describe.skipIf(!dockerAvailable)('collab server', () => {
       });
     });
     expect(JSON.parse(await received)).toEqual({ type: 'tree.changed', projectId });
+  });
+
+  it('shows every participant under their own account, whatever they announce', async () => {
+    const { fileId, owner, others } = await projectWithFile('', ['editor']);
+    const [editor] = others;
+    if (!editor) throw new Error('missing member');
+    const impostor = await synced(fileDocumentName(fileId), editor.token);
+    const watcher = await synced(fileDocumentName(fileId), owner.token);
+    impostor.setAwarenessField('user', { id: owner.id, name: 'Not me', color: '#000000' });
+    impostor.setAwarenessField('cursor', { anchor: 1 });
+
+    await eventually(() => {
+      const states = [...(watcher.awareness?.getStates().values() ?? [])];
+      const announced = states.find((state) => state.cursor !== undefined);
+      expect(announced?.user).toEqual(presenceUserOf(editor.id, editor.displayName));
+    });
+  });
+
+  it('disconnects a member whose access changed, who comes back with the new rights', async () => {
+    const { fileId, projectId, owner, others } = await projectWithFile('text', ['editor']);
+    const [editor] = others;
+    if (!editor) throw new Error('missing member');
+    const ownerProvider = await synced(fileDocumentName(fileId), owner.token);
+    let closed = false;
+    const editorProvider = await synced(fileDocumentName(fileId), editor.token);
+    editorProvider.on('close', () => {
+      closed = true;
+    });
+
+    await database.db
+      .delete(projectMembers)
+      .where(and(eq(projectMembers.projectId, projectId), eq(projectMembers.userId, editor.id)));
+    await redis.publish(
+      projectChannel(projectId),
+      JSON.stringify({ type: 'members.changed', projectId, userId: editor.id }),
+    );
+
+    await eventually(() => {
+      expect(closed).toBe(true);
+    });
+    expect(await refusal(fileDocumentName(fileId), editor.token)).toBe('forbidden');
+    // Other members stay connected and keep editing.
+    ownerProvider.document.getText(TEXT_KEY).insert(0, 'still ');
+    await eventually(async () => {
+      expect(await storedText(fileId)).toBe('still text');
+    });
   });
 
   it('closes connections that send oversized frames', async () => {
