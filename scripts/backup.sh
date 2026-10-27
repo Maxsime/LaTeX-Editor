@@ -33,6 +33,9 @@ trap 'rm -rf "$work"' EXIT
 cli() { docker compose exec -T api node dist/cli/admin.js "$@"; }
 
 echo "Backing up to $target"
+# Fingerprinted before and after: equal values mean nothing changed meanwhile,
+# and restore.sh --verify can then expect exactly this content back.
+before=$(cli fingerprint)
 # Database first, objects next: objects are never rewritten, so every row of the
 # dump finds its object; an object stored after the dump is merely unused.
 docker compose exec -T postgres sh -c \
@@ -48,6 +51,10 @@ echo "  git repositories: $(du -h "$work/git.tar" | cut -f1)"
 
 info=$(cli backup-info)
 fingerprint=$(cli fingerprint)
+if [[ "$fingerprint" != "$before" ]]; then
+  echo "  the instance changed during the backup: usable, but not verifiable by its fingerprint"
+  fingerprint=null
+fi
 printf '{"createdAt":"%s","application":%s,"objects":%s,"fingerprint":%s}\n' \
   "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$info" "$(cat "$work/objects.json")" "$fingerprint" \
   > "$work/manifest.json"

@@ -97,7 +97,8 @@ async function backupInfoCommand(database: Database): Promise<void> {
     select count(*)::text as count from drizzle.__drizzle_migrations`;
   print(
     JSON.stringify({
-      version: readPackageVersion(import.meta.url),
+      // This file sits one level deeper than the modules the helper expects.
+      version: readPackageVersion(new URL('../cli.js', import.meta.url).href),
       migrations: Number(rows[0]?.count ?? 0),
     }),
   );

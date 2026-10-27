@@ -6,7 +6,7 @@
 #
 # --yes skips the confirmation asked when the instance already has accounts.
 # --verify fails unless the restored content has the fingerprint recorded in the
-# backup, which holds when the instance was quiet while it was backed up (CI).
+# backup, which backup.sh records only when nothing changed while it ran.
 # The master key is not in the backup: put the original GALLEY_MASTER_KEY in
 # .env first, or the stored Zotero and AI keys cannot be read (users then
 # enter them again; nothing else is lost).
@@ -60,7 +60,7 @@ echo "Stopping the application services"
 docker compose stop caddy collab api compiler
 
 echo "Restoring the database"
-psql -qc 'drop schema if exists drizzle cascade; drop schema public cascade; create schema public;'
+psql -qc 'set client_min_messages = warning; drop schema if exists drizzle cascade; drop schema public cascade; create schema public;'
 docker compose exec -T postgres sh -c \
   'pg_restore --username="$POSTGRES_USER" --dbname="$POSTGRES_DB" --no-owner --exit-on-error' \
   < "$source_dir/database.dump"
@@ -80,9 +80,12 @@ docker compose run --rm --no-deps -T --entrypoint sh api -c \
   < "$source_dir/git.tar"
 
 # Compared before any service runs, so that nothing has changed the content yet.
-expected=$(sed -n 's/.*"fingerprint":\({[^}]*}\).*/\1/p' "$source_dir/manifest.json")
+expected=$(sed -n 's/.*"fingerprint":\({[^}]*}\|null\).*/\1/p' "$source_dir/manifest.json")
 restored=$(docker compose run --rm --no-deps -T api node dist/cli/admin.js fingerprint)
-if [[ "$restored" == "$expected" ]]; then
+if [[ "$expected" == null ]]; then
+  echo "The backup has no fingerprint: the instance changed while it was made. Restored: $restored"
+  if [[ "$verify" == true ]]; then exit 1; fi
+elif [[ "$restored" == "$expected" ]]; then
   echo "Fingerprint matches the backup: $restored"
 elif [[ "$verify" == true ]]; then
   echo "Fingerprint differs from the backup." >&2

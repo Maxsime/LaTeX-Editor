@@ -7,12 +7,26 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 backups=$(mktemp -d)
+account="restore$(date +%s)"
 created=$(docker compose exec -T api node dist/cli/admin.js create-user \
-  --email restore-check@example.org --username restore-check --name "Restore check")
+  --email "$account@example.org" --username "$account" --name "Restore check")
 password=$(sed -n 's/^Temporary password: //p' <<< "$created")
 
-scripts/backup.sh "$backups"
-backup=$(find "$backups" -mindepth 1 -maxdepth 1 -type d -name 'galley-*' | head -n 1)
+# Background jobs (automatic history versions) may change the instance while it
+# is backed up; a backup is verifiable only when nothing changed, hence retries.
+backup=""
+for attempt in 1 2 3; do
+  folder="$backups/$attempt"
+  scripts/backup.sh "$folder"
+  backup=$(find "$folder" -mindepth 1 -maxdepth 1 -type d -name 'galley-*' | head -n 1)
+  if ! grep -q '"fingerprint":null' "$backup/manifest.json"; then break; fi
+  backup=""
+  sleep 5
+done
+if [[ -z "$backup" ]]; then
+  echo "No quiet backup after three attempts." >&2
+  exit 1
+fi
 ls -l "$backup"
 
 docker compose down --volumes
@@ -21,7 +35,7 @@ scripts/restore.sh "$backup" --yes --verify
 
 status=$(curl --silent --insecure --output /dev/null --write-out '%{http_code}' \
   --header 'content-type: application/json' \
-  --data "{\"login\":\"restore-check\",\"password\":\"$password\"}" \
+  --data "{\"login\":\"$account\",\"password\":\"$password\"}" \
   https://localhost/api/auth/login)
 if [[ "$status" != 200 ]]; then
   echo "Signing in after the restore answered $status." >&2
