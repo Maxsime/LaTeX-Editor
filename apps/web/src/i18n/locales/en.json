@@ -41,7 +41,11 @@
     "RATE_LIMITED": "Too many requests, try again later.",
     "INVALID_PATTERN": "Invalid regular expression.",
     "SERVICE_UNAVAILABLE": "Service temporarily unavailable.",
-    "INTERNAL_ERROR": "Internal error."
+    "INTERNAL_ERROR": "Internal error.",
+    "USER_NOT_FOUND": "No account matches. The person must sign up first; you can also send them a share link.",
+    "ALREADY_MEMBER": "This person is already a member of the project.",
+    "LINK_INVALID": "This share link is not valid: it has expired or been revoked.",
+    "OWNER_CANNOT_LEAVE": "The owner cannot leave their project: transfer ownership first."
   },
   "common": {
     "cancel": "Cancel",
@@ -176,6 +180,17 @@
         "blank": "Blank project",
         "article": "Article with bibliography"
       }
+    },
+    "invites": {
+      "title": "Invitations",
+      "from": "{{name}} invites you to join “{{project}}” as {{role}}.",
+      "anonymous": "You are invited to join “{{project}}” as {{role}}.",
+      "accept": "Accept",
+      "decline": "Decline"
+    },
+    "flash": {
+      "accessLost": "You no longer have access to this project.",
+      "projectDeleted": "This project has been deleted."
     }
   },
   "project": {
@@ -366,5 +381,65 @@
     "pages_other": "{{count}} pages",
     "download": "Download PDF",
     "loadFailed": "The PDF could not be shown."
+  },
+  "roles": {
+    "owner": "Owner",
+    "editor": "Editor",
+    "reviewer": "Reviewer",
+    "reader": "Reader"
+  },
+  "share": {
+    "open": "Share",
+    "title": "Share “{{project}}”",
+    "members": {
+      "title": "Members",
+      "role": "{{name}}'s role",
+      "transfer": "Transfer ownership",
+      "remove": "Remove",
+      "leave": "Leave project",
+      "confirmRemove": "Remove {{name}} from the project? Their access ends immediately.",
+      "confirmTransfer": "Make {{name}} the owner of the project? You will become an editor and will no longer manage sharing.",
+      "confirmLeave": "Leave “{{project}}”? You will need a new invitation to come back."
+    },
+    "invite": {
+      "title": "Invite someone",
+      "identifier": "E-mail address or username",
+      "role": "Offered role",
+      "submit": "Invite",
+      "hint": "The person needs an account. The invitation appears on their dashboard.",
+      "pending": "Pending invitations",
+      "pendingRole": "invited as {{role}}",
+      "cancel": "Cancel"
+    },
+    "links": {
+      "title": "Share links",
+      "role": "Role given by the link",
+      "expiry": "Link validity",
+      "never": "No limit",
+      "days_one": "{{count}} day",
+      "days_other": "{{count}} days",
+      "create": "Create a link",
+      "created": "New link",
+      "copy": "Copy",
+      "copied": "Copied",
+      "once": "This link will not be shown again: copy it now. You can create another one later.",
+      "active": "Active links",
+      "noExpiry": "no limit",
+      "expires": "until {{date}}",
+      "uses_one": "{{count}} use",
+      "uses_other": "{{count}} uses",
+      "revoke": "Revoke"
+    }
+  },
+  "presence": {
+    "label": "People here",
+    "inFile": "{{name}}: {{path}}"
+  },
+  "join": {
+    "title": "Join a project",
+    "offer": "You are invited to join “{{project}}” as {{role}}.",
+    "alreadyMember": "You already have access to “{{project}}” ({{role}}).",
+    "submit": "Join the project",
+    "open": "Open the project"
   }
 }

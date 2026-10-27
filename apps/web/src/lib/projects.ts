@@ -41,11 +41,16 @@ export function useTags() {
   });
 }
 
-export function useProject(id: string) {
-  return useQuery({
+/** Query of a project's details, shared by the hook and by imperative refetches. */
+export function projectQuery(id: string) {
+  return {
     queryKey: projectKey(id),
     queryFn: () => api<ProjectDetails>('GET', `/api/projects/${id}`),
-  });
+  };
+}
+
+export function useProject(id: string) {
+  return useQuery(projectQuery(id));
 }
 
 export function useTree(id: string) {

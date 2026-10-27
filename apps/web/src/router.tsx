@@ -1,9 +1,11 @@
 import { createRootRoute, createRoute, createRouter } from '@tanstack/react-router';
 import { IndexRedirect, LoginPage, RegisterPage, RequireAuth, SetupPage } from './routes/auth.js';
 import { DashboardPage } from './routes/dashboard.js';
+import { JoinPage } from './routes/join.js';
 import { ProjectPage } from './routes/project.js';
 import { RootLayout } from './routes/root.js';
 import { StatusPage } from './routes/status.js';
+import { safeRedirect } from './lib/redirect.js';
 
 // Code-based routes keep the build free of generated files.
 const rootRoute = createRootRoute({ component: RootLayout });
@@ -11,7 +13,16 @@ const route = <Path extends string>(path: Path, component: () => React.ReactNode
   createRoute({ getParentRoute: () => rootRoute, path, component });
 
 const indexRoute = route('/', IndexRedirect);
-const loginRoute = route('/login', LoginPage);
+const loginRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/login',
+  component: LoginPage,
+  // Pages that need a session send visitors here with ?redirect=<path>.
+  validateSearch: (search: Record<string, unknown>): { redirect?: string } => {
+    const redirect = safeRedirect(search.redirect);
+    return redirect === undefined ? {} : { redirect };
+  },
+});
 const setupRoute = route('/setup', SetupPage);
 const statusRoute = route('/status', StatusPage);
 const registerRoute = createRoute({
@@ -32,6 +43,11 @@ const projectRoute = route('/projects/$projectId', () => (
     <ProjectPage />
   </RequireAuth>
 ));
+const joinRoute = route('/join/$token', () => (
+  <RequireAuth>
+    <JoinPage />
+  </RequireAuth>
+));
 
 export const router = createRouter({
   routeTree: rootRoute.addChildren([
@@ -42,6 +58,7 @@ export const router = createRouter({
     statusRoute,
     projectsRoute,
     projectRoute,
+    joinRoute,
   ]),
 });
 

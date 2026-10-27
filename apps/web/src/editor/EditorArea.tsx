@@ -1,4 +1,9 @@
-import type { Diagnostic, ProjectEventMessage, TreeNode } from '@galley/shared';
+import {
+  type Diagnostic,
+  type ProjectEventMessage,
+  presenceUserOf,
+  type TreeNode,
+} from '@galley/shared';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -6,8 +11,12 @@ import { useTranslation } from 'react-i18next';
 import { FilePreview } from '../components/FilePreview.js';
 import { compileKey } from '../lib/compile.js';
 import { indexKey, outlineKey, useProjectIndex } from '../lib/editor.js';
+import { projectQuery } from '../lib/projects.js';
+import { useSession } from '../lib/session.js';
 import { useCompileStore } from '../stores/compile.js';
 import { FONT_SIZES, useEditor, usePreferences } from '../stores/editor.js';
+import { useNotices } from '../stores/notices.js';
+import { usePresence } from '../stores/presence.js';
 import { CodeEditor } from './CodeEditor.js';
 import type { CompletionSources } from './completion.js';
 import type { ProjectLintContext } from './lint.js';
@@ -92,8 +101,8 @@ function Preferences() {
 
 /**
  * Tabs and editors of a project. Owns the project's collab connection, which
- * also carries project events: tree changes refresh the file list, deletion
- * of the project returns to the dashboard.
+ * also carries project events and presence: tree changes refresh the file
+ * list, deletion of the project or loss of access returns to the dashboard.
  */
 export default function EditorArea({
   projectId,
@@ -108,11 +117,26 @@ export default function EditorArea({
   const { tabs, activeId, status, openTab, closeTab, setStatus, keepTabs } = useEditor();
   const editCount = useEditor((state) => state.editCount);
   const index = useProjectIndex(projectId);
+  const { user } = useSession();
   const onEventRef = useRef<(event: ProjectEventMessage) => void>(() => undefined);
   useEffect(() => {
+    const leave = (flash: 'accessLost' | 'projectDeleted') => {
+      useNotices.getState().setFlash(flash);
+      void navigate({ to: '/projects' });
+    };
     onEventRef.current = (event) => {
       if (event.type === 'project.deleted') {
-        void navigate({ to: '/projects' });
+        leave('projectDeleted');
+        return;
+      }
+      if (event.type === 'members.changed' && event.userId !== null && event.userId === user?.id) {
+        // Our own role changed: reload it, and leave if access is gone.
+        client.query({ ...projectQuery(projectId), staleTime: 0 }).then(
+          () => client.invalidateQueries({ queryKey: ['project', projectId] }),
+          () => {
+            leave('accessLost');
+          },
+        );
         return;
       }
       if (event.type === 'compile.updated') {
@@ -121,10 +145,24 @@ export default function EditorArea({
       }
       void client.invalidateQueries({ queryKey: ['project', projectId] });
     };
-  }, [client, navigate, projectId]);
+  }, [client, navigate, projectId, user]);
 
   // The parent remounts this component per project, so one connection per instance suffices.
-  const [connection] = useState(() => new ProjectConnection(projectId, onEventRef, setStatus));
+  const [connection] = useState(
+    () =>
+      new ProjectConnection(
+        projectId,
+        onEventRef,
+        setStatus,
+        usePresence.getState().setParticipants,
+      ),
+  );
+  useEffect(() => {
+    if (user) connection.setUser(presenceUserOf(user.id, user.displayName));
+  }, [connection, user]);
+  useEffect(() => {
+    connection.setActiveFile(activeId);
+  }, [connection, activeId]);
 
   useEffect(() => {
     connection.start();
@@ -140,6 +178,7 @@ export default function EditorArea({
       }
     });
     return () => {
+      usePresence.getState().setParticipants([]);
       useCompileStore.getState().setWaitForSaved(() => Promise.resolve());
       window.removeEventListener('beforeunload', warn);
       connection.stop();

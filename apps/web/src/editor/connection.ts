@@ -1,6 +1,7 @@
 import {
   COLLAB_PATH,
   fileDocumentName,
+  type PresenceUser,
   projectDocumentName,
   projectEventMessage,
   type ProjectEventMessage,
@@ -12,6 +13,7 @@ import {
   WebSocketStatus,
 } from '@hocuspocus/provider';
 import * as Y from 'yjs';
+import { type Participant, participantsOf } from '../lib/presence.js';
 
 /**
  * Synchronisation state of one open document, as shown on its tab:
@@ -52,12 +54,14 @@ export class ProjectConnection {
   private readonly events: HocuspocusProvider;
   private readonly entries = new Map<string, Entry>();
   private online = false;
+  private user: PresenceUser | null = null;
 
   constructor(
     readonly projectId: string,
     /** Read at each event, so the handler can change without reconnecting. */
     private readonly onEvent: { readonly current: (event: ProjectEventMessage) => void },
     private readonly onStatus: (fileId: string, status: SyncStatus) => void,
+    private readonly onPresence: (participants: Participant[]) => void = () => undefined,
   ) {
     // Nothing touches the network before start(), so React may build this during render.
     this.socket = new HocuspocusProviderWebsocket({
@@ -82,6 +86,27 @@ export class ProjectConnection {
         if (result.success) this.onEvent.current(result.data);
       },
     });
+    this.events.awareness?.on('change', () => {
+      const states = this.events.awareness?.getStates() ?? new Map();
+      this.onPresence(participantsOf(states, this.user?.id ?? null));
+    });
+  }
+
+  /**
+   * Announces who this tab belongs to, for cursors and the list of people
+   * present. collab replaces it with the session's identity anyway.
+   */
+  setUser(user: PresenceUser): void {
+    this.user = user;
+    this.events.setAwarenessField('user', user);
+    for (const entry of this.entries.values()) {
+      entry.document.provider.setAwarenessField('user', user);
+    }
+  }
+
+  /** Tells the other participants which file this tab shows. */
+  setActiveFile(fileId: string | null): void {
+    this.events.setAwarenessField('fileId', fileId);
   }
 
   /** Connects and joins the project's event channel. Safe to call after {@link stop}. */
@@ -116,6 +141,7 @@ export class ProjectConnection {
       provider,
       readOnly: false,
     };
+    if (this.user !== null) provider.setAwarenessField('user', this.user);
     const entry: Entry = { document, users: 1 };
     this.entries.set(fileId, entry);
     provider.on('authenticated', ({ scope }: { scope: string }) => {

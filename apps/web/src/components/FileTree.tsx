@@ -1,6 +1,6 @@
 import type { TreeNode } from '@galley/shared';
 import { ContextMenu, DropdownMenu } from 'radix-ui';
-import { type DragEvent, type KeyboardEvent, type ReactNode, useState } from 'react';
+import { type DragEvent, Fragment, type KeyboardEvent, type ReactNode, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { canDrop, moveTargets, type TreeItem, visibleItems } from '../lib/tree.js';
 import { fromDataTransfer, type PendingUpload } from '../lib/upload.js';
@@ -77,6 +77,7 @@ function ItemMenu({
 /**
  * Project file tree: keyboard navigation (WAI-ARIA tree pattern), context and
  * row menus, drag and drop to move nodes or to upload files from the system.
+ * Read-only members get the same tree without any of the editing gestures.
  */
 export function FileTree({
   nodes,
@@ -85,6 +86,7 @@ export function FileTree({
   actions,
   error,
   toolbar,
+  readOnly = false,
 }: {
   nodes: readonly TreeNode[];
   roots: TreeItem[];
@@ -92,6 +94,7 @@ export function FileTree({
   actions: TreeActions;
   error: ReactNode;
   toolbar: (openFolderDialog: () => void) => ReactNode;
+  readOnly?: boolean;
 }) {
   const { t } = useTranslation();
   const { selectedId, expanded, select, toggleFolder, expand } = useTreeState();
@@ -144,15 +147,16 @@ export function FileTree({
         }
         break;
       case 'F2':
-        if (current) setPending({ kind: 'rename', item: current });
+        if (current && !readOnly) setPending({ kind: 'rename', item: current });
         break;
       case 'Delete':
-        if (current) setPending({ kind: 'delete', item: current });
+        if (current && !readOnly) setPending({ kind: 'delete', item: current });
         break;
     }
   };
 
-  const dropProps = (targetId: string | null) => ({
+  const dropProps = (targetId: string | null) => (readOnly ? {} : dropHandlers(targetId));
+  const dropHandlers = (targetId: string | null) => ({
     onDragOver: (event: DragEvent) => {
       const types = event.dataTransfer.types;
       if (types.includes(NODE_TYPE) || types.includes('Files')) {
@@ -204,43 +208,43 @@ export function FileTree({
         {...dropProps(null)}
       >
         <ul role="tree" aria-label={t('project.files')} onKeyDown={onKeyDown} className="text-sm">
-          {items.map((item) => (
-            <ContextMenu.Root key={item.id}>
-              <ContextMenu.Trigger asChild>
-                <li
-                  id={`node-${item.id}`}
-                  role="treeitem"
-                  aria-level={item.depth + 1}
-                  aria-selected={item.id === selectedId}
-                  aria-expanded={item.kind === 'folder' ? expanded.has(item.id) : undefined}
-                  data-path={item.path}
-                  tabIndex={
-                    item.id === selectedId || (selectedId === null && item === items[0]) ? 0 : -1
-                  }
-                  draggable
-                  onDragStart={(event) => {
-                    event.dataTransfer.setData(NODE_TYPE, item.id);
-                    event.dataTransfer.effectAllowed = 'move';
-                  }}
-                  onClick={() => {
-                    select(item.id);
-                    if (item.kind === 'folder') toggleFolder(item.id);
-                  }}
-                  {...(item.kind === 'folder' ? dropProps(item.id) : {})}
-                  className={`group flex cursor-pointer items-center gap-1 rounded px-1 py-0.5 outline-none focus-visible:ring-2 focus-visible:ring-accent ${
-                    item.id === selectedId ? 'bg-slate-200' : 'hover:bg-slate-100'
-                  } ${dropTarget === item.id ? 'ring-2 ring-accent' : ''}`}
-                  style={{ paddingLeft: `${String(item.depth * 1 + 0.25)}rem` }}
-                >
-                  <span aria-hidden className="w-4 text-center text-slate-500">
-                    {item.kind === 'folder' ? (expanded.has(item.id) ? '▾' : '▸') : ''}
+          {items.map((item) => {
+            const row = (
+              <li
+                id={`node-${item.id}`}
+                role="treeitem"
+                aria-level={item.depth + 1}
+                aria-selected={item.id === selectedId}
+                aria-expanded={item.kind === 'folder' ? expanded.has(item.id) : undefined}
+                data-path={item.path}
+                tabIndex={
+                  item.id === selectedId || (selectedId === null && item === items[0]) ? 0 : -1
+                }
+                draggable={!readOnly}
+                onDragStart={(event) => {
+                  event.dataTransfer.setData(NODE_TYPE, item.id);
+                  event.dataTransfer.effectAllowed = 'move';
+                }}
+                onClick={() => {
+                  select(item.id);
+                  if (item.kind === 'folder') toggleFolder(item.id);
+                }}
+                {...(item.kind === 'folder' ? dropProps(item.id) : {})}
+                className={`group flex cursor-pointer items-center gap-1 rounded px-1 py-0.5 outline-none focus-visible:ring-2 focus-visible:ring-accent ${
+                  item.id === selectedId ? 'bg-slate-200' : 'hover:bg-slate-100'
+                } ${dropTarget === item.id ? 'ring-2 ring-accent' : ''}`}
+                style={{ paddingLeft: `${String(item.depth * 1 + 0.25)}rem` }}
+              >
+                <span aria-hidden className="w-4 text-center text-slate-500">
+                  {item.kind === 'folder' ? (expanded.has(item.id) ? '▾' : '▸') : ''}
+                </span>
+                <span className="truncate">{item.name}</span>
+                {item.id === mainFileId && (
+                  <span className="rounded bg-accent/10 px-1 text-xs text-accent">
+                    {t('project.main')}
                   </span>
-                  <span className="truncate">{item.name}</span>
-                  {item.id === mainFileId && (
-                    <span className="rounded bg-accent/10 px-1 text-xs text-accent">
-                      {t('project.main')}
-                    </span>
-                  )}
+                )}
+                {!readOnly && (
                   <DropdownMenu.Root>
                     <DropdownMenu.Trigger
                       className="ml-auto rounded px-1 text-slate-500 opacity-0 group-hover:opacity-100 focus:opacity-100 data-[state=open]:opacity-100"
@@ -257,17 +261,23 @@ export function FileTree({
                       </DropdownMenu.Content>
                     </DropdownMenu.Portal>
                   </DropdownMenu.Root>
-                </li>
-              </ContextMenu.Trigger>
-              <ContextMenu.Portal>
-                <ContextMenu.Content className="min-w-36 rounded-md border border-slate-200 bg-white p-1 shadow-md">
-                  <ItemMenu item={item} open={setPending} Menu={ContextMenu} />
-                </ContextMenu.Content>
-              </ContextMenu.Portal>
-            </ContextMenu.Root>
-          ))}
+                )}
+              </li>
+            );
+            if (readOnly) return <Fragment key={item.id}>{row}</Fragment>;
+            return (
+              <ContextMenu.Root key={item.id}>
+                <ContextMenu.Trigger asChild>{row}</ContextMenu.Trigger>
+                <ContextMenu.Portal>
+                  <ContextMenu.Content className="min-w-36 rounded-md border border-slate-200 bg-white p-1 shadow-md">
+                    <ItemMenu item={item} open={setPending} Menu={ContextMenu} />
+                  </ContextMenu.Content>
+                </ContextMenu.Portal>
+              </ContextMenu.Root>
+            );
+          })}
         </ul>
-        <p className="px-2 py-3 text-xs text-slate-500">{t('project.dropHint')}</p>
+        {!readOnly && <p className="px-2 py-3 text-xs text-slate-500">{t('project.dropHint')}</p>}
       </div>
 
       <NameDialog

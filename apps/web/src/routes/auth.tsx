@@ -1,6 +1,6 @@
 import type { PublicUser } from '@galley/shared';
 import { useMutation } from '@tanstack/react-query';
-import { Link, Navigate, useNavigate, useSearch } from '@tanstack/react-router';
+import { Link, Navigate, useLocation, useNavigate, useSearch } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button, ErrorAlert, TextField, useFieldError } from '../components/ui.js';
@@ -19,8 +19,8 @@ function formValues(event: {
   return values;
 }
 
-/** Signs in through `path` and opens the dashboard. */
-function useAuthMutation(path: string) {
+/** Signs in through `path`, then opens `redirect` or the dashboard. */
+function useAuthMutation(path: string, redirect?: string) {
   const refresh = useRefreshSession();
   const navigate = useNavigate();
   return useMutation({
@@ -28,7 +28,7 @@ function useAuthMutation(path: string) {
       api<{ user: PublicUser }>('POST', path, { json: body }),
     onSuccess: async () => {
       await refresh();
-      await navigate({ to: '/projects' });
+      await navigate({ to: redirect ?? '/projects' });
     },
   });
 }
@@ -48,19 +48,20 @@ function FormError({ error }: { error: unknown }) {
   return <ErrorAlert error={error} />;
 }
 
-function RedirectWhenSignedIn() {
+function RedirectWhenSignedIn({ to = '/projects' }: { to?: string }) {
   const { user } = useSession();
-  return user ? <Navigate to="/projects" /> : null;
+  return user ? <Navigate to={to} /> : null;
 }
 
 export function LoginPage() {
   const { t } = useTranslation();
-  const login = useAuthMutation('/api/auth/login');
+  const { redirect } = useSearch({ from: '/login' });
+  const login = useAuthMutation('/api/auth/login', redirect);
   const config = useAuthConfig();
   if (config.data?.setupRequired) return <Navigate to="/setup" />;
   return (
     <AuthCard title={t('auth.login.title')}>
-      <RedirectWhenSignedIn />
+      <RedirectWhenSignedIn {...(redirect === undefined ? {} : { to: redirect })} />
       <form
         className="space-y-4"
         onSubmit={(event) => {
@@ -236,9 +237,11 @@ export function IndexRedirect() {
 }
 
 /** Renders its children for signed-in users and sends others to the sign-in page. */
+/** Shows `children` to a signed-in user; others sign in first, then come back here. */
 export function RequireAuth({ children }: { children: ReactNode }) {
   const { user, isLoading } = useSession();
   const { t } = useTranslation();
+  const location = useLocation();
   if (isLoading) return <p className="text-slate-600">{t('common.loading')}</p>;
-  return user ? children : <Navigate to="/login" />;
+  return user ? children : <Navigate to="/login" search={{ redirect: location.href }} />;
 }

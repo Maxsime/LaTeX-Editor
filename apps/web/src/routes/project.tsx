@@ -6,7 +6,9 @@ import { useTranslation } from 'react-i18next';
 import { CompilePane } from '../components/CompilePane.js';
 import { FileTree, type TreeActions } from '../components/FileTree.js';
 import { OutlinePanel } from '../components/OutlinePanel.js';
+import { PresenceBadges } from '../components/PresenceBadges.js';
 import { SearchPanel } from '../components/SearchPanel.js';
+import { ShareDialog } from '../components/ShareDialog.js';
 import { Button, ErrorAlert, NameDialog } from '../components/ui.js';
 import { ApiRequestError } from '../lib/api.js';
 import { diagnosticsByFile, isPending, useLatestCompile } from '../lib/compile.js';
@@ -75,6 +77,7 @@ export function ProjectPage() {
   const folderInput = useRef<HTMLInputElement>(null);
   const [panel, setPanel] = useState<Panel>('files');
   const [newFile, setNewFile] = useState(false);
+  const [sharing, setSharing] = useState(false);
   const compiles = useLatestCompile(projectId);
   const { viewMode, setViewMode } = useCompilePreferences();
 
@@ -147,10 +150,25 @@ export function ProjectPage() {
         <Link to="/projects" className="text-sm text-accent underline">
           ← {t('project.back')}
         </Link>
-        <h1 className="mr-auto font-serif text-2xl font-semibold">{project.data?.name}</h1>
+        <h1 className="font-serif text-2xl font-semibold">{project.data?.name}</h1>
+        {project.data && project.data.role !== 'owner' && (
+          <span className="rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-700">
+            {t(`roles.${project.data.role}`)}
+          </span>
+        )}
+        <div className="mr-auto" />
+        <PresenceBadges paths={paths} />
+        <Button
+          onClick={() => {
+            setSharing(true);
+          }}
+        >
+          {t('share.open')}
+        </Button>
         <label className="flex items-center gap-2 text-sm">
           <span>{t('project.mainFile')}</span>
           <select
+            disabled={!canEdit}
             value={project.data?.mainFileId ?? ''}
             onChange={(event) => {
               updateProject.mutate({ mainFileId: event.currentTarget.value || null });
@@ -220,52 +238,55 @@ export function ProjectPage() {
                 roots={roots}
                 mainFileId={project.data?.mainFileId ?? null}
                 actions={actions}
+                readOnly={!canEdit}
                 error={<ErrorAlert error={mutations.upload.error ?? tree.error} />}
-                toolbar={(openFolderDialog) => (
-                  <div className="mb-2 flex flex-wrap gap-1">
-                    <Button
-                      onClick={() => {
-                        setNewFileError(null);
-                        setNewFile(true);
-                      }}
-                    >
-                      {t('project.newFile')}
-                    </Button>
-                    <Button onClick={openFolderDialog}>{t('project.newFolder')}</Button>
-                    <Button
-                      disabled={mutations.upload.isPending}
-                      onClick={() => fileInput.current?.click()}
-                    >
-                      {mutations.upload.isPending
-                        ? t('project.uploading')
-                        : t('project.uploadFiles')}
-                    </Button>
-                    <Button
-                      disabled={mutations.upload.isPending}
-                      onClick={() => folderInput.current?.click()}
-                    >
-                      {t('project.uploadFolder')}
-                    </Button>
-                    {[fileInput, folderInput].map((ref) => (
-                      <input
-                        key={ref === fileInput ? 'files' : 'folder'}
-                        ref={ref}
-                        type="file"
-                        multiple
-                        className="sr-only"
-                        tabIndex={-1}
-                        aria-hidden
-                        data-testid={ref === fileInput ? 'upload-files' : 'upload-folder'}
-                        {...(ref === folderInput ? { webkitdirectory: '' } : {})}
-                        onChange={(event) => {
-                          const uploads = fromFileList(event.currentTarget.files ?? []);
-                          event.currentTarget.value = '';
-                          if (uploads.length > 0) actions.upload(uploadTarget, uploads);
+                toolbar={(openFolderDialog) =>
+                  canEdit && (
+                    <div className="mb-2 flex flex-wrap gap-1">
+                      <Button
+                        onClick={() => {
+                          setNewFileError(null);
+                          setNewFile(true);
                         }}
-                      />
-                    ))}
-                  </div>
-                )}
+                      >
+                        {t('project.newFile')}
+                      </Button>
+                      <Button onClick={openFolderDialog}>{t('project.newFolder')}</Button>
+                      <Button
+                        disabled={mutations.upload.isPending}
+                        onClick={() => fileInput.current?.click()}
+                      >
+                        {mutations.upload.isPending
+                          ? t('project.uploading')
+                          : t('project.uploadFiles')}
+                      </Button>
+                      <Button
+                        disabled={mutations.upload.isPending}
+                        onClick={() => folderInput.current?.click()}
+                      >
+                        {t('project.uploadFolder')}
+                      </Button>
+                      {[fileInput, folderInput].map((ref) => (
+                        <input
+                          key={ref === fileInput ? 'files' : 'folder'}
+                          ref={ref}
+                          type="file"
+                          multiple
+                          className="sr-only"
+                          tabIndex={-1}
+                          aria-hidden
+                          data-testid={ref === fileInput ? 'upload-files' : 'upload-folder'}
+                          {...(ref === folderInput ? { webkitdirectory: '' } : {})}
+                          onChange={(event) => {
+                            const uploads = fromFileList(event.currentTarget.files ?? []);
+                            event.currentTarget.value = '';
+                            if (uploads.length > 0) actions.upload(uploadTarget, uploads);
+                          }}
+                        />
+                      ))}
+                    </div>
+                  )
+                }
               />
             )}
             {panel === 'outline' && <OutlinePanel projectId={projectId} />}
@@ -304,6 +325,9 @@ export function ProjectPage() {
           )}
         </section>
       </div>
+      {project.data && (
+        <ShareDialog project={project.data} open={sharing} onOpenChange={setSharing} />
+      )}
       <NameDialog
         open={newFile}
         onOpenChange={setNewFile}
