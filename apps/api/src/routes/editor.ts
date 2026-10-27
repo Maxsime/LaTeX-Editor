@@ -19,6 +19,7 @@ import type { AppContext } from '../context.js';
 import { parse } from '../http/validate.js';
 import { readProjectTexts } from '../materialize.js';
 import { loadProject } from '../projects/access.js';
+import { recordActivity } from '../history/snapshots.js';
 import { compileQuery, replaceInText, searchFiles } from '../search/search.js';
 import { projectParams } from './projects.js';
 
@@ -114,6 +115,7 @@ export function editorRoutes(app: FastifyInstance, context: AppContext): void {
       replacements += result.count;
     }
     await context.documents.apply({ replaced, closed: [] });
+    if (replaced.length > 0) await recordActivity(db, id, auth.user.id);
     return { files: replaced.length, replacements };
   });
 }

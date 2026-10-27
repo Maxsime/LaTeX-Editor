@@ -57,3 +57,10 @@ export async function readBlob(s3: S3Client, bucket: string, hash: string): Prom
   // In Node.js the SDK returns an IncomingMessage, which is a Readable.
   return Body as Readable;
 }
+
+/** Reads a whole stored blob into memory; callers bound its size beforehand. */
+export async function readBlobBytes(s3: S3Client, bucket: string, hash: string): Promise<Buffer> {
+  const chunks: Buffer[] = [];
+  for await (const chunk of await readBlob(s3, bucket, hash)) chunks.push(chunk as Buffer);
+  return Buffer.concat(chunks);
+}

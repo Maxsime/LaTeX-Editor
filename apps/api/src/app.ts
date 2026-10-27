@@ -15,6 +15,7 @@ import { compileRoutes } from './routes/compile.js';
 import { editorRoutes } from './routes/editor.js';
 import { fileRoutes } from './routes/files.js';
 import { healthRoutes } from './routes/health.js';
+import { historyRoutes } from './routes/history.js';
 import { projectRoutes } from './routes/projects.js';
 import { sharingRoutes } from './routes/sharing.js';
 import { tagRoutes } from './routes/tags.js';
@@ -94,6 +95,7 @@ export function buildApp({
       editorRoutes(api, context);
       archiveRoutes(api, context, archiveLimits);
       compileRoutes(api, context);
+      historyRoutes(api, context);
     });
   }
 

@@ -31,6 +31,7 @@ import {
 } from '../files/tree.js';
 import { parse } from '../http/validate.js';
 import { loadProject } from '../projects/access.js';
+import { recordActivity } from '../history/snapshots.js';
 import { publishProjectEvent } from '../projects/events.js';
 import { readBlob, storeBlobs } from '../storage/blobs.js';
 import { stateToText, textBytes } from '../yjs/text.js';
@@ -84,8 +85,10 @@ export function fileRoutes(app: FastifyInstance, context: AppContext): void {
   const { database, redis, s3, config, documents } = context;
   const { db } = database;
 
-  async function treeChanged(projectId: string): Promise<void> {
+  /** Announces a change of the tree, made by `userId`, and counts them as an author. */
+  async function treeChanged(projectId: string, userId: string): Promise<void> {
     await touchProject(db, projectId);
+    await recordActivity(db, projectId, userId);
     await publishProjectEvent(redis, projectId, { type: 'tree.changed' });
   }
 
@@ -104,7 +107,7 @@ export function fileRoutes(app: FastifyInstance, context: AppContext): void {
     await loadProject(db, id, auth.user.id, 'editor');
     await assertFolder(db, id, body.parentId);
     const row = await createFolder(db, id, body.parentId, body.name);
-    await treeChanged(id);
+    await treeChanged(id, auth.user.id);
     return reply.status(201).send({ node: toTreeNode(row) });
   });
 
@@ -170,7 +173,7 @@ export function fileRoutes(app: FastifyInstance, context: AppContext): void {
         return { nodes: [...created, ...written.rows], changes: written };
       });
       await documents.apply(changes);
-      await treeChanged(id);
+      await treeChanged(id, auth.user.id);
       const response: UploadResponse = { nodes: nodes.map(toTreeNode), warnings };
       void reply.status(201);
       return response;
@@ -185,7 +188,7 @@ export function fileRoutes(app: FastifyInstance, context: AppContext): void {
     const body = parse(updateFileRequest, request.body);
     await loadProject(db, id, auth.user.id, 'editor');
     const row = await updateNode(db, id, fileId, body);
-    await treeChanged(id);
+    await treeChanged(id, auth.user.id);
     return { node: toTreeNode(row) };
   });
 
@@ -195,7 +198,7 @@ export function fileRoutes(app: FastifyInstance, context: AppContext): void {
     await loadProject(db, id, auth.user.id, 'editor');
     const closed = await deleteNode(db, id, fileId);
     await documents.apply({ replaced: [], closed });
-    await treeChanged(id);
+    await treeChanged(id, auth.user.id);
     return reply.status(204).send();
   });
 

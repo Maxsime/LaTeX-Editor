@@ -38,7 +38,6 @@ async function main(): Promise<void> {
   }
   // BullMQ needs a connection that retries forever; it must not share the request one.
   const queueRedis = new Redis(config.VALKEY_URL, { maxRetriesPerRequest: null });
-  const stopMaintenance = await startMaintenance(database.db, queueRedis, logger);
   const compileQueue = new Queue<CompileJob, unknown>(COMPILE_QUEUE, { connection: queueRedis });
   // QueueEvents blocks on its connection, so it gets its own.
   const compileEvents = new QueueEvents(COMPILE_QUEUE, {
@@ -60,6 +59,7 @@ async function main(): Promise<void> {
     synctex: createSynctexClient(synctexQueue, synctexEvents),
   };
   followCompileEvents(context, compileEvents, logger);
+  const stopMaintenance = await startMaintenance(context, queueRedis, logger);
 
   const app = buildApp({
     logger,
