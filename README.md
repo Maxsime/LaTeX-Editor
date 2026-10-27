@@ -75,7 +75,13 @@ L'éditeur colore LaTeX et BibTeX, replie les environnements et les sections, et
 
 Le bouton « Partager » d'un projet liste ses membres. Son propriétaire peut inviter une personne qui a déjà un compte (par adresse e-mail ou nom d'utilisateur) comme éditeur, relecteur ou lecteur : l'invitation apparaît sur le tableau de bord de la personne, qui l'accepte ou la refuse. Il peut aussi créer un lien de partage pour un rôle, avec une durée de validité facultative ; le lien n'est affiché qu'une fois et se révoque à tout moment. Depuis la même fenêtre, il change les rôles, retire un membre (son accès est coupé aussitôt) ou transfère la propriété.
 
-Les relecteurs et lecteurs voient le projet sans pouvoir le modifier. Les pastilles de l'en-tête indiquent qui a le projet ouvert et dans quel fichier ; un clic y mène. Dans l'éditeur, le curseur et la sélection de chacun s'affichent à son nom. Après une coupure réseau, les modifications faites des deux côtés se fusionnent sans perte.
+Les lecteurs voient le projet sans pouvoir le modifier ; les relecteurs le modifient en suggestions seulement (voir ci-dessous). Les pastilles de l'en-tête indiquent qui a le projet ouvert et dans quel fichier ; un clic y mène. Dans l'éditeur, le curseur et la sélection de chacun s'affichent à son nom. Après une coupure réseau, les modifications faites des deux côtés se fusionnent sans perte.
+
+### Relire, commenter, discuter
+
+Une case « Suggérer », au-dessus de l'éditeur, enregistre les modifications comme suggestions : le texte ajouté est souligné en vert, le texte supprimé reste visible, barré en rouge. Elle est toujours active pour un relecteur ; un éditeur la coche à son gré, et le propriétaire peut l'imposer à tous les éditeurs avec la case « Pour tous ». L'onglet « Revue » du panneau de gauche liste les suggestions du fichier ouvert, que les éditeurs acceptent ou rejettent une à une ou en bloc. Le serveur refuse toute autre modification venant d'un relecteur.
+
+Pour commenter, sélectionnez du texte puis Ctrl+Alt+M (⌘⌥M sur Mac) : le commentaire s'écrit dans l'onglet « Revue », où chacun peut répondre, et où l'auteur ou un éditeur résout le fil. Écrire `@identifiant` mentionne un membre : la mention l'attend sur son tableau de bord. L'onglet « Discussion » est le fil de messages du projet, mis à jour en direct.
 
 ### Historique et Git
 
@@ -153,6 +159,7 @@ apps/compiler        worker de compilation (BullMQ)
 packages/shared      schémas, configuration, journalisation partagés
 packages/db          schéma PostgreSQL, migrations, sessions (API et collab)
 packages/latex-index extraction du plan, des labels et des définitions LaTeX
+packages/review      suggestions : texte accepté, acceptation, rejet (Yjs)
 fixtures/            archives de référence pour les tests
 e2e/                 tests Playwright
 infra/               Dockerfiles et configuration de Caddy
