@@ -5,3 +5,5 @@ CLAUDE.md
 docs/plans/
 **/migrations/meta/
 **/routeTree.gen.ts
+# Recorded service responses, kept byte for byte.
+apps/api/test/fixtures/lookup/
