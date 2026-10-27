@@ -8,6 +8,7 @@ import {
   MAX_DIAGNOSTICS,
 } from '@galley/shared';
 import { effectiveShellEscape, latexmkArgv, splitMainFile } from './latexmk.js';
+import { chktexArgv, lintedFiles, parseChktex, parseTexcount, texcountArgv } from './tools.js';
 import {
   runSandboxed,
   SANDBOX_OUT,
@@ -47,6 +48,9 @@ export interface LocalCompileResult {
   publishable: OutputFile[];
   run: SandboxRun;
 }
+
+/** Longest chktex or texcount may run; both take well under a second on real documents. */
+const TOOL_TIMEOUT_MS = 30_000;
 
 /** Largest log the worker reads; TeX logs of huge documents stay far below. */
 const MAX_LOG_BYTES = 64 * 1024 * 1024;
@@ -158,21 +162,34 @@ export async function compileProject(
   if (job.clean) await cleanOutputs(dirs);
   await syncSources(dirs, job.manifest, env.fetchBlob);
 
-  const { cwd, jobname } = splitMainFile(job.mainFile);
+  const { cwd, jobname, base } = splitMainFile(job.mainFile);
   const shellEscape = effectiveShellEscape(job.shellEscape, env.allowFullShellEscape);
-  const run = await runSandboxed(
-    {
-      texliveDir: env.texliveDir,
-      assetsDir: env.assetsDir,
-      srcDir: dirs.src,
-      outDir: dirs.out,
-      texmfDir: env.texmfDir,
-    },
-    env.limits,
-    cwd,
-    latexmkArgv(job, shellEscape, splitMainFile(job.mainFile).base),
-    signal,
-  );
+  const paths = {
+    texliveDir: env.texliveDir,
+    assetsDir: env.assetsDir,
+    srcDir: dirs.src,
+    outDir: dirs.out,
+    texmfDir: env.texmfDir,
+  };
+  // chktex and texcount only read the sources: they run beside latexmk, in their own sandboxes.
+  const toolLimits = {
+    ...env.limits,
+    timeoutMs: Math.min(env.limits.timeoutMs, TOOL_TIMEOUT_MS),
+    maxProcesses: Math.min(env.limits.maxProcesses, 8),
+  };
+  const [run, lint, wordCount] = await Promise.all([
+    runSandboxed(paths, env.limits, cwd, latexmkArgv(job, shellEscape, base), signal),
+    runSandboxed(
+      paths,
+      toolLimits,
+      '',
+      chktexArgv(lintedFiles(Object.keys(job.manifest)), job.chktexDisabled),
+      signal,
+    ).then((tool) => parseChktex(tool.console)),
+    runSandboxed(paths, toolLimits, cwd, texcountArgv(base), signal).then((tool) =>
+      parseTexcount(tool.console),
+    ),
+  ]);
 
   const pathContext = { projectRoot: SANDBOX_PROJECT, cwd, outDir: SANDBOX_OUT };
   const log = (await readSandboxFile(join(dirs.out, `${jobname}.log`), MAX_LOG_BYTES))?.toString(
@@ -236,6 +253,8 @@ export async function compileProject(
       truncated: ranked.truncated,
       texlive: env.texlive,
       shellEscapeDowngraded: shellEscape !== job.shellEscape,
+      lint: run.cancelled ? [] : lint,
+      wordCount: run.cancelled ? null : wordCount,
     },
     dirs,
     publishable,

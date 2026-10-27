@@ -46,6 +46,7 @@ function job(overrides: Partial<CompileJob> = {}): CompileJob {
     shellEscape: 'restricted',
     draft: false,
     haltOnError: false,
+    chktexDisabled: [],
     clean: false,
     ...overrides,
   };
@@ -99,6 +100,8 @@ class FakeCompiler {
         truncated: false,
         texlive: env.texlive,
         shellEscapeDowngraded: false,
+        lint: [],
+        wordCount: null,
       },
       dirs,
       publishable: [{ name: 'main.pdf', size: 13 }],

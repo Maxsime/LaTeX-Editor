@@ -1,0 +1,15 @@
+{
+  "description": "Entrée produite par l'import d'un DOI réel (réponse Crossref de tests), compilée par Biber ; chktex et texcount.",
+  "runs": [
+    {
+      "main": "main.tex",
+      "expect": {
+        "outcome": "success",
+        "minPages": 1,
+        "absentWarnings": ["undefined", "Biber"],
+        "lint": [{ "file": "main.tex", "line": 10, "message": "Non-breaking space" }],
+        "words": { "minTotal": 25, "sections": ["Programmation lettrée", "Suite"] }
+      }
+    }
+  ]
+}

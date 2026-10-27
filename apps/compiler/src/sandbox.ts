@@ -137,7 +137,8 @@ export async function directorySize(dir: string): Promise<number> {
   for (const entry of entries) {
     const path = join(dir, entry.name);
     if (entry.isDirectory()) total += await directorySize(path);
-    else if (entry.isFile()) total += (await lstat(path)).size;
+    // TeX deletes temporary files as it runs: one listed a moment ago may be gone.
+    else if (entry.isFile()) total += (await lstat(path).catch(() => null))?.size ?? 0;
   }
   return total;
 }
