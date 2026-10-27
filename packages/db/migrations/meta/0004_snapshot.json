@@ -1,5 +1,5 @@
 {
-  "id": "7a34508d-ba51-4074-b663-d0a6e34f6407",
+  "id": "34d0591b-06b3-4dce-be21-ec6e430c85ca",
   "prevId": "9e9d6f4d-fe8f-49f7-962c-e556dc1a352a",
   "version": "7",
   "dialect": "postgresql",
@@ -344,6 +344,13 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true
+        },
+        "objects": {
+          "name": "objects",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::jsonb"
         },
         "updated_at": {
           "name": "updated_at",

@@ -350,5 +350,7 @@ export const gitRepositories = pgTable('git_repositories', {
   commit: text('commit').notNull(),
   /** Digest of the project state the commit was made from (see `snapshots.digest`). */
   digest: text('digest').notNull(),
+  /** Git object id of each blob served or received, by SHA-256, to skip rehashing. */
+  objects: jsonb('objects').$type<Record<string, string>>().notNull().default({}),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });

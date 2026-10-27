@@ -3,6 +3,7 @@ CREATE TABLE "git_repositories" (
 	"project_id" uuid PRIMARY KEY NOT NULL,
 	"commit" text NOT NULL,
 	"digest" text NOT NULL,
+	"objects" jsonb DEFAULT '{}'::jsonb NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint

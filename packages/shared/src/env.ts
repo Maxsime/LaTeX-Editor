@@ -87,6 +87,10 @@ export const apiEnv = z
     SESSION_TTL_DAYS: z._default(z.coerce.number().check(z.int(), z.gte(1), z.lte(365)), 30),
     /** Scratch space for uploads and archive imports; must hold the largest accepted archive. */
     API_TMP_DIR: z._default(z.string(), '/tmp'),
+    /** Bare repositories of the Git bridge, one per project. */
+    GIT_DATA_DIR: z._default(z.string(), '/var/lib/galley/git'),
+    /** Largest pack a single `git push` may send. */
+    GIT_MAX_PUSH_MB: z._default(z.coerce.number().check(z.int(), z.gte(1), z.lte(2_048)), 100),
     /**
      * Internal base URL of collab, e.g. `http://collab:3001`. When unset (API
      * tests run without collab), the API writes document states directly.

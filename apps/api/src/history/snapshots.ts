@@ -2,6 +2,7 @@ import { type SnapshotKind, type SnapshotSummary } from '@galley/shared';
 import { type Executor, projectActivity, projects, snapshots, users } from '@galley/db';
 import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import type { AppContext } from '../context.js';
+import { withLock } from '../locks.js';
 import { materializeProject } from '../materialize.js';
 import { publishProjectEvent } from '../projects/events.js';
 import { type ProjectState, stateDigest } from './state.js';
@@ -10,7 +11,6 @@ export type SnapshotRow = typeof snapshots.$inferSelect;
 
 /** Minimum time between two automatic snapshots of a project with activity. */
 export const AUTO_SNAPSHOT_INTERVAL_MS = 5 * 60_000;
-const LOCK_MS = 60_000;
 
 /** Records that `userId` changed the project, for the authors of its next snapshot. */
 export async function recordActivity(
@@ -62,14 +62,7 @@ export async function takeSnapshot(
   options: SnapshotOptions = {},
 ): Promise<SnapshotRow | null> {
   const { database, redis } = context;
-  const lock = `history:lock:${projectId}`;
-  const owner = crypto.randomUUID();
-  const deadline = Date.now() + LOCK_MS;
-  while ((await redis.set(lock, owner, 'PX', LOCK_MS, 'NX')) !== 'OK') {
-    if (Date.now() > deadline) throw new Error(`history lock of ${projectId} not released`);
-    await new Promise((resolve) => setTimeout(resolve, 100));
-  }
-  try {
+  return withLock(redis, `history:lock:${projectId}`, async () => {
     const state = options.state ?? (await materializeProject(context, projectId));
     const digest = stateDigest(state);
     const row = await database.db.transaction(async (tx) => {
@@ -98,15 +91,7 @@ export async function takeSnapshot(
     });
     if (row) await publishProjectEvent(redis, projectId, { type: 'history.changed' });
     return row;
-  } finally {
-    // Release only our own lock, in case it expired and someone else took it.
-    await redis.eval(
-      "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) end return 0",
-      1,
-      lock,
-      owner,
-    );
-  }
+  });
 }
 
 /**
