@@ -5,9 +5,12 @@ interface TemplateFile {
   content: string;
 }
 
+// An empty document produces no PDF, so a new project starts with a line of text.
 const blankMain = String.raw`\documentclass{article}
 
 \begin{document}
+
+Hello, \LaTeX!
 
 \end{document}
 `;
