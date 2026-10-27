@@ -48,7 +48,16 @@
     "OWNER_CANNOT_LEAVE": "Le propriétaire ne peut pas quitter son projet : transférez d'abord la propriété.",
     "IDENTIFIER_INVALID": "Identifiant invalide : vérifiez le DOI, l'identifiant arXiv ou l'ISBN.",
     "REFERENCE_NOT_FOUND": "Aucune référence ne correspond à cet identifiant.",
-    "SECRETS_UNAVAILABLE": "Cette instance ne peut pas enregistrer de clé : la clé maître n'est pas configurée."
+    "SECRETS_UNAVAILABLE": "Cette instance ne peut pas enregistrer de clé : la clé maître n'est pas configurée.",
+    "AI_DISABLED": "L'assistant IA est désactivé pour ce projet ou cette instance.",
+    "AI_NOT_CONFIGURED": "Aucun fournisseur IA n'est configuré. Renseignez-en un dans votre compte.",
+    "AI_AUTH_FAILED": "Le fournisseur IA a refusé la clé d'API.",
+    "AI_RATE_LIMITED": "Le fournisseur IA limite les requêtes, réessayez plus tard.",
+    "AI_UNAVAILABLE": "Le fournisseur IA ne répond pas.",
+    "AI_BAD_RESPONSE": "Réponse inattendue du fournisseur IA.",
+    "AI_NO_VISION": "Le modèle configuré ne lit pas les images.",
+    "AI_ENDPOINT_FORBIDDEN": "Adresse de fournisseur personnalisée non autorisée sur cette instance.",
+    "UNKNOWN_CITATION": "La proposition cite une clé absente de la bibliographie."
   },
   "common": {
     "cancel": "Annuler",

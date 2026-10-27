@@ -48,7 +48,16 @@
     "OWNER_CANNOT_LEAVE": "The owner cannot leave their project: transfer ownership first.",
     "IDENTIFIER_INVALID": "Invalid identifier: check the DOI, arXiv identifier or ISBN.",
     "REFERENCE_NOT_FOUND": "No reference matches this identifier.",
-    "SECRETS_UNAVAILABLE": "This instance cannot store keys: its master key is not configured."
+    "SECRETS_UNAVAILABLE": "This instance cannot store keys: its master key is not configured.",
+    "AI_DISABLED": "The AI assistant is turned off for this project or instance.",
+    "AI_NOT_CONFIGURED": "No AI provider is configured. Set one up in your account.",
+    "AI_AUTH_FAILED": "The AI provider rejected the API key.",
+    "AI_RATE_LIMITED": "The AI provider is rate limiting requests, try again later.",
+    "AI_UNAVAILABLE": "The AI provider does not answer.",
+    "AI_BAD_RESPONSE": "Unexpected answer from the AI provider.",
+    "AI_NO_VISION": "The configured model cannot read images.",
+    "AI_ENDPOINT_FORBIDDEN": "Custom provider addresses are not allowed on this instance.",
+    "UNKNOWN_CITATION": "The proposal cites a key missing from the bibliography."
   },
   "common": {
     "cancel": "Cancel",
