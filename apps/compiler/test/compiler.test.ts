@@ -69,12 +69,8 @@ class FakeCompiler {
   ): Promise<LocalCompileResult> => {
     this.active += 1;
     this.maxActive = Math.max(this.maxActive, this.active);
-    this.started.push(data.compileId);
-    const dirs = projectDirs(env.workRoot, data.projectId);
-    const { mkdir } = await import('node:fs/promises');
-    await mkdir(dirs.out, { recursive: true });
-    await writeFile(join(dirs.out, 'main.pdf'), '%PDF-1.5 fake');
-    const cancelled = await new Promise<boolean>((resolve) => {
+    // Ready to be released or cancelled before the test can see the job as started.
+    const ended = new Promise<boolean>((resolve) => {
       if (signal.aborted) resolve(true);
       signal.addEventListener('abort', () => {
         resolve(true);
@@ -83,6 +79,12 @@ class FakeCompiler {
         resolve(false);
       });
     });
+    this.started.push(data.compileId);
+    const dirs = projectDirs(env.workRoot, data.projectId);
+    const { mkdir } = await import('node:fs/promises');
+    await mkdir(dirs.out, { recursive: true });
+    await writeFile(join(dirs.out, 'main.pdf'), '%PDF-1.5 fake');
+    const cancelled = await ended;
     this.active -= 1;
     return {
       result: {
