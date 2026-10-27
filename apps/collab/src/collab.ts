@@ -43,6 +43,9 @@ export interface Collab {
   destroy(): Promise<void>;
 }
 
+/** Close code after which Hocuspocus clients reconnect at once (`ResetConnection`). */
+const RESET_CONNECTION = 4205;
+
 /**
  * Builds the collaboration server: Hocuspocus with session authentication,
  * read-only connections below the editor role, debounced persistence to
@@ -280,12 +283,15 @@ export function createCollab({
       }
     }
     if (message.type === 'members.changed' && message.userId !== null) {
-      // The member reconnects and is authorised again with their new role, or refused.
+      // Closing the whole socket, not only the document, makes the client reconnect
+      // and authenticate every document again: with the new role, or refused.
       for (const document of documentsOf(message.projectId)) {
         for (const connection of document.getConnections()) {
           // Same context as above, typed any by Hocuspocus.
           const context = connection.context as CollabContext | undefined;
-          if (context?.userId === message.userId) connection.close();
+          if (context?.userId === message.userId) {
+            connection.webSocket.close(RESET_CONNECTION, 'Reset Connection');
+          }
         }
       }
     }

@@ -37,6 +37,8 @@ export interface OpenDocument {
 interface Entry {
   document: OpenDocument;
   users: number;
+  /** Whether the content arrived once; the provider forgets it at each disconnection. */
+  loaded: boolean;
 }
 
 /** WebSocket URL of collab, behind the same origin as the application. */
@@ -104,6 +106,18 @@ export class ProjectConnection {
     }
   }
 
+  /**
+   * Called when collab refuses the project channel, typically after losing
+   * access while disconnected, when the event saying so could not arrive.
+   * Returns a function that removes the listener.
+   */
+  onChannelDenied(listener: () => void): () => void {
+    this.events.on('authenticationFailed', listener);
+    return () => {
+      this.events.off('authenticationFailed', listener);
+    };
+  }
+
   /** Tells the other participants which file this tab shows. */
   setActiveFile(fileId: string | null): void {
     this.events.setAwarenessField('fileId', fileId);
@@ -142,7 +156,7 @@ export class ProjectConnection {
       readOnly: false,
     };
     if (this.user !== null) provider.setAwarenessField('user', this.user);
-    const entry: Entry = { document, users: 1 };
+    const entry: Entry = { document, users: 1, loaded: false };
     this.entries.set(fileId, entry);
     provider.on('authenticated', ({ scope }: { scope: string }) => {
       document.readOnly = scope === 'readonly';
@@ -152,6 +166,7 @@ export class ProjectConnection {
       this.onStatus(fileId, 'denied');
     });
     provider.on('synced', () => {
+      entry.loaded = true;
       this.report(fileId);
     });
     provider.on('unsyncedChanges', () => {
@@ -188,9 +203,11 @@ export class ProjectConnection {
     if (!entry) return;
     const { provider } = entry.document;
     let status: SyncStatus;
-    if (!this.online) status = provider.isSynced ? 'offline' : 'connecting';
-    else if (!provider.isSynced) status = 'connecting';
-    else status = provider.hasUnsyncedChanges ? 'saving' : 'saved';
+    if (!entry.loaded) status = 'connecting';
+    else if (!this.online) status = 'offline';
+    // After a reconnection the content is already here: it is being saved again.
+    else if (!provider.isSynced || provider.hasUnsyncedChanges) status = 'saving';
+    else status = 'saved';
     this.onStatus(fileId, status);
   }
 }

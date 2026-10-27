@@ -1,7 +1,7 @@
 import type { PublicUser } from '@galley/shared';
 import { useMutation } from '@tanstack/react-query';
-import { Link, Navigate, useLocation, useNavigate, useSearch } from '@tanstack/react-router';
-import type { ReactNode } from 'react';
+import { Link, Navigate, useNavigate, useRouter, useSearch } from '@tanstack/react-router';
+import { type ReactNode, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button, ErrorAlert, TextField, useFieldError } from '../components/ui.js';
 import { api, ApiRequestError } from '../lib/api.js';
@@ -241,7 +241,16 @@ export function IndexRedirect() {
 export function RequireAuth({ children }: { children: ReactNode }) {
   const { user, isLoading } = useSession();
   const { t } = useTranslation();
-  const location = useLocation();
+  // Read once: subscribing to the location would re-render, and so re-run, the
+  // redirection below at every step of the navigation it starts.
+  const router = useRouter();
+  const [here] = useState(() => router.state.location.href);
   if (isLoading) return <p className="text-slate-600">{t('common.loading')}</p>;
-  return user ? children : <Navigate to="/login" search={{ redirect: location.href }} />;
+  if (user) return children;
+  // The dashboard is where signing in leads anyway.
+  return here === '/projects' ? (
+    <Navigate to="/login" />
+  ) : (
+    <Navigate to="/login" search={{ redirect: here }} />
+  );
 }

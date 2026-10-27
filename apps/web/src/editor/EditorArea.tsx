@@ -119,10 +119,20 @@ export default function EditorArea({
   const index = useProjectIndex(projectId);
   const { user } = useSession();
   const onEventRef = useRef<(event: ProjectEventMessage) => void>(() => undefined);
+  const checkAccessRef = useRef<() => void>(() => undefined);
   useEffect(() => {
     const leave = (flash: 'accessLost' | 'projectDeleted') => {
       useNotices.getState().setFlash(flash);
       void navigate({ to: '/projects' });
+    };
+    // Our own role changed: reload it, and leave if access is gone.
+    checkAccessRef.current = () => {
+      client.query({ ...projectQuery(projectId), staleTime: 0 }).then(
+        () => client.invalidateQueries({ queryKey: ['project', projectId] }),
+        () => {
+          leave('accessLost');
+        },
+      );
     };
     onEventRef.current = (event) => {
       if (event.type === 'project.deleted') {
@@ -130,13 +140,7 @@ export default function EditorArea({
         return;
       }
       if (event.type === 'members.changed' && event.userId !== null && event.userId === user?.id) {
-        // Our own role changed: reload it, and leave if access is gone.
-        client.query({ ...projectQuery(projectId), staleTime: 0 }).then(
-          () => client.invalidateQueries({ queryKey: ['project', projectId] }),
-          () => {
-            leave('accessLost');
-          },
-        );
+        checkAccessRef.current();
         return;
       }
       if (event.type === 'compile.updated') {
@@ -156,6 +160,13 @@ export default function EditorArea({
         setStatus,
         usePresence.getState().setParticipants,
       ),
+  );
+  useEffect(
+    () =>
+      connection.onChannelDenied(() => {
+        checkAccessRef.current();
+      }),
+    [connection],
   );
   useEffect(() => {
     if (user) connection.setUser(presenceUserOf(user.id, user.displayName));

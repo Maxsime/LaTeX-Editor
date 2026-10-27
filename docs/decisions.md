@@ -171,3 +171,11 @@ Contexte. La CSP servie par Caddy (`style-src 'self'`) refusait l'élément `<st
 Décision. Caddy ajoute à `style-src` un nonce propre à chaque réponse (`{http.request.uuid}`) et l'écrit dans une balise `<meta name="csp-nonce">` de `index.html` (directive `templates`). Le client le transmet à CodeMirror (`EditorView.cspNonce`) et à `get-nonce` 1.0.1 (MIT, quelques lignes), lu par la bibliothèque de Radix. `index.html` n'est plus mis en cache (`no-store`) ; les ressources à empreinte le restent. Un test e2e échoue sur toute violation de CSP signalée par le navigateur.
 
 Alternative écartée. `style-src 'unsafe-inline'` : plus simple, mais rouvre l'injection de styles que la politique ferme.
+
+## 2026-10-27 — Partage et révocation (J5)
+
+Invitations nominatives réservées aux comptes existants : sans SMTP, une invitation par adresse inconnue donnerait le projet à quiconque créerait un compte avec cette adresse, les adresses n'étant pas vérifiées. Le tableau de bord sert de boîte de réception ; le lien de partage couvre le cas d'une personne sans compte. Les jetons de lien sont stockés sous forme d'empreinte, comme les invitations d'inscription.
+
+Révocation immédiate par fermeture de la WebSocket entière de l'utilisateur concerné, et non du seul document (`Connection.close` de Hocuspocus) : un document fermé seul n'est jamais réautorisé par le client, qui resterait sans événements ni droits à jour. Alternative écartée : vérifier le rôle à chaque message, coûteux et redondant avec l'autorisation à la connexion.
+
+Identité de présence imposée par le serveur (`beforeHandleAwareness`) plutôt que validée : le client n'a aucune raison légitime d'annoncer une autre identité que la sienne.
