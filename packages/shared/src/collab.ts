@@ -50,6 +50,8 @@ export const projectEvent = z.discriminatedUnion('type', [
    * with their new rights.
    */
   z.object({ type: z.literal('members.changed'), userId: z.nullable(z.uuid()) }),
+  /** A snapshot was added to the history, or a version renamed. */
+  z.object({ type: z.literal('history.changed') }),
   /** A compilation of the project changed state; clients fetch it to refresh the PDF. */
   z.object({
     type: z.literal('compile.updated'),
