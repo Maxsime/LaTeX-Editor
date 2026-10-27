@@ -1,5 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { expect, type Page, test } from '@playwright/test';
+import { importZip } from '../editing.js';
 import { createAccount, hostileZip, referenceArchive, signIn, zipDigests } from '../instance.js';
 
 async function expandAll(page: Page): Promise<void> {
@@ -18,12 +19,6 @@ async function treePaths(page: Page): Promise<string[]> {
     paths.push((await item.getAttribute('data-path')) ?? '');
   }
   return paths.sort();
-}
-
-async function importZip(page: Page, name: string, data: Buffer): Promise<void> {
-  await page
-    .getByTestId('import-input')
-    .setInputFiles({ name, mimeType: 'application/zip', buffer: data });
 }
 
 test.describe('projects and files', () => {

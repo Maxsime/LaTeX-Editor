@@ -39,3 +39,24 @@ export async function open(page: Page, name: string): Promise<void> {
   await page.getByRole('treeitem', { name: new RegExp(`^${name.replace('.', '\\.')}`) }).click();
   await synced(page);
 }
+
+/** Imports a zip as a new project, through the dashboard's import button. */
+export async function importZip(page: Page, name: string, data: Buffer): Promise<void> {
+  await page
+    .getByTestId('import-input')
+    .setInputFiles({ name, mimeType: 'application/zip', buffer: data });
+}
+
+/** The PDF viewer once it shows a PDF with at least one page. */
+export async function pdfShown(page: Page): Promise<string> {
+  const viewer = page.getByTestId('pdf-viewer');
+  await expect(viewer).not.toHaveAttribute('data-url', '', { timeout: 60_000 });
+  await expect(viewer).not.toHaveAttribute('data-pages', '0');
+  return (await viewer.getAttribute('data-url')) ?? '';
+}
+
+export async function compileStatus(page: Page, status: string, timeout = 60_000): Promise<void> {
+  await expect(page.getByTestId('compile-status')).toHaveAttribute('data-status', status, {
+    timeout,
+  });
+}

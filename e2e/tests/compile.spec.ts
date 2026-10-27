@@ -1,20 +1,14 @@
 import { expect, type Page, test } from '@playwright/test';
-import { createProject, editor, open, synced, upload } from '../editing.js';
+import {
+  compileStatus,
+  createProject,
+  editor,
+  open,
+  pdfShown,
+  synced,
+  upload,
+} from '../editing.js';
 import { createAccount, signIn } from '../instance.js';
-
-/** The PDF viewer once it shows a PDF with at least one page. */
-async function pdfShown(page: Page): Promise<string> {
-  const viewer = page.getByTestId('pdf-viewer');
-  await expect(viewer).not.toHaveAttribute('data-url', '', { timeout: 60_000 });
-  await expect(viewer).not.toHaveAttribute('data-pages', '0');
-  return (await viewer.getAttribute('data-url')) ?? '';
-}
-
-async function compileStatus(page: Page, status: string, timeout = 60_000): Promise<void> {
-  await expect(page.getByTestId('compile-status')).toHaveAttribute('data-status', status, {
-    timeout,
-  });
-}
 
 /** Chooses the main document and waits for the server to record it. */
 async function setMainFile(page: Page, name: string): Promise<void> {
@@ -61,6 +55,13 @@ test.describe('compilation', () => {
     // A PDF is still produced, so the log stays closed until asked for.
     const log = page.getByRole('button', { name: /^Journal \(1 erreur/ });
     await expect(log).toBeVisible({ timeout: 60_000 });
+    // F8 goes to the error without opening the log.
+    await page.keyboard.press('F8');
+    await expect(page.getByRole('tab', { name: /chapitre\.tex/, selected: true })).toBeVisible();
+    await expect(page.locator('.cm-editor:visible .cm-activeLine')).toContainText(
+      'commandeinconnue',
+    );
+    await open(page, 'rapport.tex');
     await log.click();
 
     const diagnostics = page.getByTestId('diagnostics');
