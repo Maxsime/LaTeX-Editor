@@ -1,10 +1,11 @@
-import { COMPILE_QUEUE, type CompileJob, ConfigError } from '@galley/shared';
+import { COMPILE_QUEUE, type CompileJob, ConfigError, SYNCTEX_QUEUE } from '@galley/shared';
 import { Queue, QueueEvents } from 'bullmq';
 import { createLogger, readPackageVersion } from '@galley/shared/node';
 import { Redis } from 'ioredis';
 import { buildApp } from './app.js';
 import { createDocumentGateway } from './collab/documents.js';
 import { followCompileEvents } from './compile/service.js';
+import { createSynctexClient } from './compile/synctex.js';
 import { ensureSetupCode } from './auth/setup.js';
 import { countUsers } from './auth/users.js';
 import { readConfig } from './config.js';
@@ -44,6 +45,11 @@ async function main(): Promise<void> {
     connection: { url: config.VALKEY_URL, maxRetriesPerRequest: null },
   });
 
+  const synctexQueue = new Queue(SYNCTEX_QUEUE, { connection: queueRedis });
+  const synctexEvents = new QueueEvents(SYNCTEX_QUEUE, {
+    connection: { url: config.VALKEY_URL, maxRetriesPerRequest: null },
+  });
+
   const context = {
     config,
     database,
@@ -51,6 +57,7 @@ async function main(): Promise<void> {
     s3,
     documents: createDocumentGateway(config, database, logger),
     compileQueue,
+    synctex: createSynctexClient(synctexQueue, synctexEvents),
   };
   followCompileEvents(context, compileEvents, logger);
 
@@ -73,7 +80,14 @@ async function main(): Promise<void> {
     app
       .close()
       .then(stopMaintenance)
-      .then(() => Promise.allSettled([compileEvents.close(), compileQueue.close()]))
+      .then(() =>
+        Promise.allSettled([
+          compileEvents.close(),
+          compileQueue.close(),
+          synctexEvents.close(),
+          synctexQueue.close(),
+        ]),
+      )
       .then(() =>
         Promise.allSettled([database.sql.end({ timeout: 5 }), redis.quit(), queueRedis.quit()]),
       )

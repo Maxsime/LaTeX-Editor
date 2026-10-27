@@ -76,31 +76,56 @@ export async function zipDigests(path: string): Promise<Record<string, string | 
   return result;
 }
 
-/** A stored-only zip with one entry whose name archivers would refuse to write. */
-export function hostileZip(name: string): Buffer {
-  const data = Buffer.from('owned');
-  const fileName = Buffer.from(name);
-  const local = Buffer.alloc(30);
-  local.writeUInt32LE(0x04034b50, 0);
-  local.writeUInt16LE(20, 4);
-  local.writeUInt32LE(data.length, 18);
-  local.writeUInt32LE(data.length, 22);
-  local.writeUInt16LE(fileName.length, 26);
-  const crc = crc32(data);
-  local.writeUInt32LE(crc, 14);
-  const central = Buffer.alloc(46);
-  central.writeUInt32LE(0x02014b50, 0);
-  central.writeUInt16LE(20, 4);
-  central.writeUInt16LE(20, 6);
-  central.writeUInt32LE(crc, 16);
-  central.writeUInt32LE(data.length, 20);
-  central.writeUInt32LE(data.length, 24);
-  central.writeUInt16LE(fileName.length, 28);
+/**
+ * A stored (uncompressed) zip of the given entries, written by hand so that
+ * tests can also produce names that archivers would refuse to write.
+ */
+export function storedZip(entries: Record<string, Buffer>): Buffer {
+  const locals: Buffer[] = [];
+  const centrals: Buffer[] = [];
+  let offset = 0;
+  for (const [name, data] of Object.entries(entries)) {
+    const fileName = Buffer.from(name);
+    const crc = crc32(data);
+    const local = Buffer.alloc(30);
+    local.writeUInt32LE(0x04034b50, 0);
+    local.writeUInt16LE(20, 4);
+    // UTF-8 names.
+    local.writeUInt16LE(0x0800, 6);
+    local.writeUInt32LE(crc, 14);
+    local.writeUInt32LE(data.length, 18);
+    local.writeUInt32LE(data.length, 22);
+    local.writeUInt16LE(fileName.length, 26);
+    const central = Buffer.alloc(46);
+    central.writeUInt32LE(0x02014b50, 0);
+    central.writeUInt16LE(20, 4);
+    central.writeUInt16LE(20, 6);
+    central.writeUInt16LE(0x0800, 8);
+    central.writeUInt32LE(crc, 16);
+    central.writeUInt32LE(data.length, 20);
+    central.writeUInt32LE(data.length, 24);
+    central.writeUInt16LE(fileName.length, 28);
+    central.writeUInt32LE(offset, 42);
+    locals.push(local, fileName, data);
+    centrals.push(central, fileName);
+    offset += local.length + fileName.length + data.length;
+  }
+  const directory = Buffer.concat(centrals);
   const end = Buffer.alloc(22);
   end.writeUInt32LE(0x06054b50, 0);
-  end.writeUInt16LE(1, 8);
-  end.writeUInt16LE(1, 10);
-  end.writeUInt32LE(central.length + fileName.length, 12);
-  end.writeUInt32LE(local.length + fileName.length + data.length, 16);
-  return Buffer.concat([local, fileName, data, central, fileName, end]);
+  end.writeUInt16LE(Object.keys(entries).length, 8);
+  end.writeUInt16LE(Object.keys(entries).length, 10);
+  end.writeUInt32LE(directory.length, 12);
+  end.writeUInt32LE(offset, 16);
+  return Buffer.concat([...locals, directory, end]);
+}
+
+/** A stored-only zip with one entry whose name archivers would refuse to write. */
+export function hostileZip(name: string): Buffer {
+  return storedZip({ [name]: Buffer.from('owned') });
+}
+
+/** Path of a project of the compilation corpus (SPEC §8). */
+export function fixtureProject(name: string): string {
+  return join(repository, 'fixtures/projects', name);
 }

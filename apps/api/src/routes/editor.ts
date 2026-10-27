@@ -14,6 +14,7 @@ import {
 } from '@galley/shared';
 import type { FastifyInstance } from 'fastify';
 import { requireAuth } from '../auth/plugin.js';
+import { parseBibliography } from '../bibliography/parse.js';
 import type { AppContext } from '../context.js';
 import { parse } from '../http/validate.js';
 import { readProjectTexts } from '../materialize.js';
@@ -62,10 +63,29 @@ export function editorRoutes(app: FastifyInstance, context: AppContext): void {
       ...rest,
       fileId: idByPath.get(path) ?? '',
     });
+    const citations: ProjectIndexResponse['citations'] = [];
+    for (const file of texts) {
+      if (!file.path.toLowerCase().endsWith('.bib')) continue;
+      for (const entry of parseBibliography(file.text))
+        citations.push({ ...entry, fileId: file.id });
+    }
+    for (const item of index.bibitems) {
+      const { fileId, line } = locate(item);
+      citations.push({
+        key: item.name,
+        type: 'bibitem',
+        title: null,
+        authors: [],
+        year: null,
+        fileId,
+        line,
+      });
+    }
     return {
       commands: index.commands.map(locate),
       environments: index.environments.map(locate),
       labels: index.labels.map(locate),
+      citations,
     };
   });
 

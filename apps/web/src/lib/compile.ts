@@ -44,12 +44,48 @@ export function diagnosticsByFile(diagnostics: readonly Diagnostic[]): Map<strin
   return byFile;
 }
 
+/** Errors and warnings located in a project file, in log order: the stops of F8. */
+export function navigableDiagnostics(diagnostics: readonly Diagnostic[]): Diagnostic[] {
+  return diagnostics.filter(
+    (diagnostic) =>
+      diagnostic.level !== 'badbox' && diagnostic.file !== null && diagnostic.line !== null,
+  );
+}
+
+/**
+ * Index of the next stop from `current` (-1 before the first), wrapping
+ * around in both directions; -1 when there is none.
+ */
+export function nextStop(count: number, current: number, direction: 1 | -1): number {
+  if (count === 0) return -1;
+  if (current < 0) return direction === 1 ? 0 : count - 1;
+  return (current + direction + count) % count;
+}
+
 /** Keyboard shortcuts that compile: Ctrl+S and Ctrl+Enter (Cmd on macOS). */
 export function isCompileShortcut(
   event: Pick<KeyboardEvent, 'key' | 'ctrlKey' | 'metaKey' | 'altKey' | 'shiftKey'>,
 ): boolean {
   if (!(event.ctrlKey || event.metaKey) || event.altKey || event.shiftKey) return false;
   return event.key === 'Enter' || event.key.toLowerCase() === 's';
+}
+
+/** F8 and Shift+F8 step through the errors of the last compilation. */
+export function diagnosticStep(
+  event: Pick<KeyboardEvent, 'key' | 'shiftKey' | 'ctrlKey' | 'metaKey' | 'altKey'>,
+): 1 | -1 | null {
+  if (event.key !== 'F8' || event.ctrlKey || event.metaKey || event.altKey) return null;
+  return event.shiftKey ? -1 : 1;
+}
+
+/** Ctrl+Alt+J (Cmd+Alt+J on macOS) shows the cursor's place in the PDF. */
+export function isForwardSearchShortcut(
+  event: Pick<KeyboardEvent, 'code' | 'ctrlKey' | 'metaKey' | 'altKey' | 'shiftKey'>,
+): boolean {
+  // The physical key: Alt changes the character the J key produces on macOS.
+  return (
+    (event.ctrlKey || event.metaKey) && event.altKey && !event.shiftKey && event.code === 'KeyJ'
+  );
 }
 
 /** The project's latest compilation and its last PDF; polled while one is pending. */

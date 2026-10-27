@@ -2,7 +2,7 @@
 
 Éditeur LaTeX collaboratif, auto-hébergé, avec assistant IA intégré. Le cahier des charges est dans [`SPEC.md`](SPEC.md), les consignes de développement dans [`CLAUDE.md`](CLAUDE.md).
 
-État : jalon J3 (compilation). On crée un compte, on gère ses projets, on importe un projet Overleaf ou Prism en zip, on édite ses fichiers dans un éditeur LaTeX synchronisé en continu, on compile avec TeX Live 2026 dans un bac à sable et on lit le PDF à côté du source. SyncTeX et l'autocomplétion des références arrivent au jalon suivant (`SPEC.md` §9).
+État : jalon J4 (navigation et diagnostics). On crée un compte, on gère ses projets, on importe un projet Overleaf ou Prism en zip, on édite ses fichiers dans un éditeur LaTeX synchronisé en continu, on compile avec TeX Live 2026 dans un bac à sable, on lit le PDF à côté du source et on passe de l'un à l'autre par SyncTeX. La collaboration (présence, commentaires, partage) arrive au jalon suivant (`SPEC.md` §9).
 
 ## Démarrer une instance
 
@@ -69,13 +69,15 @@ Limites d'une archive : 5 000 entrées, 500 Mio décompressés, 100 Mio par fich
 
 Un clic sur un fichier texte l'ouvre dans un onglet. Chaque frappe part aussitôt vers le serveur : il n'y a pas de bouton d'enregistrement, et la pastille de l'onglet indique l'état (synchronisé, envoi en cours, hors ligne). Hors ligne, les modifications restent dans l'onglet et repartent à la reconnexion ; le navigateur prévient si l'on ferme la page avant.
 
-L'éditeur colore LaTeX et BibTeX, replie les environnements et les sections, et complète les commandes, les environnements et les chemins de fichiers, y compris ceux que le projet définit. Le panneau « Plan » suit `\input`, `\include` et `\subfile` depuis le document principal et mène à la section choisie. Le panneau « Recherche » cherche dans tout le projet (texte ou expression régulière, casse, mot entier) et remplace partout après confirmation. Thème, taille de police et retour à la ligne se règlent au-dessus de l'éditeur.
+L'éditeur colore LaTeX et BibTeX, replie les environnements et les sections, et complète les commandes, les environnements et les chemins de fichiers, y compris ceux que le projet définit. Après `\ref{` et ses variantes, il propose les labels du projet ; après `\cite{` et ses variantes (natbib, BibLaTeX), les clés de tous les `.bib` du projet et des `\bibitem`, avec auteurs et année ; dans `\usepackage[...]` et `\documentclass[...]`, les options des paquets et classes courants. Sans compiler, il souligne les environnements mal fermés, les labels en double et les références ou citations inconnues. Le panneau « Plan » suit `\input`, `\include` et `\subfile` depuis le document principal et mène à la section choisie. Le panneau « Recherche » cherche dans tout le projet (texte ou expression régulière, casse, mot entier) et remplace partout après confirmation. Thème, taille de police et retour à la ligne se règlent au-dessus de l'éditeur.
 
 ### Compiler
 
 Le PDF s'affiche à droite de l'éditeur ; les boutons de l'en-tête basculent entre éditeur seul, PDF seul ou les deux. Un projet compile à son ouverture, puis à chaque pause de frappe (2 s par défaut, réglable ou désactivable dans « Options »), avec le bouton « Compiler », Ctrl+S ou Ctrl+Entrée. Le PDF garde sa position de lecture et son zoom d'une compilation à l'autre.
 
-Le bouton « Journal » liste les erreurs et avertissements : un clic ouvre le fichier à la ligne fautive, également marquée dans la gouttière de l'éditeur. Le journal brut et les fichiers produits (`.log`, `.bbl`, `.synctex.gz`...) y sont téléchargeables. Le menu « Options » règle le moteur (pdfLaTeX, XeLaTeX, LuaLaTeX), l'outil bibliographique, le shell-escape, la compilation en brouillon et l'arrêt à la première erreur, et propose « Nettoyer et recompiler ».
+Le bouton « Journal » liste les erreurs et avertissements : un clic ouvre le fichier à la ligne fautive, également marquée dans la gouttière de l'éditeur. F8 et Maj+F8 passent d'une erreur à la suivante ou à la précédente.
+
+Un double-clic dans le PDF ouvre le fichier source à la ligne correspondante, y compris dans un fichier inclus. Dans l'autre sens, le bouton « Vers le PDF » ou Ctrl+Alt+J fait défiler le PDF jusqu'à la ligne du curseur et la surligne. Le journal brut et les fichiers produits (`.log`, `.bbl`, `.synctex.gz`...) y sont téléchargeables. Le menu « Options » règle le moteur (pdfLaTeX, XeLaTeX, LuaLaTeX), l'outil bibliographique, le shell-escape, la compilation en brouillon et l'arrêt à la première erreur, et propose « Nettoyer et recompiler ».
 
 Chaque compilation tourne sans réseau, dans un bac à sable limité en temps (3 min), en mémoire et en disque. Le shell-escape complet (minted, par exemple) n'est accepté que si l'administrateur l'autorise (`COMPILER_ALLOW_FULL_SHELL_ESCAPE`) ; sinon le projet compile avec la liste restreinte de TeX Live.
 

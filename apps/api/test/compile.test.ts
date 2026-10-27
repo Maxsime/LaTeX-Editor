@@ -10,6 +10,8 @@ import {
   latestCompileResponse,
   projectChannel,
   projectEventMessage,
+  type SynctexJob,
+  type SynctexResult,
   TEXLIVE_VERSION_KEY,
 } from '@galley/shared';
 import { createLogger } from '@galley/shared/node';
@@ -103,6 +105,8 @@ function startFakeWorker(url: string, s3: S3Client, bucket: string, redis: Redis
         outputs: [
           { name: 'main.pdf', size: PDF.length },
           { name: 'main.log', size: LOG.length },
+          // Never read here: SyncTeX queries go to a stand-in client.
+          { name: 'main.synctex.gz', size: 0 },
         ],
         texlive: 'TeX Live 2026',
         shellEscapeDowngraded: false,
@@ -128,6 +132,9 @@ describe.skipIf(!dockerAvailable)('compilation API', () => {
   let owner: Client;
   let projectId = '';
   const received: { compileId: string; status: string }[] = [];
+  /** Queries the routes sent to the workers, and the answer to give next. */
+  const synctexQueries: SynctexJob[] = [];
+  let synctexAnswer: SynctexResult = { kind: 'edit', source: null };
 
   async function compile(options: Record<string, boolean> = {}): Promise<CompileRun> {
     const response = await owner.send('POST', `/api/projects/${projectId}/compile`, {
@@ -145,7 +152,12 @@ describe.skipIf(!dockerAvailable)('compilation API', () => {
       if (run.status === status) return run;
       await new Promise((resolve) => setTimeout(resolve, 50));
     }
-    throw new Error(`compile ${compileId} stayed ${String(run?.status)}, expected ${status}`);
+    const job = await queue.getJob(compileId);
+    const jobState = job ? await job.getState() : 'no job';
+    const [row] = await database.db.select().from(compileRuns).where(eq(compileRuns.id, compileId));
+    throw new Error(
+      `compile ${compileId} stayed ${String(run?.status)}, expected ${status} (job ${jobState}, failure ${String(row?.failureCode)})`,
+    );
   }
 
   beforeAll(async () => {
@@ -182,6 +194,10 @@ describe.skipIf(!dockerAvailable)('compilation API', () => {
       s3,
       documents: createDocumentGateway(config, database, logger),
       compileQueue: queue,
+      synctex: (job: SynctexJob) => {
+        synctexQueries.push(job);
+        return Promise.resolve(synctexAnswer);
+      },
     };
     followCompileEvents(context, events, logger);
     app = buildApp({ logger, version: 'test', probes: {}, context });
@@ -279,6 +295,97 @@ describe.skipIf(!dockerAvailable)('compilation API', () => {
     expect((await owner.send('GET', `${base}/..%2Fother%2Fmain.pdf`)).statusCode).toBe(404);
   });
 
+  it('maps a point of the PDF to a project file through SyncTeX', async () => {
+    const run = await waitFor((await compile()).id, 'success');
+    const base = `/api/projects/${projectId}/compiles/${run.id}/synctex`;
+    synctexAnswer = {
+      kind: 'edit',
+      source: { input: '/project/./main.tex', line: 3, column: null },
+    };
+    const found = await owner.send('GET', `${base}/edit?page=2&x=100.5&y=200`);
+    expect(found.statusCode).toBe(200);
+    const tree = await owner.send('GET', `/api/projects/${projectId}/tree`);
+    const main = tree
+      .json<{ nodes: { id: string; name: string }[] }>()
+      .nodes.find((node) => node.name === 'main.tex');
+    expect(found.json()).toEqual({
+      file: { id: main?.id, path: 'main.tex' },
+      externalFile: null,
+      line: 3,
+      column: null,
+    });
+    expect(synctexQueries.at(-1)).toEqual({
+      kind: 'edit',
+      compileId: run.id,
+      synctexFile: 'main.synctex.gz',
+      page: 2,
+      x: 100.5,
+      y: 200,
+    });
+
+    synctexAnswer = {
+      kind: 'edit',
+      source: {
+        input: '/usr/local/texlive/2026/texmf-dist/tex/latex/base/article.cls',
+        line: 9,
+        column: null,
+      },
+    };
+    expect((await owner.send('GET', `${base}/edit?page=1&x=1&y=1`)).json()).toMatchObject({
+      file: null,
+      externalFile: 'article.cls',
+    });
+
+    // A file of the compilation that no longer exists in the project.
+    synctexAnswer = {
+      kind: 'edit',
+      source: { input: '/project/./gone.tex', line: 1, column: null },
+    };
+    expect((await owner.send('GET', `${base}/edit?page=1&x=1&y=1`)).json()).toMatchObject({
+      file: null,
+      externalFile: null,
+      line: 1,
+    });
+
+    expect((await owner.send('GET', `${base}/edit?page=0&x=1&y=1`)).statusCode).toBe(400);
+  });
+
+  it('maps a source line to boxes of the PDF through SyncTeX', async () => {
+    const run = await waitFor((await compile()).id, 'success');
+    const tree = await owner.send('GET', `/api/projects/${projectId}/tree`);
+    const main = tree
+      .json<{ nodes: { id: string; name: string }[] }>()
+      .nodes.find((node) => node.name === 'main.tex');
+    const boxes = [{ page: 1, x: 72, y: 100, width: 300, height: 10 }];
+    synctexAnswer = { kind: 'view', boxes };
+    const base = `/api/projects/${projectId}/compiles/${run.id}/synctex`;
+    const view = await owner.send('GET', `${base}/view?fileId=${main?.id ?? ''}&line=4`);
+    expect(view.json()).toEqual({ boxes });
+    expect(synctexQueries.at(-1)).toMatchObject({
+      kind: 'view',
+      file: 'main.tex',
+      line: 4,
+      column: 0,
+    });
+    const unknown = await owner.send(
+      'GET',
+      `${base}/view?fileId=0193f9f0-4d0a-7c3e-8f5a-1b2c3d4e5f60&line=4`,
+    );
+    expect(unknown.statusCode).toBe(404);
+  });
+
+  it('answers NO_SYNCTEX for a compilation without SyncTeX data', async () => {
+    const queued = await compile({ draft: true });
+    await owner.send('POST', `/api/projects/${projectId}/compiles/${queued.id}/cancel`);
+    await waitFor(queued.id, 'cancelled');
+    const response = await owner.send(
+      'GET',
+      `/api/projects/${projectId}/compiles/${queued.id}/synctex/edit?page=1&x=1&y=1`,
+    );
+    expect(response.statusCode).toBe(409);
+    expect(response.json()).toMatchObject({ error: { code: 'NO_SYNCTEX' } });
+  });
+
   it('keeps the compilations and their files private to project members', async () => {
     const run = (await compile()).id;
     await waitFor(run, 'success');
@@ -297,6 +404,7 @@ describe.skipIf(!dockerAvailable)('compilation API', () => {
       `/api/projects/${projectId}/compiles/latest`,
       `/api/projects/${projectId}/compiles/${run}`,
       `/api/projects/${projectId}/compiles/${run}/output/main.pdf`,
+      `/api/projects/${projectId}/compiles/${run}/synctex/edit?page=1&x=1&y=1`,
     ];
     for (const url of urls) expect((await stranger.send('GET', url)).statusCode).toBe(404);
     const posted = await stranger.send('POST', `/api/projects/${projectId}/compile`, { json: {} });

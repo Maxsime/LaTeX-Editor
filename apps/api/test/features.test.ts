@@ -117,6 +117,7 @@ describe.skipIf(!dockerAvailable)('accounts, projects and files', () => {
         s3,
         documents: createDocumentGateway(config, database, logger),
         compileQueue,
+        synctex: () => Promise.reject(new Error('no SyncTeX in these tests')),
       },
       archiveLimits: {
         ...DEFAULT_ARCHIVE_LIMITS,
@@ -632,6 +633,45 @@ describe.skipIf(!dockerAvailable)('accounts, projects and files', () => {
       );
       expect(body.commands.map((command) => command.name)).toEqual(['R']);
       expect(body.labels.map((label) => label.name)).toEqual(['sec:intro']);
+      expect(body.citations).toEqual([]);
+    });
+
+    it('indexes the entries of bibliographies and bibitems', async () => {
+      const upload = await alice.send('POST', `/api/projects/${projectId}/files`, {
+        form: multipart([
+          { name: 'path', value: 'refs.bib' },
+          {
+            name: 'file',
+            filename: 'refs.bib',
+            data: Buffer.from(
+              '@book{lamport94,\n  author = {Leslie Lamport},\n  title = {A Document Preparation System},\n  year = 1994,\n}\n',
+            ),
+          },
+          { name: 'path', value: 'biblio.tex' },
+          {
+            name: 'file',
+            filename: 'biblio.tex',
+            data: Buffer.from(
+              '\\begin{thebibliography}{9}\n\\bibitem{knuth84} D. Knuth.\n\\end{thebibliography}\n',
+            ),
+          },
+        ]),
+      });
+      expect(upload.statusCode).toBe(201);
+      const body = projectIndexResponse.parse(
+        (await alice.send('GET', `/api/projects/${projectId}/index`)).json(),
+      );
+      expect(body.citations).toMatchObject([
+        {
+          key: 'lamport94',
+          type: 'book',
+          title: 'A Document Preparation System',
+          authors: ['Lamport'],
+          year: '1994',
+          line: 1,
+        },
+        { key: 'knuth84', type: 'bibitem', title: null, authors: [], year: null, line: 2 },
+      ]);
     });
 
     it('searches with literal, whole-word and regular expression queries', async () => {

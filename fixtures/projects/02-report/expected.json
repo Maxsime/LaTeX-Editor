@@ -1,11 +1,12 @@
 {
-  "description": "Rapport multi-fichiers : \\include, sous-dossiers, classe locale, images PNG, JPEG et PDF.",
+  "description": "Rapport multi-fichiers : \\include, sous-dossiers, classe locale, images PNG, JPEG et PDF. SyncTeX : chaque ligne aller-retour entre source et PDF, médiane sous 200 ms (SPEC §6.5).",
   "runs": [
     {
       "main": "main.tex",
       "expect": {
         "outcome": "success",
-        "minPages": 3
+        "minPages": 3,
+        "synctexMedianMs": 200
       }
     }
   ]

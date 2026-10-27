@@ -58,7 +58,7 @@ L'import reçoit l'archive dans un dossier temporaire (`API_TMP_DIR`), valide to
 
 ## Indexation LaTeX
 
-`packages/latex-index` est un module pur : il extrait d'un fichier les titres (parties à sous-paragraphes, frames Beamer), les `\label`, les commandes et environnements définis et les fichiers référencés, en ignorant commentaires et verbatim. L'API s'en sert pour `GET /api/projects/:id/outline` (plan depuis le document principal, en suivant `\input`, `\include`, `\subfile` et `\import`), `GET /api/projects/:id/index` (définitions et labels pour la complétion), `GET /api/projects/:id/search` et `POST /api/projects/:id/replace` (moteur RE2, au plus 1 000 résultats).
+`packages/latex-index` est un module pur : il extrait d'un fichier les titres (parties à sous-paragraphes, frames Beamer), les `\label`, les commandes et environnements définis et les fichiers référencés, en ignorant commentaires et verbatim. L'API s'en sert pour `GET /api/projects/:id/outline` (plan depuis le document principal, en suivant `\input`, `\include`, `\subfile` et `\import`), `GET /api/projects/:id/index` (définitions, labels et entrées bibliographiques pour la complétion ; les `.bib` sont lus par `@retorquere/bibtex-parser`), `GET /api/projects/:id/search` et `POST /api/projects/:id/replace` (moteur RE2, au plus 1 000 résultats).
 
 ## Compilation
 
@@ -68,3 +68,17 @@ L'import reçoit l'archive dans un dossier temporaire (`API_TMP_DIR`), valide to
 - Annulation : `POST .../compiles/:compileId/cancel` retire une tâche en attente ou prévient le worker par le canal Valkey `compile:cancel`, qui arrête `bwrap` et tout son espace de PID.
 - Rétention : les trois dernières compilations terminées et la dernière ayant produit un PDF ; le reste est supprimé du stockage et de la base.
 - Au démarrage, le worker vérifie que `bwrap` fonctionne et lit le millésime TeX Live (`GET /api/compiler`). Les conditions côté hôte et Docker sont dans `docs/operations.md`.
+
+## SyncTeX
+
+- `GET /api/projects/:id/compiles/:compileId/synctex/edit?page&x&y` (PDF vers source) et `.../synctex/view?fileId&line&column` (source vers PDF), pour tout membre, 240 par minute. Coordonnées en points depuis le coin supérieur gauche de la page ; la conversion depuis pdf.js est faite par `apps/web/src/lib/synctex.ts`.
+- L'API met une tâche dans la file BullMQ `synctex` et attend la réponse 5 s au plus. Le worker la traite dans un `Worker` séparé (concurrence 4) : il télécharge au besoin le `.synctex.gz` publié par la compilation demandée dans `<COMPILER_WORK_DIR>/synctex-cache/<compileId>` (32 compilations au plus), puis lance `synctex` sous `bwrap` avec ce seul dossier monté en lecture seule.
+- Les chemins enregistrés par TeX (`/project/./chapters/intro.tex`) sont ramenés au projet puis à un identifiant de fichier ; un point issu d'une classe ou d'un paquet de TeX Live est signalé comme externe.
+
+## Diagnostics dans l'éditeur
+
+Un seul linter CodeMirror affiche les marqueurs de la dernière compilation (déplacés avec le texte modifié) et ceux de `lintDocument` (`packages/latex-index`), calculés dans le navigateur après chaque pause de frappe sur les fichiers `.tex`, avec les labels et clés bibliographiques des autres fichiers venus de l'index.
+
+## Politique de sécurité du contenu
+
+Caddy envoie une CSP stricte (`script-src 'self'`). `style-src` porte un nonce propre à chaque réponse, que `index.html` reçoit par la directive `templates` et que le client transmet aux bibliothèques qui insèrent des éléments `<style>` (CodeMirror, Radix). `index.html` n'est jamais mis en cache.

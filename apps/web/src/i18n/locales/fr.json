@@ -36,6 +36,7 @@
     "NOT_FOUND": "Ressource introuvable.",
     "CONFLICT": "Conflit avec l'état actuel.",
     "NO_MAIN_FILE": "Aucun fichier principal n'est défini pour ce projet.",
+    "NO_SYNCTEX": "Cette compilation n'a pas produit de données SyncTeX : recompiler le projet.",
     "PAYLOAD_TOO_LARGE": "Contenu trop volumineux.",
     "RATE_LIMITED": "Trop de requêtes, réessayez plus tard.",
     "INVALID_PATTERN": "Expression régulière invalide.",
@@ -254,6 +255,16 @@
       "count_one": "{{count}} résultat dans {{files}} fichier(s).",
       "count_other": "{{count}} résultats dans {{files}} fichier(s).",
       "truncated": "Plus de {{count}} résultats : affinez la recherche."
+    },
+    "lint": {
+      "sourceEditor": "Éditeur",
+      "sourceCompile": "Compilation",
+      "mismatchedEnvironment": "Ce \\end ferme {{name}} alors que l'environnement ouvert est {{expected}}.",
+      "unclosedEnvironment": "L'environnement {{name}} n'est pas fermé dans ce fichier.",
+      "unopenedEnvironment": "L'environnement {{name}} est fermé sans avoir été ouvert dans ce fichier.",
+      "duplicateLabel": "Le label {{name}} est défini plusieurs fois dans le projet.",
+      "unknownReference": "Aucun label {{name}} dans le projet.",
+      "unknownCitation": "Aucune entrée bibliographique {{name}} dans le projet."
     }
   },
   "compile": {
@@ -266,7 +277,7 @@
     "firstCompile": "Compilation en cours…",
     "noPdf": "Aucun PDF pour l'instant. Compilez pour l'afficher.",
     "texlive": "Distribution : {{release}}",
-    "logButton": "Journal ({{error}} erreurs, {{warning}} avertissements)",
+    "logButton": "Journal ({{errors}}, {{warnings}})",
     "log": "Journal de compilation",
     "noLog": "Cette compilation n'a pas produit de journal.",
     "logFailed": "Le journal n'a pas pu être chargé.",
@@ -329,6 +340,19 @@
       "seconds_other": "{{count}} s",
       "draft": "Mode brouillon (images remplacées par des cadres)",
       "haltOnError": "S'arrêter à la première erreur"
+    },
+    "logButtonTitle": "Ouvrir le journal sur la première erreur. F8 et Maj+F8 : erreur suivante et précédente.",
+    "errorCount_one": "{{count}} erreur",
+    "errorCount_other": "{{count}} erreurs",
+    "warningCount_one": "{{count}} avertissement",
+    "warningCount_other": "{{count}} avertissements",
+    "synctex": {
+      "toPdf": "Vers le PDF",
+      "toPdfTitle": "Montrer la ligne du curseur dans le PDF (Ctrl+Alt+J)",
+      "external": "Ce passage vient de {{file}}, qui ne fait pas partie du projet.",
+      "notFound": "Aucune ligne du source ne correspond à cet endroit.",
+      "notInPdf": "Cette ligne n'apparaît pas dans le PDF affiché.",
+      "failed": "La correspondance entre le PDF et le source a échoué. Réessayez après une compilation."
     }
   },
   "pdf": {

@@ -4,6 +4,11 @@ import {
   type CompileRun,
   type CompilerInfo,
   type LatestCompileResponse,
+  type SynctexEditResponse,
+  synctexEditQuery,
+  synctexInputToProjectPath,
+  type SynctexViewResponse,
+  synctexViewQuery,
   TEXLIVE_VERSION_KEY,
 } from '@galley/shared';
 import { compileRuns } from '@galley/db';
@@ -19,6 +24,7 @@ import {
   toCompileRun,
 } from '../compile/service.js';
 import type { AppContext } from '../context.js';
+import { listNodes, nodePaths } from '../files/tree.js';
 import { parse } from '../http/validate.js';
 import { loadProject } from '../projects/access.js';
 import { readCompileOutput } from '../storage/compiles.js';
@@ -27,6 +33,9 @@ import { projectParams } from './projects.js';
 
 const compileParams = z.object({ id: z.uuid(), compileId: z.uuid() });
 const outputParams = z.object({ id: z.uuid(), compileId: z.uuid(), '*': z.string() });
+
+/** A double-click per query; generous for a reader jumping around the PDF. */
+const synctexRateLimit = { rateLimit: { max: 240, timeWindow: '1 minute' } };
 
 /** A user compiling in a loop (auto-compile on every pause) stays far below this. */
 const compileRateLimit = { rateLimit: { max: 60, timeWindow: '1 minute' } };
@@ -45,6 +54,13 @@ export function compileRoutes(app: FastifyInstance, context: AppContext): void {
       .where(and(eq(compileRuns.id, compileId), eq(compileRuns.projectId, projectId)));
     if (!row) throw new ApiError('NOT_FOUND');
     return row;
+  }
+
+  /** Name of the SyncTeX data a compilation published, or NO_SYNCTEX. */
+  function synctexFileOf(row: CompileRunRow): string {
+    const file = row.result?.outputs.find((output) => output.name.endsWith('.synctex.gz'));
+    if (!file) throw new ApiError('NO_SYNCTEX');
+    return file.name;
   }
 
   app.get('/api/compiler', async (request): Promise<CompilerInfo> => {
@@ -118,4 +134,60 @@ export function compileRoutes(app: FastifyInstance, context: AppContext): void {
     // A compilation's files never change once published.
     return sendUserFile(reply, baseName, body, 'private, max-age=31536000, immutable');
   });
+
+  app.get(
+    '/api/projects/:id/compiles/:compileId/synctex/edit',
+    { config: synctexRateLimit },
+    async (request): Promise<SynctexEditResponse> => {
+      const auth = requireAuth(request);
+      const { id, compileId } = parse(compileParams, request.params);
+      const query = parse(synctexEditQuery, request.query);
+      await loadProject(db, id, auth.user.id, 'reader');
+      const row = await loadRun(id, compileId);
+      const result = await context.synctex({
+        kind: 'edit',
+        compileId,
+        synctexFile: synctexFileOf(row),
+        ...query,
+      });
+      const source = result.kind === 'edit' ? result.source : null;
+      if (source === null) return { file: null, externalFile: null, line: null, column: null };
+      const path = synctexInputToProjectPath(source.input);
+      const position = { line: source.line, column: source.column };
+      if (path === null) {
+        // A class or package of the distribution: only its name is worth showing.
+        const name = source.input.slice(source.input.lastIndexOf('/') + 1);
+        return { file: null, externalFile: name, ...position };
+      }
+      // The file may have been renamed or deleted since the compilation.
+      for (const [fileId, filePath] of nodePaths(await listNodes(db, id))) {
+        if (filePath === path)
+          return { file: { id: fileId, path }, externalFile: null, ...position };
+      }
+      return { file: null, externalFile: null, ...position };
+    },
+  );
+
+  app.get(
+    '/api/projects/:id/compiles/:compileId/synctex/view',
+    { config: synctexRateLimit },
+    async (request): Promise<SynctexViewResponse> => {
+      const auth = requireAuth(request);
+      const { id, compileId } = parse(compileParams, request.params);
+      const query = parse(synctexViewQuery, request.query);
+      await loadProject(db, id, auth.user.id, 'reader');
+      const row = await loadRun(id, compileId);
+      const path = nodePaths(await listNodes(db, id)).get(query.fileId);
+      if (path === undefined) throw new ApiError('NOT_FOUND');
+      const result = await context.synctex({
+        kind: 'view',
+        compileId,
+        synctexFile: synctexFileOf(row),
+        file: path,
+        line: query.line,
+        column: query.column,
+      });
+      return { boxes: result.kind === 'view' ? result.boxes : [] };
+    },
+  );
 }

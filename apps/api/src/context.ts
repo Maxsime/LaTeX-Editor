@@ -4,6 +4,7 @@ import type { ApiConfig } from './config.js';
 import type { Database } from '@galley/db';
 import type { DocumentGateway } from './collab/documents.js';
 import type { CompileQueue } from './compile/service.js';
+import type { SynctexClient } from './compile/synctex.js';
 
 /** Long-lived dependencies shared by every route. */
 export interface AppContext {
@@ -13,4 +14,5 @@ export interface AppContext {
   s3: S3Client;
   documents: DocumentGateway;
   compileQueue: CompileQueue;
+  synctex: SynctexClient;
 }

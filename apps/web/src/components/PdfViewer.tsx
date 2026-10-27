@@ -1,10 +1,18 @@
+import type { SynctexBox } from '@galley/shared';
 import { getDocument, GlobalWorkerOptions, type PDFDocumentProxy } from 'pdfjs-dist';
 import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
-import { EventBus, LinkTarget, PDFLinkService, PDFViewer } from 'pdfjs-dist/web/pdf_viewer.mjs';
+import {
+  EventBus,
+  LinkTarget,
+  PDFLinkService,
+  type PDFPageView,
+  PDFViewer,
+} from 'pdfjs-dist/web/pdf_viewer.mjs';
 import 'pdfjs-dist/web/pdf_viewer.css';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { type ReadingPosition, restorePosition, savePosition } from '../lib/pdf-position.js';
+import { toPdfRect, toSynctexPoint, type ViewBox } from '../lib/synctex.js';
 
 GlobalWorkerOptions.workerSrc = workerUrl;
 
@@ -17,17 +25,53 @@ function percent(scale: string): string {
   return `${String(Math.round(Number(scale) * 100))} %`;
 }
 
+/** Boxes to point out in the PDF; a new nonce shows the same boxes again. */
+export interface PdfHighlight {
+  boxes: readonly SynctexBox[];
+  nonce: number;
+}
+
 interface PdfViewerProps {
   /** URL of the PDF; each compilation has its own. */
   url: string;
   downloadName: string;
+  /** Called on a double-click in a page, with the point in SyncTeX coordinates. */
+  onSynctex?: (point: { page: number; x: number; y: number }) => void;
+  highlight?: PdfHighlight | null;
+}
+
+/** How long a highlight stays on screen. */
+const HIGHLIGHT_MS = 2000;
+
+function pageViewOf(viewer: PDFViewer, pageNumber: number): PDFPageView | undefined {
+  // pdf.js types getPageView as any; it returns the PDFPageView of a 0-based index.
+  return viewer.getPageView(pageNumber - 1) as PDFPageView | undefined;
+}
+
+function viewBoxOf(view: PDFPageView): ViewBox {
+  const [x0 = 0, y0 = 0, x1 = 0, y1 = 0] = view.viewport.viewBox;
+  return [x0, y0, x1, y1];
+}
+
+/** A box's rectangle in CSS pixels, relative to the page's content area. */
+function cssRect(view: PDFPageView, box: SynctexBox) {
+  const [x0, y0, x1, y1] = toPdfRect(viewBoxOf(view), box);
+  // pdf.js types the converted points as any[]; they are [x, y] numbers.
+  const [ax, ay] = view.viewport.convertToViewportPoint(x0, y0) as [number, number];
+  const [bx, by] = view.viewport.convertToViewportPoint(x1, y1) as [number, number];
+  return {
+    left: Math.min(ax, bx),
+    top: Math.min(ay, by),
+    width: Math.abs(bx - ax),
+    height: Math.abs(by - ay),
+  };
 }
 
 /**
  * pdf.js viewer. Loading a new PDF keeps the zoom and the reading position, so
  * a recompilation does not send the reader back to the first page.
  */
-export default function PdfViewer({ url, downloadName }: PdfViewerProps) {
+export default function PdfViewer({ url, downloadName, onSynctex, highlight }: PdfViewerProps) {
   const { t } = useTranslation();
   const container = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<PDFViewer | null>(null);
@@ -102,6 +146,78 @@ export default function PdfViewer({ url, downloadName }: PdfViewerProps) {
       if (!settled) void task.destroy();
     };
   }, [url]);
+
+  // The handler may change on every render; the listener reads the latest one.
+  const onSynctexRef = useRef(onSynctex);
+  useEffect(() => {
+    onSynctexRef.current = onSynctex;
+  }, [onSynctex]);
+
+  useEffect(() => {
+    const element = container.current;
+    if (!element) return;
+    const onDoubleClick = (event: MouseEvent) => {
+      const viewer = viewerRef.current;
+      const target = event.target instanceof Element ? event.target : null;
+      const page = target?.closest<HTMLElement>('.page[data-page-number]');
+      if (!viewer || !page) return;
+      const pageNumber = Number(page.dataset.pageNumber);
+      const view = pageViewOf(viewer, pageNumber);
+      if (!view) return;
+      // Page coordinates start inside the page's border, where the canvas is.
+      const content = page.querySelector('.canvasWrapper') ?? page;
+      const bounds = content.getBoundingClientRect();
+      const [x, y] = view.viewport.convertToPdfPoint(
+        event.clientX - bounds.left,
+        event.clientY - bounds.top,
+      ) as [number, number];
+      onSynctexRef.current?.({ page: pageNumber, ...toSynctexPoint(viewBoxOf(view), x, y) });
+    };
+    element.addEventListener('dblclick', onDoubleClick);
+    return () => {
+      element.removeEventListener('dblclick', onDoubleClick);
+    };
+  }, []);
+
+  useEffect(() => {
+    const viewer = viewerRef.current;
+    const first = highlight?.boxes[0];
+    if (!viewer || !highlight || first === undefined || viewer.pagesCount === 0) return;
+    const marks: HTMLElement[] = [];
+    for (const box of highlight.boxes) {
+      const view = pageViewOf(viewer, box.page);
+      if (!view) continue;
+      const rect = cssRect(view, box);
+      const mark = document.createElement('div');
+      mark.dataset.testid = 'synctex-highlight';
+      mark.className =
+        'pointer-events-none absolute z-10 rounded-sm bg-amber-300/40 ring-2 ring-amber-500';
+      // CSSOM assignments, allowed by the CSP that forbids inline style attributes.
+      mark.style.left = `${String(rect.left)}px`;
+      mark.style.top = `${String(rect.top)}px`;
+      mark.style.width = `${String(rect.width)}px`;
+      mark.style.height = `${String(rect.height)}px`;
+      view.div.append(mark);
+      marks.push(mark);
+    }
+    const firstView = pageViewOf(viewer, first.page);
+    if (firstView) {
+      const [, , , top] = toPdfRect(viewBoxOf(firstView), first);
+      // Leave some context above the line rather than putting it at the very top.
+      viewer.scrollPageIntoView({
+        pageNumber: first.page,
+        destArray: [null, { name: 'XYZ' }, null, top + 72, null],
+        allowNegativeOffset: true,
+      });
+    }
+    const timer = setTimeout(() => {
+      for (const mark of marks) mark.remove();
+    }, HIGHLIGHT_MS);
+    return () => {
+      clearTimeout(timer);
+      for (const mark of marks) mark.remove();
+    };
+  }, [highlight]);
 
   useEffect(
     () => () => {

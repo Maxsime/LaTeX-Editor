@@ -1,11 +1,18 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { createReadStream } from 'node:fs';
-import { access, appendFile, readdir, readFile } from 'node:fs/promises';
+import { access, appendFile, mkdtemp, readdir, readFile } from 'node:fs/promises';
 import { isAbsolute, join, relative, resolve } from 'node:path';
-import type { CompileJob, Diagnostic, Manifest } from '@galley/shared';
+import {
+  type CompileJob,
+  type Diagnostic,
+  type Manifest,
+  synctexInputToProjectPath,
+} from '@galley/shared';
 import * as z from 'zod/mini';
 import { type CompileEnvironment, compileProject, type LocalCompileResult } from './compile.js';
 import { splitMainFile } from './latexmk.js';
+import { texliveBinDir } from './sandbox.js';
+import { runSynctex, type SynctexEnvironment } from './synctex.js';
 import { type BlobFetcher, readSandboxFile } from './workdir.js';
 
 /** A diagnostic a corpus project expects; `message` is a substring. */
@@ -32,6 +39,12 @@ const expectation = z.object({
   forbiddenPaths: z.optional(z.array(z.string())),
   /** Longest acceptable recompilation after `hotEdit`, in milliseconds. */
   hotRecompileMs: z.optional(z.number()),
+  /**
+   * Longest acceptable median of SyncTeX queries, in milliseconds. Every line of
+   * every source file is sent from the source to the PDF and back, through the
+   * sandboxed binary the worker uses (SPEC §6.5).
+   */
+  synctexMedianMs: z.optional(z.number()),
 });
 
 const corpusRun = z.object({
@@ -58,6 +71,10 @@ export interface RunReport {
   engine: string;
   durationMs: number;
   hotDurationMs?: number;
+  /** Median duration of the SyncTeX queries, when the run measures them. */
+  synctexMedianMs?: number;
+  /** Share of source lines that a SyncTeX round trip leads back to (SPEC §9 J4, A1). */
+  synctexAccuracy?: number;
   failures: string[];
 }
 
@@ -199,6 +216,101 @@ export async function checkRun(
   return failures;
 }
 
+/**
+ * Sends each line of the project's sources to the PDF and the first box found
+ * back to the source, as the editor does, and times every query.
+ */
+/** Least share of lines a SyncTeX round trip must lead back to (SPEC §9 J4, A1). */
+const SYNCTEX_MIN_ACCURACY = 0.95;
+
+async function checkSynctex(
+  local: LocalCompileResult,
+  job: CompileJob,
+  texliveDir: string,
+  limitMs: number,
+  report: RunReport,
+): Promise<string[]> {
+  const { jobname } = splitMainFile(job.mainFile);
+  const synctexFile = `${jobname}.synctex.gz`;
+  const env: SynctexEnvironment = {
+    cacheDir: await mkdtemp(join(local.dirs.root, 'synctex-')),
+    maxEntries: 4,
+    texliveBin: texliveBinDir(texliveDir),
+    fetchOutput: (_compileId, name) =>
+      Promise.resolve(createReadStream(join(local.dirs.out, name))),
+  };
+  const timings: number[] = [];
+  let boxes = 0;
+  let found = 0;
+  const missed: string[] = [];
+  const timed = async <T>(query: () => Promise<T>): Promise<T> => {
+    const started = performance.now();
+    const result = await query();
+    timings.push(performance.now() - started);
+    return result;
+  };
+  for (const file of Object.keys(job.manifest).filter((path) => path.endsWith('.tex'))) {
+    const lines = (await readFile(join(local.dirs.src, file), 'utf8')).split('\n');
+    // Only running text counts: the preamble, blank lines and comments typeset nothing.
+    const body =
+      file === job.mainFile ? lines.findIndex((text) => text.includes('\\begin{document}')) + 1 : 0;
+    for (let line = body + 1; line <= lines.length; line += 1) {
+      const text = lines[line - 1]?.trim() ?? '';
+      if (text === '' || text.startsWith('%')) continue;
+      const view = await timed(() =>
+        runSynctex(env, {
+          kind: 'view',
+          compileId: job.compileId,
+          synctexFile,
+          file,
+          line,
+          column: 0,
+        }),
+      );
+      const box = view.kind === 'view' ? view.boxes[0] : undefined;
+      if (box === undefined) continue;
+      boxes += 1;
+      const edit = await timed(() =>
+        runSynctex(env, {
+          kind: 'edit',
+          compileId: job.compileId,
+          synctexFile,
+          page: box.page,
+          x: box.x + box.width / 2,
+          y: box.y + box.height / 2,
+        }),
+      );
+      // A paragraph often ends on the next line; SyncTeX may report either.
+      const source = edit.kind === 'edit' ? edit.source : null;
+      if (
+        source !== null &&
+        synctexInputToProjectPath(source.input) === file &&
+        Math.abs(source.line - line) <= 1
+      ) {
+        found += 1;
+      } else {
+        const got = source === null ? 'nothing' : `${source.input}:${String(source.line)}`;
+        missed.push(`${file}:${String(line)} -> ${got}`);
+      }
+    }
+  }
+  const failures: string[] = [];
+  if (boxes === 0) failures.push('SyncTeX found no box for any source line');
+  report.synctexAccuracy = boxes === 0 ? 0 : found / boxes;
+  if (found < boxes * SYNCTEX_MIN_ACCURACY) {
+    failures.push(
+      `SyncTeX edit led back to ${String(found)} of ${String(boxes)} lines, below ${String(SYNCTEX_MIN_ACCURACY * 100)} %: ${missed.slice(0, 5).join(', ')}`,
+    );
+  }
+  timings.sort((a, b) => a - b);
+  const median = timings[Math.floor(timings.length / 2)] ?? 0;
+  report.synctexMedianMs = median;
+  if (median > limitMs) {
+    failures.push(`SyncTeX median ${median.toFixed(0)} ms, limit ${String(limitMs)} ms`);
+  }
+  return failures;
+}
+
 /** Options of {@link runCorpus}. */
 export interface CorpusOptions {
   environment: CompileEnvironment;
@@ -258,6 +370,17 @@ export async function runCorpus(root: string, options: CorpusOptions): Promise<R
         const local = await compileProject(job, environment);
         report.durationMs = local.result.durationMs;
         report.failures.push(...(await checkRun(run, local, options.canary)));
+        if (run.expect.synctexMedianMs !== undefined) {
+          report.failures.push(
+            ...(await checkSynctex(
+              local,
+              job,
+              options.environment.texliveDir,
+              run.expect.synctexMedianMs,
+              report,
+            )),
+          );
+        }
         if (run.hotEdit !== undefined && run.expect.hotRecompileMs !== undefined) {
           // Change one source as a user would, then recompile in the same work folder.
           const edited = join(local.dirs.src, run.hotEdit);

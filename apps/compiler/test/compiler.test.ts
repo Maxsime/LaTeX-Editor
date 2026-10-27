@@ -11,6 +11,9 @@ import {
   type CompileJob,
   compileResult,
   healthResponse,
+  SYNCTEX_QUEUE,
+  type SynctexJob,
+  synctexResult,
   TEXLIVE_VERSION_KEY,
 } from '@galley/shared';
 import { createLogger } from '@galley/shared/node';
@@ -118,6 +121,7 @@ describe.skipIf(!dockerAvailable)('compiler service', () => {
   let queue: Queue;
   let events: QueueEvents;
   let redis: Redis;
+  let connection: { url: string };
   let base = '';
   const fake = new FakeCompiler();
   const published: { compileId: string; name: string; body: string }[] = [];
@@ -143,6 +147,16 @@ describe.skipIf(!dockerAvailable)('compiler service', () => {
       {
         texlive: { dir: '/usr/local/texlive/2026', release: 'TeX Live 2026' },
         fetchBlob: () => Promise.resolve(Readable.from([])),
+        fetchOutput: () => Promise.resolve(Readable.from([])),
+        synctex: (query: SynctexJob) =>
+          Promise.resolve(
+            query.kind === 'edit'
+              ? {
+                  kind: 'edit',
+                  source: { input: '/project/./main.tex', line: query.page, column: null },
+                }
+              : { kind: 'view', boxes: [{ page: 1, x: 1, y: 2, width: 3, height: query.line }] },
+          ),
         publish: async (compileId, name, body) => {
           const chunks: Buffer[] = [];
           for await (const chunk of body) chunks.push(Buffer.from(chunk as Uint8Array));
@@ -154,7 +168,7 @@ describe.skipIf(!dockerAvailable)('compiler service', () => {
     await service.worker.waitUntilReady();
     await new Promise<void>((resolve) => service.probeServer.listen(0, '127.0.0.1', resolve));
     base = `http://127.0.0.1:${String((service.probeServer.address() as AddressInfo).port)}`; // TCP listen yields AddressInfo
-    const connection = { url: config.VALKEY_URL };
+    connection = { url: config.VALKEY_URL };
     queue = new Queue(COMPILE_QUEUE, { connection });
     events = new QueueEvents(COMPILE_QUEUE, { connection });
     redis = new Redis(config.VALKEY_URL);
@@ -175,6 +189,36 @@ describe.skipIf(!dockerAvailable)('compiler service', () => {
     }
     expect(fake.started).toContain(compileId);
   };
+
+  it('answers SyncTeX queries on their own queue and rejects malformed ones', async () => {
+    const synctexQueue = new Queue(SYNCTEX_QUEUE, { connection: { ...connection } });
+    const synctexEvents = new QueueEvents(SYNCTEX_QUEUE, { connection: { ...connection } });
+    await synctexEvents.waitUntilReady();
+    try {
+      const target = {
+        compileId: '0193f9f0-4d0a-7c3e-8f5a-ffffffffffff',
+        synctexFile: 'main.synctex.gz',
+      };
+      const edit = await synctexQueue.add('edit', { kind: 'edit', ...target, page: 4, x: 1, y: 2 });
+      expect(synctexResult.parse(await edit.waitUntilFinished(synctexEvents, 10_000))).toEqual({
+        kind: 'edit',
+        source: { input: '/project/./main.tex', line: 4, column: null },
+      });
+      const invalid = await synctexQueue.add('view', {
+        kind: 'view',
+        ...target,
+        file: '../x',
+        line: 1,
+        column: 0,
+      });
+      await expect(invalid.waitUntilFinished(synctexEvents, 10_000)).rejects.toThrow(
+        failureReasons.invalidJob,
+      );
+    } finally {
+      await synctexEvents.close();
+      await synctexQueue.close();
+    }
+  });
 
   it('reports ready once Valkey and the worker are up, and the TeX Live release', async () => {
     const response = await fetch(`${base}/health/ready`);

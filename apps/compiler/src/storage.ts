@@ -24,6 +24,20 @@ export async function readBlob(s3: S3Client, bucket: string, hash: string): Prom
   return Body as Readable;
 }
 
+/** Opens a file published by a compilation. */
+export async function readOutput(
+  s3: S3Client,
+  bucket: string,
+  compileId: string,
+  name: string,
+): Promise<Readable> {
+  const { Body } = await s3.send(
+    new GetObjectCommand({ Bucket: bucket, Key: compileOutputKey(compileId, name) }),
+  );
+  if (!Body) throw new Error(`output ${name} of ${compileId} has no body`);
+  return Body as Readable;
+}
+
 const CONTENT_TYPES: Record<string, string> = {
   '.pdf': 'application/pdf',
   '.gz': 'application/gzip',

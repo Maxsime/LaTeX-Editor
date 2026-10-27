@@ -36,6 +36,7 @@
     "NOT_FOUND": "Not found.",
     "CONFLICT": "Conflicts with the current state.",
     "NO_MAIN_FILE": "This project has no main file.",
+    "NO_SYNCTEX": "This compilation produced no SyncTeX data: compile the project again.",
     "PAYLOAD_TOO_LARGE": "Content too large.",
     "RATE_LIMITED": "Too many requests, try again later.",
     "INVALID_PATTERN": "Invalid regular expression.",
@@ -254,6 +255,16 @@
       "count_one": "{{count}} result in {{files}} file(s).",
       "count_other": "{{count}} results in {{files}} file(s).",
       "truncated": "More than {{count}} results: refine the search."
+    },
+    "lint": {
+      "sourceEditor": "Editor",
+      "sourceCompile": "Compilation",
+      "mismatchedEnvironment": "This \\end closes {{name}} while the open environment is {{expected}}.",
+      "unclosedEnvironment": "The {{name}} environment is not closed in this file.",
+      "unopenedEnvironment": "The {{name}} environment is closed without being opened in this file.",
+      "duplicateLabel": "The label {{name}} is defined more than once in the project.",
+      "unknownReference": "No label {{name}} in the project.",
+      "unknownCitation": "No bibliography entry {{name}} in the project."
     }
   },
   "compile": {
@@ -266,7 +277,7 @@
     "firstCompile": "Compiling…",
     "noPdf": "No PDF yet. Compile to show it.",
     "texlive": "Distribution: {{release}}",
-    "logButton": "Log ({{error}} errors, {{warning}} warnings)",
+    "logButton": "Log ({{errors}}, {{warnings}})",
     "log": "Compilation log",
     "noLog": "This compilation produced no log.",
     "logFailed": "The log could not be loaded.",
@@ -329,6 +340,19 @@
       "seconds_other": "{{count}} s",
       "draft": "Draft mode (images replaced by frames)",
       "haltOnError": "Stop at the first error"
+    },
+    "logButtonTitle": "Open the log at the first error. F8 and Shift+F8: next and previous error.",
+    "errorCount_one": "{{count}} error",
+    "errorCount_other": "{{count}} errors",
+    "warningCount_one": "{{count}} warning",
+    "warningCount_other": "{{count}} warnings",
+    "synctex": {
+      "toPdf": "Go to PDF",
+      "toPdfTitle": "Show the cursor's line in the PDF (Ctrl+Alt+J)",
+      "external": "This passage comes from {{file}}, which is not part of the project.",
+      "notFound": "No source line matches this place.",
+      "notInPdf": "This line does not appear in the PDF shown.",
+      "failed": "Matching the PDF with the source failed. Try again after a compilation."
     }
   },
   "pdf": {

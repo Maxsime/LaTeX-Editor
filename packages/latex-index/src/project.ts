@@ -19,6 +19,8 @@ export interface ProjectIndex {
   commands: ({ name: string; args: number; optional: boolean } & Located)[];
   environments: ({ name: string; args: number } & Located)[];
   labels: ({ name: string } & Located)[];
+  /** Keys of `\bibitem` lists. */
+  bibitems: ({ name: string } & Located)[];
 }
 
 /**
@@ -29,7 +31,7 @@ export function buildProjectIndex(
   files: ReadonlyMap<string, string>,
   structureOf: (path: string, text: string) => Structure = (_path, text) => extractStructure(text),
 ): ProjectIndex {
-  const index: ProjectIndex = { commands: [], environments: [], labels: [] };
+  const index: ProjectIndex = { commands: [], environments: [], labels: [], bibitems: [] };
   const seen = { commands: new Set<string>(), environments: new Set<string>() };
   const paths = [...files.keys()].filter(isLatexSource).sort();
   for (const path of paths) {
@@ -45,6 +47,7 @@ export function buildProjectIndex(
       index.environments.push({ ...environment, path });
     }
     for (const label of structure.labels) index.labels.push({ ...label, path });
+    for (const item of structure.bibitems) index.bibitems.push({ ...item, path });
   }
   return index;
 }

@@ -147,3 +147,27 @@ Contexte. Sur un hôte qui applique AppArmor (Ubuntu, dont le runner de la CI), 
 Décision (Maxime, 2026-10-27). Le seul conteneur `compiler` tourne avec `apparmor=unconfined`. Le confinement des compilations reste assuré par `bwrap` (espaces de noms, réseau coupé, vue minimale du système de fichiers, limites), le conteneur gardant `cap_drop: [ALL]`, `no-new-privileges`, le profil seccomp restreint et une racine en lecture seule. Les autres services gardent le profil par défaut.
 
 Alternatives écartées. Profil AppArmor dédié : plus strict, mais à charger sur l'hôte par l'administrateur (`apparmor_parser`), ce qui casse l'installation par `docker compose up` seul. Conteneur éphémère par compilation : 300 à 800 ms de plus par compilation et accès du worker au démon Docker (voir l'entrée sur le bac à sable).
+
+## 2026-10-27 — SyncTeX (J4)
+
+Contexte. SPEC §3.3 et §6.5 : aller du PDF au source et inversement, en moins de 200 ms par requête.
+
+Décision. Le binaire `synctex` de TeX Live répond aux requêtes, dans le worker, sous le même `bwrap` que la compilation (le fichier `.synctex.gz` vient d'un document non fiable), avec le seul cache de la compilation monté en lecture seule. Il interroge le `.synctex.gz` publié par la compilation dont le PDF est affiché, téléchargé au premier appel et gardé dans un cache local (32 compilations). L'API transmet les requêtes par une file BullMQ `synctex` (sans nouvelle tentative, résultat attendu 5 s), traitée par un `Worker` distinct à concurrence 4 pour qu'une compilation longue ne bloque pas la navigation. Médiane mesurée sur le corpus : 7 ms.
+
+Alternatives écartées. Analyseur SyncTeX en TypeScript (`synctex-js` et équivalents) : format et algorithme de recherche à réimplémenter, moins fiable que la référence utilisée par tous les éditeurs. Route HTTP interne vers le worker : un secret partagé de plus, et un routage à prévoir avec plusieurs workers alors que la file le fait déjà.
+
+## 2026-10-27 — Analyse des fichiers BibTeX (J4)
+
+`@retorquere/bibtex-parser` 12.1.3 (ISC, moteur de Better BibTeX pour Zotero), épinglé, côté API seulement : tolérant aux fichiers réels (chaînes, commentaires, entrées malformées), il convertit les commandes LaTeX des champs en texte. L'API en tire clé, type, titre, auteurs et année pour `GET /api/projects/:id/index` ; le client ne charge rien de plus. Le J8 (bibliographie) réutilisera le même analyseur. Alternative écartée : un analyseur propre, à maintenir pour un format plein de cas particuliers.
+
+## 2026-10-27 — Diagnostics sans compilation (J4)
+
+`lintDocument` (`packages/latex-index`) signale les environnements mal appariés, les labels définis plusieurs fois, les références et citations inconnues. Il tourne dans le navigateur 400 ms après la dernière frappe, sur le fichier ouvert, avec les labels et clés des autres fichiers venus de l'index. CodeMirror n'accepte qu'une source de diagnostics : un seul linter fusionne ceux-ci avec les marqueurs de la dernière compilation, gardés dans un champ d'état qui suit les modifications du texte. Les fichiers `.sty` et `.cls` ne sont pas vérifiés en direct (environnements définis en morceaux). Le module de l'éditeur passe de 165 à 175 kB gzip.
+
+## 2026-10-27 — Nonce de style dans la CSP
+
+Contexte. La CSP servie par Caddy (`style-src 'self'`) refusait l'élément `<style>` que CodeMirror insère pour son thème, ainsi que celui du verrouillage du défilement des boîtes de dialogue (Radix). Dans l'instance Docker, l'éditeur s'affichait sans style depuis le J2 ; le serveur de développement n'envoie pas de CSP, d'où l'absence de symptôme en local.
+
+Décision. Caddy ajoute à `style-src` un nonce propre à chaque réponse (`{http.request.uuid}`) et l'écrit dans une balise `<meta name="csp-nonce">` de `index.html` (directive `templates`). Le client le transmet à CodeMirror (`EditorView.cspNonce`) et à `get-nonce` 1.0.1 (MIT, quelques lignes), lu par la bibliothèque de Radix. `index.html` n'est plus mis en cache (`no-store`) ; les ressources à empreinte le restent. Un test e2e échoue sur toute violation de CSP signalée par le navigateur.
+
+Alternative écartée. `style-src 'unsafe-inline'` : plus simple, mais rouvre l'injection de styles que la politique ferme.

@@ -27,6 +27,17 @@ export const projectIndexResponse = z.object({
   ),
   environments: z.array(z.object({ name: z.string(), args: z.number(), ...located })),
   labels: z.array(z.object({ name: z.string(), ...located })),
+  /** Entries of every `.bib` file of the project, and `\bibitem` keys (type `bibitem`). */
+  citations: z.array(
+    z.object({
+      key: z.string(),
+      type: z.string(),
+      title: z.nullable(z.string()),
+      authors: z.array(z.string()),
+      year: z.nullable(z.string()),
+      ...located,
+    }),
+  ),
 });
 export type ProjectIndexResponse = z.infer<typeof projectIndexResponse>;
 
