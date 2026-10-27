@@ -160,4 +160,23 @@ describe('plainTitle', () => {
   it('strips markup', () => {
     expect(plainTitle('\\textbf{Bold}\\\\ and \\& {x}')).toBe('Bold and & x');
   });
+
+  it('collects bibitems and labels given as options', () => {
+    const structure = extractStructure(
+      [
+        '\\begin{lstlisting}[caption=Code, label={lst:code}]',
+        'x = 1',
+        '\\end{lstlisting}',
+        '\\lstinputlisting[label=lst:file]{a.py}',
+        '\\begin{thebibliography}{9}',
+        '\\bibitem[K84]{knuth84} D. Knuth.',
+        '\\end{thebibliography}',
+      ].join('\n'),
+    );
+    expect(structure.labels).toEqual([
+      { name: 'lst:code', line: 1 },
+      { name: 'lst:file', line: 4 },
+    ]);
+    expect(structure.bibitems).toEqual([{ name: 'knuth84', line: 6 }]);
+  });
 });

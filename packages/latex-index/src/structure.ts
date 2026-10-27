@@ -78,6 +78,8 @@ export interface Include {
 export interface Structure {
   headings: Heading[];
   labels: Label[];
+  /** Keys of a `thebibliography` list (`\bibitem{key}`), for citations without a `.bib`. */
+  bibitems: Label[];
   commands: DefinedCommand[];
   environments: DefinedEnvironment[];
   includes: Include[];
@@ -179,12 +181,23 @@ function definedName(text: string, from: number): { name: string; end: number } 
   return match?.[1] === undefined ? null : { name: match[1], end: position + match[0].length };
 }
 
+/** Labels given as a `label=` key of an optional argument, e.g. `[caption=A, label={lst:a}]`. */
+function optionLabels(options: string): string[] {
+  const names: string[] = [];
+  for (const match of options.matchAll(/(?:^|,)\s*label\s*=\s*(?:\{([^{}]*)\}|([^,{}]+))/g)) {
+    const name = (match[1] ?? match[2] ?? '').trim();
+    if (name !== '') names.push(name);
+  }
+  return names;
+}
+
 /** Extracts headings, labels, definitions and file references from one source file. */
 export function extractStructure(text: string): Structure {
   const lines = new LineIndex(text);
   const structure: Structure = {
     headings: [],
     labels: [],
+    bibitems: [],
     commands: [],
     environments: [],
     includes: [],
@@ -213,7 +226,11 @@ export function extractStructure(text: string): Structure {
     switch (name) {
       case 'begin': {
         const environment = readGroup(text, end);
-        if (environment?.content !== 'frame') break;
+        if (environment === null) break;
+        // Listings and floats from some packages take their label as an option.
+        const options = skipOptionals(text, environment.end).optionals;
+        for (const name of options.flatMap(optionLabels)) structure.labels.push({ name, line });
+        if (environment.content !== 'frame') break;
         // \begin{frame}<overlay>[options]{title}
         let position = environment.end;
         const overlay = readGroup(text, position, '<', '>');
@@ -234,6 +251,18 @@ export function extractStructure(text: string): Structure {
         const title = readGroup(text, skipOptionals(text, end).end);
         if (last?.level === 'frame' && last.title === '' && title !== null) {
           last.title = plainTitle(title.content);
+        }
+        break;
+      }
+      case 'lstinputlisting': {
+        const options = skipOptionals(text, end).optionals;
+        for (const name of options.flatMap(optionLabels)) structure.labels.push({ name, line });
+        break;
+      }
+      case 'bibitem': {
+        const key = readGroup(text, skipOptionals(text, end).end);
+        if (key !== null && key.content.trim() !== '') {
+          structure.bibitems.push({ name: key.content.trim(), line });
         }
         break;
       }
