@@ -1,9 +1,12 @@
+import { lintGutter, setDiagnostics } from '@codemirror/lint';
 import { EditorSelection } from '@codemirror/state';
+import type { Diagnostic } from '@galley/shared';
 import { EditorView } from '@codemirror/view';
 import { useEffect, useRef } from 'react';
 import { useEditor, usePreferences } from '../stores/editor.js';
 import type { CompletionSources } from './completion.js';
 import type { ProjectConnection } from './connection.js';
+import { toLintDiagnostics } from './lint.js';
 import { EditorSettings, editorExtensions } from './setup.js';
 
 interface CodeEditorProps {
@@ -15,6 +18,8 @@ interface CodeEditorProps {
   readOnly: boolean;
   /** Must be stable: a new function rebuilds the editor. */
   completion: () => CompletionSources;
+  /** Diagnostics of the last compilation located in this file. */
+  diagnostics: readonly Diagnostic[];
 }
 
 /**
@@ -29,6 +34,7 @@ export function CodeEditor({
   active,
   readOnly,
   completion,
+  diagnostics,
 }: CodeEditorProps) {
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<EditorView | null>(null);
@@ -47,23 +53,26 @@ export function CodeEditor({
     const preferences = usePreferences.getState();
     const editor = new EditorView({
       parent,
-      extensions: editorExtensions({
-        fileName,
-        text: document.text,
-        awareness: document.provider.awareness,
-        settings: settings.current,
-        live: {
-          theme: preferences.theme,
-          fontSize: preferences.fontSize,
-          lineWrapping: preferences.lineWrapping,
-          readOnly: true,
-        },
-        completion,
-        onCursorLine: (line) => {
-          if (useEditor.getState().activeId === fileId) setCursorLine(line);
-        },
-        onLocalEdit: noteEdit,
-      }),
+      extensions: [
+        lintGutter(),
+        editorExtensions({
+          fileName,
+          text: document.text,
+          awareness: document.provider.awareness,
+          settings: settings.current,
+          live: {
+            theme: preferences.theme,
+            fontSize: preferences.fontSize,
+            lineWrapping: preferences.lineWrapping,
+            readOnly: true,
+          },
+          completion,
+          onCursorLine: (line) => {
+            if (useEditor.getState().activeId === fileId) setCursorLine(line);
+          },
+          onLocalEdit: noteEdit,
+        }),
+      ],
     });
     view.current = editor;
     return () => {
@@ -86,6 +95,13 @@ export function CodeEditor({
       readOnly: !writable || serverReadOnly,
     });
   }, [theme, fontSize, lineWrapping, writable, serverReadOnly]);
+
+  // Markers follow the text as it is edited, until the next compilation replaces them.
+  useEffect(() => {
+    const editor = view.current;
+    if (!editor) return;
+    editor.dispatch(setDiagnostics(editor.state, toLintDiagnostics(editor.state.doc, diagnostics)));
+  }, [diagnostics, status]);
 
   useEffect(() => {
     const editor = view.current;

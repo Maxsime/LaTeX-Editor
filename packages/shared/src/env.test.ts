@@ -118,9 +118,34 @@ describe('loadConfig', () => {
         COLLAB_INTERNAL_TOKEN: 'short',
       }),
     ).toThrow(/COLLAB_INTERNAL_TOKEN/);
-    const compiler = loadConfig(compilerEnv, { VALKEY_URL: 'rediss://valkey:6380' });
-    expect(compiler.COMPILER_HEALTH_PORT).toBe(3002);
-    expect(compiler.COMPILER_CONCURRENCY).toBe(1);
-    expect(() => loadConfig(compilerEnv, { VALKEY_URL: 'http://valkey' })).toThrow(/VALKEY_URL/);
+    const storage = {
+      S3_ENDPOINT: validApiEnv.S3_ENDPOINT,
+      S3_ACCESS_KEY_ID: validApiEnv.S3_ACCESS_KEY_ID,
+      S3_SECRET_ACCESS_KEY: validApiEnv.S3_SECRET_ACCESS_KEY,
+      S3_BUCKET: validApiEnv.S3_BUCKET,
+    };
+    const compiler = loadConfig(compilerEnv, { ...storage, VALKEY_URL: 'rediss://valkey:6380' });
+    expect(compiler).toMatchObject({
+      COMPILER_HEALTH_PORT: 3002,
+      COMPILER_CONCURRENCY: 1,
+      COMPILER_TIMEOUT_S: 180,
+      COMPILER_MEMORY_MB: 2_048,
+      COMPILER_MAX_PROCESSES: 64,
+      COMPILER_MAX_OUTPUT_MB: 500,
+      COMPILER_ALLOW_FULL_SHELL_ESCAPE: false,
+    });
+    expect(
+      loadConfig(compilerEnv, {
+        ...storage,
+        VALKEY_URL: 'redis://valkey:6379',
+        COMPILER_ALLOW_FULL_SHELL_ESCAPE: '1',
+      }).COMPILER_ALLOW_FULL_SHELL_ESCAPE,
+    ).toBe(true);
+    expect(() => loadConfig(compilerEnv, { ...storage, VALKEY_URL: 'http://valkey' })).toThrow(
+      /VALKEY_URL/,
+    );
+    expect(() =>
+      loadConfig(compilerEnv, { ...storage, VALKEY_URL: 'redis://v', COMPILER_TIMEOUT_S: '0' }),
+    ).toThrow(/COMPILER_TIMEOUT_S/);
   });
 });

@@ -1,0 +1,12 @@
+{
+  "description": "Rapport multi-fichiers : \\include, sous-dossiers, classe locale, images PNG, JPEG et PDF.",
+  "runs": [
+    {
+      "main": "main.tex",
+      "expect": {
+        "outcome": "success",
+        "minPages": 3
+      }
+    }
+  ]
+}

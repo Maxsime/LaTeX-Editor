@@ -1,0 +1,16 @@
+# Galley rules for latexmk, read after any latexmkrc of the project (-r).
+# Written for Galley; behaviour follows the latexmk documentation.
+
+# Glossaries: run makeglossaries in the output folder, where the .glo files are.
+add_cus_dep('glo', 'gls', 0, 'galley_makeglossaries');
+add_cus_dep('acn', 'acr', 0, 'galley_makeglossaries');
+add_cus_dep('slo', 'sls', 0, 'galley_makeglossaries');
+sub galley_makeglossaries {
+  my ($base, $dir) = fileparse($_[0]);
+  my $cwd = cwd();
+  chdir($dir) or return 1;
+  my $status = system('makeglossaries', $base);
+  chdir($cwd);
+  return $status;
+}
+push @generated_exts, 'glo', 'gls', 'glg', 'acn', 'acr', 'alg', 'slo', 'sls', 'slg', 'ist';

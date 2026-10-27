@@ -1,0 +1,13 @@
+{
+  "description": "BibTeX classique avec natbib.",
+  "runs": [
+    {
+      "main": "main.tex",
+      "expect": {
+        "outcome": "success",
+        "minPages": 1,
+        "absentWarnings": ["undefined"]
+      }
+    }
+  ]
+}

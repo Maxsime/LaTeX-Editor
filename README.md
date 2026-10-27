@@ -2,7 +2,7 @@
 
 Éditeur LaTeX collaboratif, auto-hébergé, avec assistant IA intégré. Le cahier des charges est dans [`SPEC.md`](SPEC.md), les consignes de développement dans [`CLAUDE.md`](CLAUDE.md).
 
-État : jalon J2 (éditeur). On crée un compte, on gère ses projets, on importe un projet Overleaf ou Prism en zip, on édite ses fichiers dans un éditeur LaTeX synchronisé en continu et on réexporte le projet à l'identique. La compilation arrive au jalon suivant (`SPEC.md` §9).
+État : jalon J3 (compilation). On crée un compte, on gère ses projets, on importe un projet Overleaf ou Prism en zip, on édite ses fichiers dans un éditeur LaTeX synchronisé en continu, on compile avec TeX Live 2026 dans un bac à sable et on lit le PDF à côté du source. SyncTeX et l'autocomplétion des références arrivent au jalon suivant (`SPEC.md` §9).
 
 ## Démarrer une instance
 
@@ -11,6 +11,8 @@ Prérequis : Docker avec Compose v2.
 ```sh
 docker compose up --build
 ```
+
+Le premier lancement est long : l'image de compilation embarque TeX Live complet (environ 2,6 Gio à télécharger, 7,5 Gio sur le disque). Sur un serveur Ubuntu 24.04, une option du noyau doit être changée avant le démarrage, voir [`docs/operations.md`](docs/operations.md).
 
 L'instance est servie sur <https://localhost>. Aucune configuration n'est nécessaire : `compose.yaml` fournit des valeurs par défaut pour un usage local. Pour les modifier, copier `.env.example` vers `.env`. Avant toute exposition sur un réseau, changer chaque mot de passe et secret.
 
@@ -69,6 +71,14 @@ Un clic sur un fichier texte l'ouvre dans un onglet. Chaque frappe part aussitô
 
 L'éditeur colore LaTeX et BibTeX, replie les environnements et les sections, et complète les commandes, les environnements et les chemins de fichiers, y compris ceux que le projet définit. Le panneau « Plan » suit `\input`, `\include` et `\subfile` depuis le document principal et mène à la section choisie. Le panneau « Recherche » cherche dans tout le projet (texte ou expression régulière, casse, mot entier) et remplace partout après confirmation. Thème, taille de police et retour à la ligne se règlent au-dessus de l'éditeur.
 
+### Compiler
+
+Le PDF s'affiche à droite de l'éditeur ; les boutons de l'en-tête basculent entre éditeur seul, PDF seul ou les deux. Un projet compile à son ouverture, puis à chaque pause de frappe (2 s par défaut, réglable ou désactivable dans « Options »), avec le bouton « Compiler », Ctrl+S ou Ctrl+Entrée. Le PDF garde sa position de lecture et son zoom d'une compilation à l'autre.
+
+Le bouton « Journal » liste les erreurs et avertissements : un clic ouvre le fichier à la ligne fautive, également marquée dans la gouttière de l'éditeur. Le journal brut et les fichiers produits (`.log`, `.bbl`, `.synctex.gz`...) y sont téléchargeables. Le menu « Options » règle le moteur (pdfLaTeX, XeLaTeX, LuaLaTeX), l'outil bibliographique, le shell-escape, la compilation en brouillon et l'arrêt à la première erreur, et propose « Nettoyer et recompiler ».
+
+Chaque compilation tourne sans réseau, dans un bac à sable limité en temps (3 min), en mémoire et en disque. Le shell-escape complet (minted, par exemple) n'est accepté que si l'administrateur l'autorise (`COMPILER_ALLOW_FULL_SHELL_ESCAPE`) ; sinon le projet compile avec la liste restreinte de TeX Live.
+
 ### Vérifier l'état des services
 
 ```sh
@@ -100,6 +110,8 @@ L'interface de développement est servie par Vite sur <http://localhost:5173>, q
 | `pnpm build`     | Construction de tous les paquets                                                     |
 
 Les tests d'intégration sont ignorés en local si Docker est absent, et obligatoires en CI.
+
+Le worker de compilation lancé par `pnpm dev` a besoin de TeX Live et de `bwrap` sur la machine (Linux uniquement). Ailleurs, compiler avec la pile complète (`docker compose up --build`). `pnpm --filter @galley/compiler test:corpus` compile tout `fixtures/projects/` dans l'image du worker et vérifie chaque résultat attendu.
 
 ### Construire derrière un proxy d'inspection TLS
 

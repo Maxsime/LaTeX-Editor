@@ -1,8 +1,10 @@
-import { ConfigError } from '@galley/shared';
+import { COMPILE_QUEUE, type CompileJob, ConfigError } from '@galley/shared';
+import { Queue, QueueEvents } from 'bullmq';
 import { createLogger, readPackageVersion } from '@galley/shared/node';
 import { Redis } from 'ioredis';
 import { buildApp } from './app.js';
 import { createDocumentGateway } from './collab/documents.js';
+import { followCompileEvents } from './compile/service.js';
 import { ensureSetupCode } from './auth/setup.js';
 import { countUsers } from './auth/users.js';
 import { readConfig } from './config.js';
@@ -36,17 +38,26 @@ async function main(): Promise<void> {
   // BullMQ needs a connection that retries forever; it must not share the request one.
   const queueRedis = new Redis(config.VALKEY_URL, { maxRetriesPerRequest: null });
   const stopMaintenance = await startMaintenance(database.db, queueRedis, logger);
+  const compileQueue = new Queue<CompileJob, unknown>(COMPILE_QUEUE, { connection: queueRedis });
+  // QueueEvents blocks on its connection, so it gets its own.
+  const compileEvents = new QueueEvents(COMPILE_QUEUE, {
+    connection: { url: config.VALKEY_URL, maxRetriesPerRequest: null },
+  });
+
+  const context = {
+    config,
+    database,
+    redis,
+    s3,
+    documents: createDocumentGateway(config, database, logger),
+    compileQueue,
+  };
+  followCompileEvents(context, compileEvents, logger);
 
   const app = buildApp({
     logger,
     version,
-    context: {
-      config,
-      database,
-      redis,
-      s3,
-      documents: createDocumentGateway(config, database, logger),
-    },
+    context,
     probes: {
       postgres: () => database.sql`select 1`,
       valkey: () => redis.ping(),
@@ -62,6 +73,7 @@ async function main(): Promise<void> {
     app
       .close()
       .then(stopMaintenance)
+      .then(() => Promise.allSettled([compileEvents.close(), compileQueue.close()]))
       .then(() =>
         Promise.allSettled([database.sql.end({ timeout: 5 }), redis.quit(), queueRedis.quit()]),
       )

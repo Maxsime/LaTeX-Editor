@@ -110,3 +110,40 @@ Les expressions régulières saisies par l'utilisateur s'exécutent dans l'API. 
 ## 2026-10-26 — Poids du module d'édition (J2)
 
 Le module chargé à l'ouverture d'un projet (CodeMirror 6, Yjs, `y-codemirror.next`, client Hocuspocus) pèse environ 165 kB gzip, au-delà du seuil de 100 kB de `CLAUDE.md`. Il est indispensable à l'édition et chargé à la demande (`React.lazy`) : le tableau de bord n'en paie pas le coût, son paquet principal ne grossit que de 6 kB.
+
+## 2026-10-27 — Bac à sable de compilation (J3)
+
+Contexte. SPEC §6.3 impose une compilation sans réseau, sans privilèges, avec limites de temps, de mémoire, de disque et de processus et un environnement vidé. La spec préfère bubblewrap à un conteneur par compilation.
+
+Décision. Chaque compilation tourne sous `bwrap` (paquet Debian `bubblewrap`) dans le conteneur `compiler`, par un utilisateur non privilégié : nouveaux espaces de noms (réseau compris), environnement vidé, vue minimale du système de fichiers, limites `RLIMIT_AS`, `RLIMIT_NPROC`, `RLIMIT_FSIZE`, durée murale et taille de `/out` surveillée. Pour que `bwrap` crée ses espaces de noms sous Docker, le conteneur reçoit `infra/compiler/seccomp.json` (profil par défaut de Moby, Apache-2.0, augmenté d'une règle sans condition de capacité pour `unshare`, `clone` (drapeaux d'espaces de noms compris), `mount`, `umount2`, `pivot_root` et `setns`) et `systempaths=unconfined`. Il garde `cap_drop: [ALL]`, `no-new-privileges` et une racine en lecture seule. Au démarrage, le worker vérifie le bac à sable (`checkSandbox`) et refuse de démarrer s'il ne fonctionne pas, plutôt que d'échouer à chaque compilation.
+
+Alternatives écartées. Conteneur éphémère par compilation via un proxy de socket Docker : 300 à 800 ms de plus par compilation, contraire à l'objectif de recompilation à chaud, et accès du worker au démon Docker. gVisor ou Firecracker : dépendance de l'hôte, hors de portée d'une instance installée par `docker compose up`.
+
+## 2026-10-27 — Image du worker de compilation (J3)
+
+L'image part de `texlive/texlive:latest-full`, épinglée par empreinte (TeX Live 2026, publiée le 2026-10-25) : le millésime ne change que par une modification volontaire du `Dockerfile` (procédure dans `docs/operations.md`). Node.js 22 y est copié depuis l'image officielle `node:22` sur base Debian, de même glibc, plutôt qu'installé par un dépôt tiers. Le cache de polices de LuaLaTeX est construit à la construction de l'image. L'image dépasse 7 Gio : la CI ne la met pas en cache (limite de 10 Gio par dépôt).
+
+## 2026-10-27 — Analyse des journaux LaTeX (J3)
+
+`packages/latex-log` est écrit pour le projet. Les analyseurs existants sont soit liés à Overleaf (`latex-log-parser`, code d'Overleaf, interdit par `CLAUDE.md`), soit abandonnés et sans prise en charge de `-file-line-error`, de Biber ni de latexmk. Le module est pur et testé sur des journaux réels capturés dans l'image du worker (`src/__fixtures__/`).
+
+## 2026-10-27 — Visionneuse PDF et marqueurs d'erreurs (J3)
+
+- `pdfjs-dist` 6.4 (Apache-2.0), composant `PDFViewer` de pdf.js : rendu, couche de texte, liens, zoom. Le module de la visionneuse pèse environ 179 kB gzip et le worker pdf.js 376 kB gzip, au-delà du seuil de 100 kB. Aucune alternative maintenue n'affiche un PDF sans pdf.js ; les deux sont chargés à la demande avec le premier PDF, le reste de l'interface n'en paie pas le coût.
+- `@codemirror/lint` 6.9 (MIT, quelques kB) pour les marqueurs de gouttière, alimentés par la dernière compilation et non par un linter du client.
+
+## 2026-10-27 — Rétention des compilations (J3)
+
+Le plan prévoyait de garder les trois dernières compilations réussies. Sont gardées en fait les trois dernières compilations terminées, quel que soit leur résultat, plus la dernière qui a produit un PDF si elle est plus ancienne : un projet en erreur garde ainsi son journal récent et l'interface continue d'afficher le dernier PDF. Le reste est supprimé du stockage et de la base à chaque fin de compilation.
+
+## 2026-10-27 — Modèle « vide » (J3)
+
+Un document sans contenu ne produit aucun PDF (« No pages of output »). Le modèle vide contient donc une ligne de texte, pour qu'un projet neuf compile dès son ouverture.
+
+## 2026-10-27 — AppArmor et bac à sable de compilation (J3)
+
+Contexte. Sur un hôte qui applique AppArmor (Ubuntu, dont le runner de la CI), le profil `docker-default` interdit tout montage dans le conteneur. `bwrap` ne peut alors pas préparer son système de fichiers (« Failed to make / slave: Permission denied ») et le worker refuse de démarrer. Docker Desktop n'est pas concerné.
+
+Décision (Maxime, 2026-10-27). Le seul conteneur `compiler` tourne avec `apparmor=unconfined`. Le confinement des compilations reste assuré par `bwrap` (espaces de noms, réseau coupé, vue minimale du système de fichiers, limites), le conteneur gardant `cap_drop: [ALL]`, `no-new-privileges`, le profil seccomp restreint et une racine en lecture seule. Les autres services gardent le profil par défaut.
+
+Alternatives écartées. Profil AppArmor dédié : plus strict, mais à charger sur l'hôte par l'administrateur (`apparmor_parser`), ce qui casse l'installation par `docker compose up` seul. Conteneur éphémère par compilation : 300 à 800 ms de plus par compilation et accès du worker au démon Docker (voir l'entrée sur le bac à sable).

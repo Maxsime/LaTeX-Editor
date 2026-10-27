@@ -1,0 +1,13 @@
+% Prints every line of a file to the log, so that the corpus test can check
+% what a document managed to read.
+\newread\galleyin
+\newcommand\dumpfile[1]{%
+  \IfFileExists{#1}{%
+    \openin\galleyin=#1\relax
+    \loop\unless\ifeof\galleyin
+      \readline\galleyin to\galleyline
+      \typeout{READ #1: \galleyline}%
+    \repeat
+    \closein\galleyin
+  }{\typeout{ABSENT #1}}%
+}

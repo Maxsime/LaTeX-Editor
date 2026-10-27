@@ -91,6 +91,7 @@ export function projectRoutes(app: FastifyInstance, context: AppContext): void {
         ...(body.mainFileId === undefined ? {} : { mainFileId: body.mainFileId }),
         ...(body.engine === undefined ? {} : { engine: body.engine }),
         ...(body.bibTool === undefined ? {} : { bibTool: body.bibTool }),
+        ...(body.shellEscape === undefined ? {} : { shellEscape: body.shellEscape }),
         updatedAt: new Date(),
       })
       .where(eq(projects.id, id))

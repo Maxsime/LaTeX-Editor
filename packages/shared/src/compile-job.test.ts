@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { compileJob, projectPath } from './compile-job.js';
+import {
+  blobKey,
+  compileJob,
+  compileLockKey,
+  compileOutputKey,
+  compileResult,
+  projectPath,
+} from './compile-job.js';
 
 const digest = 'a'.repeat(64);
 
@@ -40,13 +47,46 @@ describe('compileJob', () => {
     haltOnError: false,
   };
 
-  it('accepts a well-formed job', () => {
-    expect(compileJob.parse(job)).toEqual(job);
+  it('accepts a well-formed job and defaults clean to false', () => {
+    expect(compileJob.parse(job)).toEqual({ ...job, clean: false });
   });
 
   it('rejects traversal in manifest keys and bad digests', () => {
     expect(compileJob.safeParse({ ...job, manifest: { '../x.tex': digest } }).success).toBe(false);
     expect(compileJob.safeParse({ ...job, manifest: { 'main.tex': 'abc' } }).success).toBe(false);
     expect(compileJob.safeParse({ ...job, engine: 'context' }).success).toBe(false);
+  });
+});
+
+describe('compile keys and results', () => {
+  it('names objects and locks', () => {
+    expect(blobKey(digest)).toBe(`blobs/${digest}`);
+    expect(compileOutputKey('c', 'main.pdf')).toBe('compiles/c/main.pdf');
+    expect(compileLockKey('p')).toBe('compile:lock:p');
+  });
+
+  it('validates a worker result', () => {
+    const result = {
+      outcome: 'failure',
+      durationMs: 1200,
+      pdf: null,
+      pages: null,
+      diagnostics: [
+        {
+          level: 'error',
+          source: 'tex',
+          file: 'main.tex',
+          line: 3,
+          message: 'Undefined control sequence.',
+          context: 'l.3 \\oops',
+        },
+      ],
+      truncated: false,
+      outputs: [{ name: 'main.log', size: 10 }],
+      texlive: 'TeX Live 2026',
+      shellEscapeDowngraded: false,
+    };
+    expect(compileResult.parse(result)).toEqual(result);
+    expect(compileResult.safeParse({ ...result, outcome: 'queued' }).success).toBe(false);
   });
 });

@@ -77,7 +77,9 @@ export const updateProjectRequest = z.object({
   mainFileId: z.optional(z.nullable(fileId)),
   engine: z.optional(engine),
   bibTool: z.optional(bibTool),
+  shellEscape: z.optional(shellEscapeMode),
 });
+export type UpdateProjectRequest = z.input<typeof updateProjectRequest>;
 
 export const importProjectResponse = z.object({
   project: projectSummary,

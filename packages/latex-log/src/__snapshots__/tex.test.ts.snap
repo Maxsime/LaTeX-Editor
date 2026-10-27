@@ -1,0 +1,134 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`parseTexLog on the corpus logs > 02-report-main.log 1`] = `[]`;
+
+exports[`parseTexLog on the corpus logs > 04-natbib-main.log 1`] = `[]`;
+
+exports[`parseTexLog on the corpus logs > 06-beamer-main.log 1`] = `[]`;
+
+exports[`parseTexLog on the corpus logs > 09-minted-main.log 1`] = `
+[
+  {
+    "externalFile": "/usr/local/texlive/2026/texmf-dist/tex/latex/tools/shellesc.sty",
+    "file": null,
+    "level": "warning",
+    "line": 73,
+    "message": "shellesc: Shell escape disabled on input line 73.",
+  },
+  {
+    "file": "main.tex",
+    "level": "error",
+    "line": 7,
+    "message": "Package minted Error: Missing definition for highlighting style "default" (minted executable is unavailable or disabled); attempting to substitute fallback style.",
+  },
+  {
+    "file": "main.tex",
+    "level": "error",
+    "line": 7,
+    "message": "Package minted Error: Cannot highlight code (minted executable is unavailable or disabled); attempting to typeset without highlighting.",
+  },
+]
+`;
+
+exports[`parseTexLog on the corpus logs > 10-errors-missing-brace.log 1`] = `
+[
+  {
+    "file": "missing-brace.tex",
+    "level": "error",
+    "line": null,
+    "message": "File ended while scanning use of \\textbf .",
+  },
+]
+`;
+
+exports[`parseTexLog on the corpus logs > 10-errors-missing-file.log 1`] = `
+[
+  {
+    "file": "missing-file.tex",
+    "level": "error",
+    "line": 3,
+    "message": "LaTeX Error: File \`chapitre-absent.tex' not found.",
+  },
+]
+`;
+
+exports[`parseTexLog on the corpus logs > 10-errors-undefined-command.log 1`] = `
+[
+  {
+    "file": "chapters/body.tex",
+    "level": "error",
+    "line": 3,
+    "message": "Undefined control sequence.",
+  },
+]
+`;
+
+exports[`parseTexLog on the corpus logs > 10-errors-undefined-reference.log 1`] = `
+[
+  {
+    "file": "undefined-reference.tex",
+    "level": "warning",
+    "line": 3,
+    "message": "Reference \`sec:absente' on page 1 undefined on input line 3.",
+  },
+  {
+    "file": "undefined-reference.tex",
+    "level": "warning",
+    "line": null,
+    "message": "There were undefined references.",
+  },
+]
+`;
+
+exports[`parseTexLog on the corpus logs > 12-hot-report-main.log 1`] = `
+[
+  {
+    "file": "main.tex",
+    "level": "warning",
+    "line": null,
+    "message": "biblatex: 'babel/polyglossia' detected but 'csquotes' missing. Loading 'csquotes' recommended.",
+  },
+  {
+    "file": "main.tex",
+    "level": "warning",
+    "line": null,
+    "message": "destination with the same identifier (name{page.1}) has been already used, duplicate ignored",
+  },
+  {
+    "file": "chapters/one.tex",
+    "level": "warning",
+    "line": 4,
+    "message": "Citation 'knuth1984' on page 7 undefined on input line 4.",
+  },
+  {
+    "file": "chapters/two.tex",
+    "level": "warning",
+    "line": 4,
+    "message": "Citation 'knuth1984' on page 22 undefined on input line 4.",
+  },
+  {
+    "file": "chapters/three.tex",
+    "level": "warning",
+    "line": 4,
+    "message": "Citation 'knuth1984' on page 37 undefined on input line 4.",
+  },
+  {
+    "file": "main.tex",
+    "level": "warning",
+    "line": 17,
+    "message": "Empty bibliography on input line 17.",
+  },
+  {
+    "file": "main.tex",
+    "level": "warning",
+    "line": null,
+    "message": "There were undefined references.",
+  },
+  {
+    "file": "main.tex",
+    "level": "warning",
+    "line": null,
+    "message": "biblatex: Please (re)run Biber on the file: main and rerun LaTeX afterwards.",
+  },
+]
+`;

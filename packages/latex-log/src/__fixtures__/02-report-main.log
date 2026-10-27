@@ -1,0 +1,146 @@
+This is pdfTeX, Version 3.141592653-2.6-1.40.29 (TeX Live 2026) (preloaded format=pdflatex 2026.10.25)  26 OCT 2026 23:21
+entering extended mode
+ restricted \write18 enabled.
+ file:line:error style messages enabled.
+ %&-line parsing enabled.
+**main.tex
+(./main.tex
+LaTeX2e <2026-06-01>
+L3 programming layer <2026-09-09>
+(./galleyreport.cls
+Document Class: galleyreport 2026/10/26 Local class of the corpus
+(/usr/local/texlive/2026/texmf-dist/tex/latex/base/report.cls
+Document Class: report 2025/01/22 v1.4n Standard LaTeX document class
+(/usr/local/texlive/2026/texmf-dist/tex/latex/base/size11.clo
+File: size11.clo 2025/01/22 v1.4n Standard LaTeX file (size option)
+)
+\c@part=\count276
+\c@chapter=\count277
+\c@section=\count278
+\c@subsection=\count279
+\c@subsubsection=\count280
+\c@paragraph=\count281
+\c@subparagraph=\count282
+\c@figure=\count283
+\c@table=\count284
+\abovecaptionskip=\skip49
+\belowcaptionskip=\skip50
+\bibindent=\dimen150
+) (/usr/local/texlive/2026/texmf-dist/tex/latex/graphics/graphicx.sty
+Package: graphicx 2026-05-17 v1.2e Enhanced LaTeX Graphics (DPC,SPQR)
+ (/usr/local/texlive/2026/texmf-dist/tex/latex/graphics/keyval.sty
+Package: keyval 2026-05-17 v1.15 key=value parser (DPC)
+\KV@toks@=\toks17
+) (/usr/local/texlive/2026/texmf-dist/tex/latex/graphics/graphics.sty
+Package: graphics 2026-05-17 v1.4h Standard LaTeX Graphics (DPC,SPQR)
+ (/usr/local/texlive/2026/texmf-dist/tex/latex/graphics/trig.sty
+Package: trig 2023/12/02 v1.11 sin cos tan (DPC)
+) (/usr/local/texlive/2026/texmf-dist/tex/latex/graphics-cfg/graphics.cfg
+File: graphics.cfg 2016/06/04 v1.11 sample graphics configuration
+)
+Package graphics Info: Driver file: pdftex.def on input line 106.
+ (/usr/local/texlive/2026/texmf-dist/tex/latex/graphics-def/pdftex.def
+File: pdftex.def 2025/09/29 v1.2d Graphics/color driver for pdftex
+))
+\Gin@req@height=\dimen151
+\Gin@req@width=\dimen152
+)) (/usr/local/texlive/2026/texmf-dist/tex/latex/l3kernel/l3backend-pdftex.def
+File: l3backend-pdftex.def 2026-09-09 L3 backend support: PDF output (pdfTeX)
+\l__color_backend_stack_int=\count285
+) (/out/main.aux (/out/chapters/intro.aux) (/out/chapters/figures.aux))
+\openout1 = `main.aux'.
+
+LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 3.
+LaTeX Font Info:    ... okay on input line 3.
+LaTeX Font Info:    Checking defaults for OMS/cmsy/m/n on input line 3.
+LaTeX Font Info:    ... okay on input line 3.
+LaTeX Font Info:    Checking defaults for OT1/cmr/m/n on input line 3.
+LaTeX Font Info:    ... okay on input line 3.
+LaTeX Font Info:    Checking defaults for T1/cmr/m/n on input line 3.
+LaTeX Font Info:    ... okay on input line 3.
+LaTeX Font Info:    Checking defaults for TS1/cmr/m/n on input line 3.
+LaTeX Font Info:    ... okay on input line 3.
+LaTeX Font Info:    Checking defaults for OMX/cmex/m/n on input line 3.
+LaTeX Font Info:    ... okay on input line 3.
+LaTeX Font Info:    Checking defaults for U/cmr/m/n on input line 3.
+LaTeX Font Info:    ... okay on input line 3.
+ (/usr/local/texlive/2026/texmf-dist/tex/context/base/mkii/supp-pdf.mkii
+[Loading MPS to PDF converter (version 2006.09.02).]
+\scratchcounter=\count286
+\scratchdimen=\dimen153
+\scratchbox=\box53
+\nofMPsegments=\count287
+\nofMParguments=\count288
+\everyMPshowfont=\toks18
+\MPscratchCnt=\count289
+\MPscratchDim=\dimen154
+\MPnumerator=\count290
+\makeMPintoPDFobject=\count291
+\everyMPtoPDFconversion=\toks19
+) (/usr/local/texlive/2026/texmf-dist/tex/latex/epstopdf-pkg/epstopdf-base.sty
+Package: epstopdf-base 2020-01-24 v2.11 Base part for package epstopdf
+Package epstopdf-base Info: Redefining graphics rule for `.eps' on input line 485.
+ (/usr/local/texlive/2026/texmf-dist/tex/latex/latexconfig/epstopdf-sys.cfg
+File: epstopdf-sys.cfg 2010/07/13 v1.3 Configuration of (r)epstopdf for TeX Live
+)) (/out/main.toc)
+\tf@toc=\write3
+\openout3 = `main.toc'.
+
+ [1
+
+
+{/usr/local/texlive/2026/texmf-var/fonts/map/pdftex/updmap/pdftex.map}]
+\openout2 = `chapters/intro.aux'.
+
+ (./chapters/intro.tex
+Chapter 1.
+) [2
+
+
+]
+\openout2 = `chapters/figures.aux'.
+
+ (./chapters/figures.tex
+Chapter 2.
+<images/square.png, id=13, 64.24pt x 64.24pt>
+File: images/square.png Graphic file (type png)
+<use images/square.png>
+Package pdftex.def Info: images/square.png  used on input line 4.
+(pdftex.def)             Requested size: 85.35826pt x 85.3646pt.
+<images/photo.jpg, id=14, 64.24pt x 64.24pt>
+File: images/photo.jpg Graphic file (type jpg)
+<use images/photo.jpg>
+Package pdftex.def Info: images/photo.jpg  used on input line 5.
+(pdftex.def)             Requested size: 85.35826pt x 85.3646pt.
+<images/vector.pdf, id=15, 64.24pt x 64.24pt>
+File: images/vector.pdf Graphic file (type pdf)
+<use images/vector.pdf>
+Package pdftex.def Info: images/vector.pdf  used on input line 6.
+(pdftex.def)             Requested size: 85.35826pt x 85.3646pt.
+) [3
+
+
+
+
+ <./images/square.png> <./images/photo.jpg> <./images/vector.pdf>] (/out/main.aux (/out/chapters/intro.aux) (/out/chapters/figures.aux))
+ ***********
+LaTeX2e <2026-06-01>
+L3 programming layer <2026-09-09>
+ ***********
+ ) 
+Here is how much of TeX's memory you used:
+ 1418 strings out of 467050
+ 24022 string characters out of 5406312
+ 440367 words of memory out of 5000000
+ 30822 multiletter control sequences out of 15000+600000
+ 630655 words of font info for 47 fonts, out of 8000000 for 9000
+ 1141 hyphenation exceptions out of 8191
+ 72i,6n,79p,251b,237s stack positions out of 10000i,1000n,20000p,200000b,200000s
+</usr/local/texlive/2026/texmf-dist/fonts/type1/public/amsfonts/cm/cmbx10.pfb></usr/local/texlive/2026/texmf-dist/fonts/type1/public/amsfonts/cm/cmbx12.pfb></usr/local/texlive/2026/texmf-dist/fonts/type1/public/amsfonts/cm/cmr10.pfb></usr/local/texlive/2026/texmf-dist/fonts/type1/public/amsfonts/cm/cmti10.pfb>
+Output written on /out/main.pdf (3 pages, 59263 bytes).
+PDF statistics:
+ 38 PDF objects out of 1000 (max. 8388607)
+ 21 compressed objects within 1 object stream
+ 0 named destinations out of 1000 (max. 500000)
+ 16 words of extra memory for PDF output out of 10000 (max. 10000000)
+

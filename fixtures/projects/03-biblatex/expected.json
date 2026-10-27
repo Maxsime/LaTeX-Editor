@@ -1,0 +1,21 @@
+{
+  "description": "BibLaTeX et Biber, styles numérique et auteur-année.",
+  "runs": [
+    {
+      "main": "numeric.tex",
+      "expect": {
+        "outcome": "success",
+        "minPages": 1,
+        "absentWarnings": ["undefined"]
+      }
+    },
+    {
+      "main": "authoryear.tex",
+      "expect": {
+        "outcome": "success",
+        "minPages": 1,
+        "absentWarnings": ["undefined"]
+      }
+    }
+  ]
+}

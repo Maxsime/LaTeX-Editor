@@ -2,6 +2,8 @@ import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import type { S3Client } from '@aws-sdk/client-s3';
 import {
+  COMPILE_QUEUE,
+  type CompileJob,
   outlineResponse,
   projectIndexResponse,
   searchResponse,
@@ -10,7 +12,8 @@ import {
 import { createLogger } from '@galley/shared/node';
 import type { StartedPostgreSqlContainer } from '@testcontainers/postgresql';
 import { eq } from 'drizzle-orm';
-import type { FastifyInstance, LightMyRequestResponse } from 'fastify';
+import type { FastifyInstance } from 'fastify';
+import { Queue } from 'bullmq';
 import { Redis } from 'ioredis';
 import type { StartedTestContainer } from 'testcontainers';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -30,6 +33,7 @@ import {
   startSeaweedfs,
   startValkey,
 } from './containers.js';
+import { Client } from './client.js';
 import { buildZip, multipart, readZip } from './zip.js';
 
 const REFERENCE_ARCHIVE = new URL(
@@ -38,50 +42,6 @@ const REFERENCE_ARCHIVE = new URL(
 );
 
 type Body = Record<string, unknown>;
-
-/** A browser-like session: keeps the cookie and sends the CSRF token. */
-class Client {
-  private cookie: string | undefined;
-  csrf: string | undefined;
-
-  constructor(
-    private readonly app: FastifyInstance,
-    private readonly ip: string,
-  ) {}
-
-  async send(
-    method: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE',
-    url: string,
-    options: {
-      json?: unknown;
-      form?: ReturnType<typeof multipart>;
-      headers?: Record<string, string>;
-    } = {},
-  ): Promise<LightMyRequestResponse> {
-    const headers: Record<string, string> = { ...options.form?.headers, ...options.headers };
-    if (this.cookie !== undefined) headers.cookie = `${SESSION_COOKIE}=${this.cookie}`;
-    if (this.csrf !== undefined && method !== 'GET') headers['x-csrf-token'] ??= this.csrf;
-    const response = await this.app.inject({
-      method,
-      url,
-      headers,
-      remoteAddress: this.ip,
-      ...(options.json === undefined ? {} : { payload: options.json as Body }),
-      ...(options.form === undefined ? {} : { payload: options.form.payload }),
-    });
-    const set = response.cookies.find((cookie) => cookie.name === SESSION_COOKIE);
-    if (set) {
-      this.cookie = set.value === '' ? undefined : set.value;
-      const session = await this.app.inject({
-        method: 'GET',
-        url: '/api/auth/session',
-        headers: this.cookie === undefined ? {} : { cookie: `${SESSION_COOKIE}=${this.cookie}` },
-      });
-      this.csrf = session.json<{ csrfToken: string | null }>().csrfToken ?? undefined;
-    }
-    return response;
-  }
-}
 
 function sha256(data: Buffer): string {
   return createHash('sha256').update(data).digest('hex');
@@ -95,6 +55,7 @@ describe.skipIf(!dockerAvailable)('accounts, projects and files', () => {
   let redis: Redis;
   let s3: S3Client;
   let app: FastifyInstance;
+  let compileQueue: Queue<CompileJob, unknown>;
   let ipCounter = 0;
   const client = (): Client => new Client(app, `10.0.0.${String(++ipCounter)}`);
 
@@ -144,6 +105,7 @@ describe.skipIf(!dockerAvailable)('accounts, projects and files', () => {
     await runMigrations(database);
     await ensureBucket(s3, config.S3_BUCKET);
     const logger = createLogger({ service: 'api-test', level: 'silent' });
+    compileQueue = new Queue(COMPILE_QUEUE, { connection: { url: config.VALKEY_URL } });
     app = buildApp({
       logger,
       version: 'test',
@@ -154,6 +116,7 @@ describe.skipIf(!dockerAvailable)('accounts, projects and files', () => {
         redis,
         s3,
         documents: createDocumentGateway(config, database, logger),
+        compileQueue,
       },
       archiveLimits: {
         ...DEFAULT_ARCHIVE_LIMITS,
@@ -166,6 +129,7 @@ describe.skipIf(!dockerAvailable)('accounts, projects and files', () => {
 
   afterAll(async () => {
     await app.close();
+    await compileQueue.close();
     await database.sql.end({ timeout: 5 });
     redis.disconnect();
     s3.destroy();

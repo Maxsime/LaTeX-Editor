@@ -1,0 +1,12 @@
+{
+  "description": "Glossaires (makeglossaries) et index (makeindex).",
+  "runs": [
+    {
+      "main": "main.tex",
+      "expect": {
+        "outcome": "success",
+        "minPages": 2
+      }
+    }
+  ]
+}

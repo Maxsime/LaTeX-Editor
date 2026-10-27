@@ -1,0 +1,12 @@
+{
+  "description": "Beamer avec thème et recouvrements (une page par recouvrement).",
+  "runs": [
+    {
+      "main": "main.tex",
+      "expect": {
+        "outcome": "success",
+        "minPages": 4
+      }
+    }
+  ]
+}

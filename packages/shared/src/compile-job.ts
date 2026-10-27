@@ -41,5 +41,94 @@ export const compileJob = z.object({
   shellEscape: shellEscapeMode,
   draft: z.boolean(),
   haltOnError: z.boolean(),
+  /** Deletes the cached auxiliary files first ("clean and recompile"). */
+  clean: z._default(z.boolean(), false),
 });
 export type CompileJob = z.infer<typeof compileJob>;
+
+/** Object key of a content-addressed blob. */
+export function blobKey(hash: string): string {
+  return `blobs/${hash}`;
+}
+
+/** Object key of a file published by a compilation. */
+export function compileOutputKey(compileId: string, name: string): string {
+  return `compiles/${compileId}/${name}`;
+}
+
+/** Valkey channel on which the API asks workers to stop a running compilation. */
+export const COMPILE_CANCEL_CHANNEL = 'compile:cancel';
+
+/**
+ * Valkey key marking a compilation as cancelled, for a worker that picks the
+ * job up just after the cancellation was published.
+ */
+export function compileCancelKey(compileId: string): string {
+  return `compile:cancel:${compileId}`;
+}
+
+/** Valkey key holding the lock of the compilation running for a project. */
+export function compileLockKey(projectId: string): string {
+  return `compile:lock:${projectId}`;
+}
+
+/** Valkey key where workers publish the TeX Live release they run. */
+export const TEXLIVE_VERSION_KEY = 'compile:texlive';
+
+/** Final state of a compilation run by a worker. */
+export const compileOutcome = z.enum(['success', 'failure', 'timeout', 'cancelled', 'error']);
+export type CompileOutcome = z.infer<typeof compileOutcome>;
+
+/** Every state of a compilation, as stored by the API. */
+export const compileStatus = z.enum([
+  'queued',
+  'running',
+  'success',
+  'failure',
+  'timeout',
+  'cancelled',
+  'superseded',
+  'error',
+]);
+export type CompileStatus = z.infer<typeof compileStatus>;
+
+/** A located message of the compilation log (SPEC §6.4). */
+export const diagnostic = z.object({
+  level: z.enum(['error', 'warning', 'badbox']),
+  source: z.enum(['tex', 'biber', 'bibtex', 'latexmk', 'compiler']),
+  /** Project-relative path, or null when no project file is concerned. */
+  file: z.nullable(z.string()),
+  externalFile: z.optional(z.string()),
+  line: z.nullable(z.number()),
+  message: z.string(),
+  context: z.string(),
+});
+export type Diagnostic = z.infer<typeof diagnostic>;
+
+/** Most diagnostics a compilation keeps; a log can hold thousands of bad boxes. */
+export const MAX_DIAGNOSTICS = 500;
+
+/** A file published under `compiles/<compileId>/`. */
+export const compileOutput = z.object({
+  /** Name relative to the output folder, e.g. `main.pdf` or `chapters/one.aux`. */
+  name: z.string(),
+  size: z.number(),
+});
+export type CompileOutput = z.infer<typeof compileOutput>;
+
+/** Value a worker returns for a compile job. */
+export const compileResult = z.object({
+  outcome: compileOutcome,
+  durationMs: z.number(),
+  /** Name of the PDF among the outputs, when one was produced. */
+  pdf: z.nullable(z.string()),
+  pages: z.nullable(z.number()),
+  diagnostics: z.array(diagnostic),
+  /** True when diagnostics were cut at {@link MAX_DIAGNOSTICS}. */
+  truncated: z.boolean(),
+  outputs: z.array(compileOutput),
+  texlive: z.string(),
+  /** Set when shell-escape `full` was asked for but not allowed, and restricted used instead. */
+  shellEscapeDowngraded: z.boolean(),
+});
+export type CompileResult = z.infer<typeof compileResult>;
