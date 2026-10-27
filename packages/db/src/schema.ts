@@ -12,6 +12,7 @@ import {
   text,
   timestamp,
   unique,
+  uniqueIndex,
   uuid,
   type AnyPgColumn,
 } from 'drizzle-orm/pg-core';
@@ -115,6 +116,54 @@ export const projectMembers = pgTable(
     primaryKey({ columns: [table.projectId, table.userId] }),
     index('project_members_user_idx').on(table.userId),
   ],
+);
+
+/**
+ * Invitation of an existing account to a project (SPEC §3.4), pending until
+ * the invited user accepts or declines it, or the owner revokes it.
+ */
+export const projectInvites = pgTable(
+  'project_invites',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    projectId: uuid('project_id')
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    role: projectRoleEnum('role').notNull(),
+    invitedBy: uuid('invited_by').references(() => users.id, { onDelete: 'set null' }),
+    /** Set once answered or revoked; a pending invitation has neither. */
+    closedAt: timestamp('closed_at', { withTimezone: true }),
+    ...timestamps,
+  },
+  (table) => [
+    index('project_invites_user_idx').on(table.userId),
+    // At most one pending invitation per project and person.
+    uniqueIndex('project_invites_pending_idx')
+      .on(table.projectId, table.userId)
+      .where(sql`${table.closedAt} is null`),
+  ],
+);
+
+/** Revocable link that lets any signed-in user join a project with a role. */
+export const projectLinks = pgTable(
+  'project_links',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    projectId: uuid('project_id')
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade' }),
+    tokenHash: text('token_hash').notNull().unique(),
+    role: projectRoleEnum('role').notNull(),
+    createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
+    expiresAt: timestamp('expires_at', { withTimezone: true }),
+    revokedAt: timestamp('revoked_at', { withTimezone: true }),
+    uses: bigint('uses', { mode: 'number' }).notNull().default(0),
+    ...timestamps,
+  },
+  (table) => [index('project_links_project_idx').on(table.projectId)],
 );
 
 export const tags = pgTable(
