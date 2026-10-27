@@ -97,6 +97,7 @@ export function Dialog({
   title,
   description,
   wide = false,
+  large = false,
   children,
 }: {
   open: boolean;
@@ -105,6 +106,8 @@ export function Dialog({
   description?: string;
   /** Room for lists and tables, scrolling when taller than the window. */
   wide?: boolean;
+  /** Most of the window, for side-by-side panes. */
+  large?: boolean;
   children: ReactNode;
 }) {
   return (
@@ -113,7 +116,11 @@ export function Dialog({
         <RadixDialog.Overlay className="fixed inset-0 bg-slate-900/40" />
         <RadixDialog.Content
           className={`fixed top-1/2 left-1/2 max-h-[calc(100vh-2rem)] -translate-x-1/2 -translate-y-1/2 space-y-4 overflow-y-auto rounded-lg bg-white p-5 shadow-xl ${
-            wide ? 'w-[min(40rem,calc(100vw-2rem))]' : 'w-[min(28rem,calc(100vw-2rem))]'
+            large
+              ? 'w-[min(72rem,calc(100vw-2rem))]'
+              : wide
+                ? 'w-[min(40rem,calc(100vw-2rem))]'
+                : 'w-[min(28rem,calc(100vw-2rem))]'
           }`}
         >
           <RadixDialog.Title className="text-lg font-semibold">{title}</RadixDialog.Title>
