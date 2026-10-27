@@ -117,6 +117,7 @@ describe.skipIf(!dockerAvailable)('accounts, projects and files', () => {
         s3,
         documents: createDocumentGateway(config, database, logger),
         compileQueue,
+        synctex: () => Promise.reject(new Error('no SyncTeX in these tests')),
       },
       archiveLimits: {
         ...DEFAULT_ARCHIVE_LIMITS,

@@ -36,6 +36,7 @@
     "NOT_FOUND": "Ressource introuvable.",
     "CONFLICT": "Conflit avec l'état actuel.",
     "NO_MAIN_FILE": "Aucun fichier principal n'est défini pour ce projet.",
+    "NO_SYNCTEX": "Cette compilation n'a pas produit de données SyncTeX : recompiler le projet.",
     "PAYLOAD_TOO_LARGE": "Contenu trop volumineux.",
     "RATE_LIMITED": "Trop de requêtes, réessayez plus tard.",
     "INVALID_PATTERN": "Expression régulière invalide.",
