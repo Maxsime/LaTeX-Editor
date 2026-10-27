@@ -31,6 +31,7 @@ import {
 import { tags } from '@lezer/highlight';
 import { yCollab, yUndoManagerKeymap } from 'y-codemirror.next';
 import * as Y from 'yjs';
+import { styleNonce } from '../lib/csp.js';
 import type { EditorTheme } from '../stores/editor.js';
 import { bibtex } from './bibtex.js';
 import { type CompletionSources, latexCompletionSource } from './completion.js';
@@ -153,7 +154,9 @@ export function editorExtensions(options: EditorOptions): Extension {
   const language = languageFor(options.fileName);
   // Undo is per user and per document, handled by Yjs rather than CodeMirror's history.
   const undoManager = new Y.UndoManager(options.text);
+  const nonce = styleNonce();
   return [
+    nonce === null ? [] : EditorView.cspNonce.of(nonce),
     lineNumbers(),
     highlightActiveLineGutter(),
     highlightSpecialChars(),

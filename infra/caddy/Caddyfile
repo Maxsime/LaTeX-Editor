@@ -15,7 +15,9 @@ http://:2019 {
 
 	header {
 		# "?" keeps a stricter policy set by the API, e.g. on user file downloads.
-		?Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'"
+		# The style nonce, new on every response, lets CodeMirror insert its style sheet;
+		# index.html hands it to the client (see the templates directive below).
+		?Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'nonce-{http.request.uuid}'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'"
 		Strict-Transport-Security "max-age=31536000"
 		X-Content-Type-Options "nosniff"
 		Referrer-Policy "strict-origin-when-cross-origin"
@@ -43,9 +45,14 @@ http://:2019 {
 
 	handle {
 		root * /srv
+		# The page carries a new nonce on every load; only hashed assets are cached.
 		@assets path /assets/*
 		header @assets Cache-Control "public, max-age=31536000, immutable"
+		@pages not path /assets/*
+		header @pages Cache-Control "no-store"
 		try_files {path} /index.html
+		@index path /index.html
+		templates @index
 		file_server
 	}
 }
