@@ -69,7 +69,7 @@ test.describe('projects and files', () => {
     await page.getByLabel('Modèle').selectOption('article');
     await page.getByRole('button', { name: 'Créer' }).click();
     await expect(page.getByRole('heading', { level: 1, name: 'Mémoire' })).toBeVisible();
-    expect(await treePaths(page)).toEqual(['main.tex', 'references.bib']);
+    await expect.poll(() => treePaths(page)).toEqual(['main.tex', 'references.bib']);
 
     await page.getByRole('treeitem', { name: /main\.tex/ }).click();
     await expect(page.locator('.cm-editor:visible .cm-content')).toContainText(
@@ -108,17 +108,17 @@ test.describe('projects and files', () => {
     await page.getByRole('button', { name: 'Actions sur lisez-moi.txt' }).click();
     await page.getByRole('menuitem', { name: 'Déplacer vers…' }).click();
     await page.getByRole('button', { name: 'Racine du projet' }).click();
-    expect(await treePaths(page)).toContain('lisez-moi.txt');
+    await expect.poll(() => treePaths(page)).toContain('lisez-moi.txt');
 
     await page
       .getByRole('treeitem', { name: /lisez-moi\.txt/ })
       .dragTo(page.getByRole('treeitem', { name: /figures/ }));
-    expect(await treePaths(page)).toContain('figures/lisez-moi.txt');
+    await expect.poll(() => treePaths(page)).toContain('figures/lisez-moi.txt');
 
     await page.getByRole('treeitem', { name: /figures/ }).click({ button: 'right' });
     await page.getByRole('menuitem', { name: 'Supprimer' }).click();
     await page.getByRole('dialog').getByRole('button', { name: 'Supprimer' }).click();
-    expect(await treePaths(page)).toEqual(['main.tex', 'references.bib']);
+    await expect.poll(() => treePaths(page)).toEqual(['main.tex', 'references.bib']);
   });
 
   test('archives, trashes and restores from the dashboard', async ({ page }) => {

@@ -1,8 +1,9 @@
 {
   "extends": "../tsconfig.base.json",
   "compilerOptions": {
+    "lib": ["ES2023", "DOM"],
     "types": ["node"],
     "noEmit": true
   },
-  "include": ["tests", "scripts", "playwright.config.ts", "support.ts", "instance.ts"]
+  "include": ["tests", "scripts", "playwright.config.ts", "support.ts", "instance.ts", "editing.ts"]
 }
