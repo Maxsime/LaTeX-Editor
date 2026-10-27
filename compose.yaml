@@ -91,6 +91,17 @@ services:
       AI_DEFAULT_CONTEXT_TOKENS: ${AI_DEFAULT_CONTEXT_TOKENS:-}
       AI_ALLOW_USER_ENDPOINTS: ${AI_ALLOW_USER_ENDPOINTS:-false}
       AI_RATE_LIMIT_PER_MINUTE: ${AI_RATE_LIMIT_PER_MINUTE:-20}
+      # Public address: the API refuses the development secrets on any host but localhost.
+      GALLEY_HOST: ${GALLEY_HOST:-localhost}
+      GALLEY_HTTPS_PORT: ${GALLEY_HTTPS_PORT:-443}
+      QUOTA_STORAGE_MB: ${QUOTA_STORAGE_MB:-}
+      QUOTA_COMPILE_MINUTES: ${QUOTA_COMPILE_MINUTES:-}
+      OIDC_ISSUER: ${OIDC_ISSUER:-}
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-}
+      OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}
+      OIDC_DISPLAY_NAME: ${OIDC_DISPLAY_NAME:-SSO}
+      OIDC_SCOPES: ${OIDC_SCOPES:-openid email profile}
+      OIDC_ALLOW_SIGNUP: ${OIDC_ALLOW_SIGNUP:-false}
     # A model served on the host (Ollama, LM Studio) is reached at host.docker.internal.
     extra_hosts:
       - host.docker.internal:host-gateway

@@ -5,3 +5,7 @@ packages:
 
 onlyBuiltDependencies:
   - esbuild
+
+# Transitive versions held back until they are two weeks old (CLAUDE.md, dependencies).
+overrides:
+  jose: 6.2.12

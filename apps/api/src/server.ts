@@ -9,7 +9,7 @@ import { createSnippetCompiler } from './ai/snippets.js';
 import { createSynctexClient } from './compile/synctex.js';
 import { ensureSetupCode } from './auth/setup.js';
 import { countUsers } from './auth/users.js';
-import { readConfig } from './config.js';
+import { developmentSecretsInUse, readConfig } from './config.js';
 import { DEVELOPMENT_MASTER_KEY } from './crypto/secrets.js';
 import { createDatabase, runMigrations } from '@galley/db';
 import { startMaintenance } from './projects/purge.js';
@@ -22,6 +22,15 @@ async function main(): Promise<void> {
   const config = readConfig();
   const logger = createLogger({ service: 'api', level: config.LOG_LEVEL });
   const version = readPackageVersion(import.meta.url);
+  const weak = developmentSecretsInUse(config);
+  if (weak.length > 0) {
+    // Published in the repository: on a public host they would open the database and storage.
+    logger.fatal(
+      { variables: weak, host: config.GALLEY_HOST },
+      'development secrets on a public host: generate your own with scripts/init-env.sh',
+    );
+    process.exit(1);
+  }
 
   const database = createDatabase(config.DATABASE_URL);
   const redis = new Redis(config.VALKEY_URL, { lazyConnect: true, maxRetriesPerRequest: 1 });

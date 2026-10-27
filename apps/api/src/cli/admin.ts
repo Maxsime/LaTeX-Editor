@@ -6,6 +6,7 @@ import { hashPassword } from '../auth/password.js';
 import { deleteUserSessions } from '../auth/sessions.js';
 import { randomToken, tokenDigest } from '../auth/tokens.js';
 import { createUser, findUserByLogin } from '../auth/users.js';
+import { temporaryPassword } from '../admin/users.js';
 import { readConfig } from '../config.js';
 import { createDatabase, type Database, registrationInvites, users } from '@galley/db';
 import { runMigrations } from '@galley/db';
@@ -20,11 +21,6 @@ Commands:
   create-invite [--days <1-90>]
       Prints a registration invite token.
 `;
-
-/** Long enough to be safe, short enough to type once before changing it. */
-function temporaryPassword(): string {
-  return randomToken(15);
-}
 
 function print(line: string): void {
   process.stdout.write(`${line}\n`);

@@ -13,6 +13,8 @@ import { eq } from 'drizzle-orm';
 import type { FastifyInstance, FastifyReply } from 'fastify';
 import * as z from 'zod/mini';
 import { requireAuth } from '../auth/plugin.js';
+import { assertRoomFor, storageGuard } from '../admin/quotas.js';
+import { instanceSettingsOf } from '../admin/settings.js';
 import type { AppContext } from '../context.js';
 import { yjsStates } from '@galley/db';
 import { classifySpooled, type IncomingFile, mimeTypeFor } from '../files/ingest.js';
@@ -155,6 +157,16 @@ export function fileRoutes(app: FastifyInstance, context: AppContext): void {
       if (incoming.length === 0) throw new ApiError('BAD_REQUEST', 'no file');
 
       await assertFolder(db, id, parentId);
+      const { quotas } = await instanceSettingsOf(context).get();
+      await assertRoomFor(
+        db,
+        quotas,
+        id,
+        incoming.reduce(
+          (total, file) => total + (file.kind === 'binary' ? file.blob.size : file.size),
+          0,
+        ),
+      );
       await storeBlobs(
         db,
         s3,
@@ -163,7 +175,9 @@ export function fileRoutes(app: FastifyInstance, context: AppContext): void {
       );
       const { nodes, changes } = await db.transaction(async (tx) => {
         const before = new Set((await listNodes(tx, id)).map((row) => row.id));
+        const guard = await storageGuard(tx, quotas, id);
         const written = await writeFiles(tx, id, parentId, incoming);
+        await guard.check();
         await ensureMainFile(tx, id);
         // Report created folders too, so the client can update its tree in one go.
         const writtenIds = new Set(written.rows.map((row) => row.id));

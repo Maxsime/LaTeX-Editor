@@ -92,7 +92,7 @@ export function buildApp({
       await api.register(multipart);
       await registerAuth(api, context);
       authRoutes(api, context);
-      adminRoutes(api, context);
+      adminRoutes(api, context, version);
       projectRoutes(api, context);
       sharingRoutes(api, context);
       tagRoutes(api, context);

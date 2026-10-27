@@ -150,6 +150,9 @@ export const apiEnv = z
       z.coerce.number().check(z.int(), z.gte(1), z.lte(1_000)),
       20,
     ),
+    /** Default quotas of every account (SPEC §3.9); empty means unlimited. */
+    QUOTA_STORAGE_MB: blankable(z.coerce.number().check(z.int(), z.positive())),
+    QUOTA_COMPILE_MINUTES: blankable(z.coerce.number().check(z.int(), z.positive())),
     /** Public host name and HTTPS port, from which the API derives its own address. */
     GALLEY_HOST: z._default(z.string().check(z.minLength(1)), 'localhost'),
     GALLEY_HTTPS_PORT: z._default(port, 443),

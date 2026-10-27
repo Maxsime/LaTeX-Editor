@@ -149,7 +149,11 @@ describe.skipIf(!dockerAvailable)('accounts, projects and files', () => {
   describe('first administrator', () => {
     it('requires the setup code, once', async () => {
       const config = await app.inject({ method: 'GET', url: '/api/auth/config' });
-      expect(config.json()).toEqual({ registrationMode: 'invite', setupRequired: true });
+      expect(config.json()).toEqual({
+        registrationMode: 'invite',
+        setupRequired: true,
+        oidc: null,
+      });
 
       const { code } = await ensureSetupCode(redis);
       admin = client();

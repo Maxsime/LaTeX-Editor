@@ -148,7 +148,12 @@ export function createToolHost(options: HostOptions): ToolHost {
     },
 
     async compileSnippet(latex) {
-      const outcome = await compileSnippet(context, project.id, userId, standaloneDocument(latex));
+      const outcome = await asTool(
+        () => compileSnippet(context, project.id, userId, standaloneDocument(latex)),
+        {
+          QUOTA_COMPILE_EXCEEDED: 'The monthly compilation time is used up; nothing was compiled.',
+        },
+      );
       if (outcome.compileId !== null) {
         await store.recordSnippet(outcome.compileId, userId, project.id);
         options.onSnippet?.(outcome.compileId);

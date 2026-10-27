@@ -319,7 +319,13 @@ export async function runChat(options: ChatOptions): Promise<void> {
         project.id,
         userId,
         standaloneDocument(generated.code, generated.preamble),
-      );
+      ).catch((error: unknown) => {
+        // The code is still worth showing when the preview cannot be compiled.
+        if (error instanceof ApiError && error.code === 'QUOTA_COMPILE_EXCEEDED') {
+          return { compileId: null, outcome: 'error' as const, errors: [] };
+        }
+        throw error;
+      });
       if (compiled.compileId !== null)
         await store.recordSnippet(compiled.compileId, userId, project.id);
       send({

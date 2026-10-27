@@ -21,12 +21,14 @@ import { citationViolations, knownCitationKeys } from '../ai/changes.js';
 import {
   aiKeyContext,
   checkUserEndpoint,
-  instanceProvider,
+  instanceDefault,
   requireAvailable,
   resolveModel,
   statusOf,
   toProviderConfig,
 } from '../ai/settings.js';
+import { storageGuard } from '../admin/quotas.js';
+import { instanceSettingsOf } from '../admin/settings.js';
 import { AiStore } from '../ai/store.js';
 import { requireAdmin, requireAuth } from '../auth/plugin.js';
 import type { AppContext } from '../context.js';
@@ -78,12 +80,13 @@ export function aiRoutes(app: FastifyInstance, context: AppContext): void {
       .select()
       .from(aiProviderConfigs)
       .where(eq(aiProviderConfigs.userId, userId));
-    const instance = instanceProvider(config);
+    const settings = await instanceSettingsOf(context).get();
+    const instance = instanceDefault(config, settings);
     return {
       config: row ? toProviderConfig(row) : null,
-      instance: instance === null ? null : { provider: instance.provider, model: instance.model },
+      instance,
       allowUserEndpoints: config.AI_ALLOW_USER_ENDPOINTS,
-      enabled: config.AI_ENABLED,
+      enabled: settings.aiEnabled,
     };
   }
 
@@ -217,7 +220,11 @@ export function aiRoutes(app: FastifyInstance, context: AppContext): void {
     const auth = requireAuth(request);
     const { id } = parse(projectParams, request.params);
     const { project } = await loadProject(db, id, auth.user.id, 'reader');
-    return statusOf(config, project, await resolveModel(context, secrets, auth.user.id));
+    return statusOf(
+      await instanceSettingsOf(context).get(),
+      project,
+      await resolveModel(context, secrets, auth.user.id),
+    );
   });
 
   app.post(
@@ -229,7 +236,7 @@ export function aiRoutes(app: FastifyInstance, context: AppContext): void {
       const body = parse(aiChatRequest, request.body);
       const { project, role } = await loadProject(db, id, auth.user.id, 'reader');
       const model = requireAvailable(
-        config,
+        await instanceSettingsOf(context).get(),
         project,
         await resolveModel(context, secrets, auth.user.id),
       );
@@ -341,9 +348,15 @@ export function aiRoutes(app: FastifyInstance, context: AppContext): void {
       });
       if (incoming.length > 0) {
         try {
-          await db.transaction((tx) => writeFiles(tx, id, null, incoming));
+          const { quotas } = await instanceSettingsOf(context).get();
+          await db.transaction(async (tx) => {
+            const guard = await storageGuard(tx, quotas, id);
+            await writeFiles(tx, id, null, incoming);
+            await guard.check();
+          });
         } catch (error) {
           if (!(error instanceof ApiError)) throw error;
+          if (error.code === 'QUOTA_STORAGE_EXCEEDED') throw error;
           // A folder or binary file took the path in the meantime.
           for (const hunk of creations) statuses.set(hunk.id, 'conflict');
         }

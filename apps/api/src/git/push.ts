@@ -1,6 +1,8 @@
 import { realpath } from 'node:fs/promises';
 import { join, sep } from 'node:path';
 import { MAX_UPLOAD_BYTES, type Manifest, splitProjectPath } from '@galley/shared';
+import { fitsAfterResize } from '../admin/quotas.js';
+import { instanceSettingsOf } from '../admin/settings.js';
 import type { AppContext } from '../context.js';
 import { sha256 } from '../files/classify.js';
 import { mimeTypeFor } from '../files/ingest.js';
@@ -24,7 +26,8 @@ export type PushRefusal =
   | { reason: 'invalidPath'; path: string }
   | { reason: 'fileTooLarge'; path: string }
   | { reason: 'tooLarge' }
-  | { reason: 'tooManyFiles' };
+  | { reason: 'tooManyFiles' }
+  | { reason: 'quota' };
 
 export class PushRefused extends Error {
   constructor(readonly refusal: PushRefusal) {
@@ -139,6 +142,11 @@ export async function applyPush(
       }
       total += entry.size;
       if (total > limits.maxBytes) throw new PushRefused({ reason: 'tooLarge' });
+    }
+
+    const { quotas } = await instanceSettingsOf(context).get();
+    if (!(await fitsAfterResize(db, quotas, projectId, total))) {
+      throw new PushRefused({ reason: 'quota' });
     }
 
     // Blobs the project already has are known by their Git id; only new ones are read.

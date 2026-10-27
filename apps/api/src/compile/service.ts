@@ -16,6 +16,8 @@ import { compileRuns } from '@galley/db';
 import type { Job, Queue } from 'bullmq';
 import { and, desc, eq, inArray, isNotNull } from 'drizzle-orm';
 import type { FastifyBaseLogger } from 'fastify';
+import { assertCompileTime } from '../admin/quotas.js';
+import { instanceSettingsOf } from '../admin/settings.js';
 import type { AppContext } from '../context.js';
 import { takeSnapshot } from '../history/snapshots.js';
 import { materializeProject } from '../materialize.js';
@@ -125,6 +127,8 @@ export async function requestCompile(
   logger: FastifyBaseLogger,
 ): Promise<CompileRunRow> {
   if (project.mainFileId === null) throw new ApiError('NO_MAIN_FILE');
+  const { quotas } = await instanceSettingsOf(context).get();
+  await assertCompileTime(context.database.db, context.redis, quotas, userId);
   const snapshot = await materializeProject(context, project.id);
   const mainFile = snapshot.paths.get(project.mainFileId);
   if (mainFile === undefined || !(mainFile in snapshot.manifest)) {
