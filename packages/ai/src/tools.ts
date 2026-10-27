@@ -109,7 +109,7 @@ const descriptions: Record<AiToolName, string> = {
   compile_snippet:
     'Compile a LaTeX fragment (or a complete standalone document) with pdfLaTeX to check that it compiles. Returns the errors.',
   propose_changes:
-    'Propose changes to files for the user to review. Each edit replaces `search`, copied exactly from the current file and occurring once, by `replace`. An empty `search` on a path that does not exist creates that file with `replace` as content. Nothing is written until the user accepts.',
+    'Propose changes to files for the user to review. Each edit replaces `search`, copied exactly from the current file and occurring once, by `replace`. An empty `search` appends `replace` at the end of an existing file, or creates the file when the path does not exist. Nothing is written until the user accepts.',
   search_literature:
     'Search scholarly literature (Crossref, arXiv, OpenAlex) for a query. Returns titles, authors, years and identifiers.',
   fetch_bibtex:

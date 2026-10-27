@@ -1,4 +1,5 @@
 import * as z from 'zod/mini';
+import { aiProvider } from './ai.js';
 import { registrationMode } from './auth.js';
 
 /**
@@ -43,6 +44,11 @@ const booleanFlag = z.pipe(
   z.enum(['true', 'false', '1', '0']),
   z.transform((value) => value === 'true' || value === '1'),
 );
+
+/** An optional variable that compose may pass as an empty string, which means unset. */
+function blankable<T extends z.ZodMiniType>(schema: T) {
+  return z.optional(z.union([z.literal(''), schema]));
+}
 
 export const commonEnv = z.object({
   NODE_ENV: z._default(z.enum(['development', 'production', 'test']), 'development'),
@@ -121,6 +127,29 @@ export const apiEnv = z
     ARXIV_URL: z._default(z.url({ protocol: /^https?$/ }), 'https://export.arxiv.org'),
     OPENLIBRARY_URL: z._default(z.url({ protocol: /^https?$/ }), 'https://openlibrary.org'),
     ZOTERO_URL: z._default(z.url({ protocol: /^https?$/ }), 'https://api.zotero.org'),
+    OPENALEX_URL: z._default(z.url({ protocol: /^https?$/ }), 'https://api.openalex.org'),
+    SEMANTIC_SCHOLAR_URL: z._default(
+      z.url({ protocol: /^https?$/ }),
+      'https://api.semanticscholar.org',
+    ),
+    /** Optional: Semantic Scholar throttles anonymous callers hard, so it is only queried with a key. */
+    SEMANTIC_SCHOLAR_API_KEY: blankable(z.string()),
+    /** Instance-wide switch of the AI assistant (SPEC §3.8). */
+    AI_ENABLED: z._default(booleanFlag, true),
+    /** Provider used by everyone without a configuration of their own; empty: none. */
+    AI_DEFAULT_PROVIDER: blankable(aiProvider),
+    AI_DEFAULT_MODEL: blankable(z.string().check(z.maxLength(200))),
+    AI_DEFAULT_BASE_URL: blankable(z.url({ protocol: /^https?$/ })),
+    AI_DEFAULT_API_KEY: blankable(z.string().check(z.maxLength(500))),
+    /** Capabilities of the default model when the built-in table does not know it. */
+    AI_DEFAULT_VISION: z.optional(booleanFlag),
+    AI_DEFAULT_CONTEXT_TOKENS: z.optional(z.coerce.number().check(z.int(), z.gte(2_000))),
+    /** Lets users point a provider at an address of their choice (see docs/operations.md). */
+    AI_ALLOW_USER_ENDPOINTS: z._default(booleanFlag, false),
+    AI_RATE_LIMIT_PER_MINUTE: z._default(
+      z.coerce.number().check(z.int(), z.gte(1), z.lte(1_000)),
+      20,
+    ),
   })
   .check(
     z.refine(

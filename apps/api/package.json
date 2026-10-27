@@ -22,6 +22,7 @@
     "@fastify/cookie": "11.1.3",
     "@fastify/multipart": "10.1.6",
     "@fastify/rate-limit": "11.2.1",
+    "@galley/ai": "workspace:*",
     "@galley/db": "workspace:*",
     "@galley/latex-index": "workspace:*",
     "@galley/shared": "workspace:*",

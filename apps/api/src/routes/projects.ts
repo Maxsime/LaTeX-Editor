@@ -79,7 +79,9 @@ export function projectRoutes(app: FastifyInstance, context: AppContext): void {
       db,
       id,
       auth.user.id,
-      body.name === undefined && body.trackChanges === undefined ? 'editor' : 'owner',
+      body.name === undefined && body.trackChanges === undefined && body.aiEnabled === undefined
+        ? 'editor'
+        : 'owner',
     );
     if (body.citeKeyPattern !== undefined && unknownKeyTokens(body.citeKeyPattern).length > 0) {
       throw new ApiError('VALIDATION_FAILED', 'unknown key pattern token');
@@ -97,6 +99,7 @@ export function projectRoutes(app: FastifyInstance, context: AppContext): void {
         ...(body.bibTool === undefined ? {} : { bibTool: body.bibTool }),
         ...(body.shellEscape === undefined ? {} : { shellEscape: body.shellEscape }),
         ...(body.trackChanges === undefined ? {} : { trackChanges: body.trackChanges }),
+        ...(body.aiEnabled === undefined ? {} : { aiEnabled: body.aiEnabled }),
         ...(body.citeKeyPattern === undefined ? {} : { citeKeyPattern: body.citeKeyPattern }),
         ...(body.spellLanguage === undefined ? {} : { spellLanguage: body.spellLanguage }),
         ...(body.chktexDisabled === undefined

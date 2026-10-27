@@ -156,6 +156,7 @@ export async function projectDetails(
     bibTool: row.bibTool,
     shellEscape: row.shellEscape,
     trackChanges: row.trackChanges,
+    aiEnabled: row.aiEnabled,
     citeKeyPattern: row.citeKeyPattern,
     // Stored as text so that a language can be added without a migration.
     spellLanguage: spellLanguage.safeParse(row.spellLanguage).data ?? 'auto',

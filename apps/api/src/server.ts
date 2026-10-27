@@ -5,6 +5,7 @@ import { Redis } from 'ioredis';
 import { buildApp } from './app.js';
 import { createDocumentGateway } from './collab/documents.js';
 import { followCompileEvents } from './compile/service.js';
+import { createSnippetCompiler } from './ai/snippets.js';
 import { createSynctexClient } from './compile/synctex.js';
 import { ensureSetupCode } from './auth/setup.js';
 import { countUsers } from './auth/users.js';
@@ -13,6 +14,9 @@ import { DEVELOPMENT_MASTER_KEY } from './crypto/secrets.js';
 import { createDatabase, runMigrations } from '@galley/db';
 import { startMaintenance } from './projects/purge.js';
 import { createS3Client, ensureBucket, headBucket } from './storage/s3.js';
+
+// The AI SDK prints its warnings on the console, outside the structured logs.
+Reflect.set(globalThis, 'AI_SDK_LOG_WARNINGS', false);
 
 async function main(): Promise<void> {
   const config = readConfig();
@@ -65,6 +69,7 @@ async function main(): Promise<void> {
     documents: createDocumentGateway(config, database, logger),
     compileQueue,
     synctex: createSynctexClient(synctexQueue, synctexEvents),
+    snippets: createSnippetCompiler(compileQueue, compileEvents),
   };
   followCompileEvents(context, compileEvents, logger);
   const stopMaintenance = await startMaintenance(context, queueRedis, logger);

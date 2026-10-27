@@ -50,6 +50,9 @@ importers:
       '@fastify/rate-limit':
         specifier: 11.2.1
         version: 11.2.1
+      '@galley/ai':
+        specifier: workspace:*
+        version: link:../../packages/ai
       '@galley/db':
         specifier: workspace:*
         version: link:../../packages/db
