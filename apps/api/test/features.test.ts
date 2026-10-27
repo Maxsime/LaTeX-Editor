@@ -646,6 +646,7 @@ describe.skipIf(!dockerAvailable)('accounts, projects and files', () => {
       expect(body.labels.map((label) => label.name)).toEqual(['sec:intro']);
       expect(body.citations).toEqual([]);
       expect(body.cited).toEqual([]);
+      expect(body.packages).toEqual([]);
     });
 
     it('indexes the entries of bibliographies and bibitems', async () => {
@@ -664,7 +665,7 @@ describe.skipIf(!dockerAvailable)('accounts, projects and files', () => {
             name: 'file',
             filename: 'biblio.tex',
             data: Buffer.from(
-              '\\begin{thebibliography}{9}\n\\bibitem{knuth84} D. Knuth.\n\\end{thebibliography}\n\\cite{lamport94,knuth84}\n',
+              '\\usepackage{natbib}\n\\begin{thebibliography}{9}\n\\bibitem{knuth84} D. Knuth.\n\\end{thebibliography}\n\\cite{lamport94,knuth84}\n',
             ),
           },
         ]),
@@ -682,9 +683,10 @@ describe.skipIf(!dockerAvailable)('accounts, projects and files', () => {
           year: '1994',
           line: 1,
         },
-        { key: 'knuth84', type: 'bibitem', title: null, authors: [], year: null, line: 2 },
+        { key: 'knuth84', type: 'bibitem', title: null, authors: [], year: null, line: 3 },
       ]);
       expect(body.cited).toEqual(['knuth84', 'lamport94']);
+      expect(body.packages).toEqual(['natbib']);
     });
 
     it('searches with literal, whole-word and regular expression queries', async () => {

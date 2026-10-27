@@ -244,7 +244,9 @@
       "outline": "Outline",
       "search": "Search",
       "review": "Review",
-      "chat": "Chat"
+      "chat": "Chat",
+      "references": "References",
+      "words": "Words"
     },
     "status": {
       "connecting": "Connecting…",
@@ -258,7 +260,8 @@
       "light": "Light",
       "dark": "Dark",
       "fontSize": "Size",
-      "wrap": "Wrap lines"
+      "wrap": "Wrap lines",
+      "spellCheck": "Spelling"
     },
     "outline": {
       "title": "Document outline",
@@ -291,6 +294,28 @@
       "duplicateLabel": "The label {{name}} is defined more than once in the project.",
       "unknownReference": "No label {{name}} in the project.",
       "unknownCitation": "No bibliography entry {{name}} in the project."
+    },
+    "bib": {
+      "missingKey": "Entry without a citation key.",
+      "unclosedEntry": "Unclosed entry: a brace or parenthesis is missing.",
+      "expectedComma": "Comma expected between two fields.",
+      "expectedEquals": "Equals sign expected after the field name {{name}}.",
+      "expectedValue": "Value expected for the field {{name}}.",
+      "unclosedValue": "Unclosed value of the field {{name}}.",
+      "duplicateField": "The field {{name}} appears twice in the entry.",
+      "duplicateKey": "The key {{name}} is already used in this file.",
+      "duplicateKeyElsewhere": "The key {{name}} is already used in another .bib file of the project."
+    },
+    "chktex": {
+      "disable": "Turn this rule off"
+    },
+    "math": {
+      "error": "Cannot preview:"
+    },
+    "spelling": {
+      "source": "Spelling and grammar",
+      "addWord": "Add to dictionary",
+      "ignore": "Ignore"
     }
   },
   "compile": {
@@ -470,6 +495,23 @@
       "neverUsed": "never",
       "revokeTitle": "Revoke the token",
       "confirmRevoke": "Revoke “{{name}}”? Git will no longer be able to use it."
+    },
+    "zotero": {
+      "title": "Zotero",
+      "intro": "Link your Zotero library with a personal API key (zotero.org, Settings, Keys), preferably read-only. The key is encrypted on the server and never shown again.",
+      "key": "Zotero API key",
+      "keyHint": "24 letters and digits.",
+      "connect": "Link",
+      "connected": "Linked to the account {{name}} (key …{{hint}}).",
+      "disconnect": "Unlink"
+    },
+    "dictionary": {
+      "title": "Personal dictionary",
+      "intro": "Words the spell checker accepts in all your projects.",
+      "word": "Word to add",
+      "add": "Add",
+      "none": "No word yet.",
+      "remove": "Remove {{word}}"
     }
   },
   "history": {
@@ -573,5 +615,145 @@
     "older": "Older messages",
     "message": "Message",
     "send": "Send"
+  },
+  "insert": {
+    "group": "Insert",
+    "insert": "Insert",
+    "caption": "Caption",
+    "label": "Label",
+    "missingPackages": "The project does not load {{packages}} yet: add it to the preamble.",
+    "symbols": {
+      "open": "Symbols",
+      "title": "Symbol palette",
+      "search": "Name or command",
+      "category": "Category",
+      "all": "All categories",
+      "none": "No matching symbol.",
+      "package": "package {{name}}",
+      "categories": {
+        "greek": "Greek letters",
+        "operators": "Operators",
+        "relations": "Relations",
+        "arrows": "Arrows",
+        "sets": "Sets and logic",
+        "accents": "Accents",
+        "delimiters": "Delimiters",
+        "text": "Text symbols"
+      }
+    },
+    "table": {
+      "open": "Table",
+      "title": "Insert a table",
+      "rows": "Rows",
+      "columns": "Columns",
+      "header": "Header row",
+      "booktabs": "booktabs rules",
+      "align": "Alignment of column {{column}}",
+      "left": "Left",
+      "center": "Centre",
+      "right": "Right",
+      "cell": "Cell row {{row}}, column {{column}}"
+    },
+    "figure": {
+      "open": "Figure",
+      "title": "Insert a figure",
+      "image": "Image",
+      "width": "Width",
+      "noImages": "The project holds no image: add one from the file tree."
+    },
+    "align": {
+      "open": "Equations",
+      "title": "Insert aligned equations",
+      "rows": "Rows",
+      "numbered": "Numbered"
+    }
+  },
+  "references": {
+    "search": "Search references",
+    "list": "Project references",
+    "empty": "No bibliography entry in the project.",
+    "none": "No matching reference.",
+    "uncited": "not cited",
+    "cite": "Cite",
+    "citeHint": "Open a .tex file to insert the citation.",
+    "show": "Show",
+    "filter": {
+      "label": "Filter",
+      "all": "All references",
+      "cited": "Cited",
+      "uncited": "Not cited"
+    },
+    "import": {
+      "open": "Import",
+      "title": "Import references",
+      "search": "Look up",
+      "searching": "Looking up…",
+      "keepKeys": "Keep keys as written",
+      "target": "Add to",
+      "create": "New file {{name}}",
+      "createHint": "Remember to declare this file in the document (\\addbibresource or \\bibliography).",
+      "add_one": "Add the entry",
+      "add_other": "Add the {{count}} entries",
+      "sources": {
+        "doi": "DOI",
+        "arxiv": "arXiv",
+        "isbn": "ISBN",
+        "bibtex": "Pasted BibTeX",
+        "zotero": "Zotero"
+      },
+      "placeholders": {
+        "doi": "10.1093/comjnl/27.2.97",
+        "arxiv": "1706.03762",
+        "isbn": "978-0-201-13447-6",
+        "bibtex": "@article{…}"
+      }
+    },
+    "zotero": {
+      "notConnected": "Link your Zotero library from the Account page.",
+      "search": "Search Zotero",
+      "find": "Search",
+      "import_one": "Import {{count}} item",
+      "import_other": "Import {{count}} items"
+    }
+  },
+  "words": {
+    "none": "Compile the document to count its words.",
+    "text": "Words of text",
+    "headers": "Words of headings",
+    "captions": "Words of captions",
+    "bySection": "By section",
+    "section": "Section",
+    "untitled": "(start of document)",
+    "hint": "Counted by texcount at the last compilation, formulas and commands aside."
+  },
+  "writing": {
+    "options": {
+      "title": "Writing",
+      "language": "Checking language",
+      "keyPattern": "Imported key pattern",
+      "keyPatternHint": "Tokens [auth], [authors2], [year], [shorttitle], [title3], modifiers :lower and :upper. Default: {{example}}.",
+      "chktex": "Disabled chktex rules",
+      "chktexHint": "Numbers separated by commas. Default: {{defaults}}."
+    },
+    "languages": {
+      "auto": "Automatic (babel, polyglossia)",
+      "fr": "French",
+      "en-US": "English (US)",
+      "en-GB": "English (UK)",
+      "en-CA": "English (Canada)",
+      "en-AU": "English (Australia)",
+      "en-NZ": "English (New Zealand)",
+      "de-DE": "German (Germany)",
+      "de-AT": "German (Austria)",
+      "de-CH": "German (Switzerland)",
+      "es": "Spanish",
+      "it": "Italian",
+      "pt-PT": "Portuguese (Portugal)",
+      "pt-BR": "Portuguese (Brazil)",
+      "nl": "Dutch",
+      "ca-ES": "Catalan",
+      "pl-PL": "Polish",
+      "ru-RU": "Russian"
+    }
   }
 }

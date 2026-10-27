@@ -8,6 +8,8 @@ import { FileTree, type TreeActions } from '../components/FileTree.js';
 import { HistoryDialog } from '../components/HistoryDialog.js';
 import { OutlinePanel } from '../components/OutlinePanel.js';
 import { PresenceBadges } from '../components/PresenceBadges.js';
+import { ReferencesPanel } from '../components/ReferencesPanel.js';
+import { WordsPanel } from '../components/WordsPanel.js';
 import { SearchPanel } from '../components/SearchPanel.js';
 import { ChatPanel } from '../components/ChatPanel.js';
 import { ShareDialog } from '../components/ShareDialog.js';
@@ -28,8 +30,16 @@ const EditorArea = lazy(() => import('../editor/EditorArea.js'));
 // Needs Yjs as well, for the suggestions of the open file.
 const ReviewPanel = lazy(() => import('../components/ReviewPanel.js'));
 
-type Panel = 'files' | 'outline' | 'search' | 'review' | 'chat';
-const PANELS: readonly Panel[] = ['files', 'outline', 'search', 'review', 'chat'];
+type Panel = 'files' | 'outline' | 'search' | 'references' | 'words' | 'review' | 'chat';
+const PANELS: readonly Panel[] = [
+  'files',
+  'outline',
+  'search',
+  'references',
+  'words',
+  'review',
+  'chat',
+];
 const VIEW_MODES: readonly ViewMode[] = ['editor', 'both', 'pdf'];
 
 const GRID: Record<ViewMode, string> = {
@@ -113,7 +123,18 @@ export function ProjectPage() {
   const lastPdf = compiles.data?.lastPdf ?? null;
   // Markers come from the last finished compilation, kept while a new one runs.
   const shownRun = latest !== null && !isPending(latest) ? latest : lastPdf;
-  const diagnostics = useMemo(() => diagnosticsByFile(shownRun?.diagnostics ?? []), [shownRun]);
+  const chktexDisabled = project.data?.chktexDisabled;
+  // chktex warnings join the markers; a rule turned off since the compilation disappears at once.
+  const diagnostics = useMemo(
+    () =>
+      diagnosticsByFile([
+        ...(shownRun?.diagnostics ?? []),
+        ...(shownRun?.lint ?? []).filter(
+          (warning) => !(chktexDisabled ?? []).includes(Number(warning.context)),
+        ),
+      ]),
+    [shownRun, chktexDisabled],
+  );
 
   // Selecting a file in the tree opens it; switching tabs selects it in the tree.
   useEffect(() => {
@@ -314,6 +335,15 @@ export function ProjectPage() {
             )}
             {panel === 'outline' && <OutlinePanel projectId={projectId} />}
             {panel === 'search' && <SearchPanel projectId={projectId} canEdit={canEdit} />}
+            {panel === 'references' && project.data && (
+              <ReferencesPanel
+                projectId={projectId}
+                role={project.data.role}
+                nodes={nodes}
+                paths={paths}
+              />
+            )}
+            {panel === 'words' && <WordsPanel count={shownRun?.wordCount ?? null} />}
             {panel === 'review' && project.data && (
               <Suspense fallback={<p className="text-slate-600">{t('common.loading')}</p>}>
                 <ReviewPanel projectId={projectId} role={project.data.role} names={paths} />
@@ -335,6 +365,8 @@ export function ProjectPage() {
                 role={project.data.role}
                 trackChanges={project.data.trackChanges}
                 diagnostics={diagnostics}
+                chktexDisabled={project.data.chktexDisabled}
+                mainFileId={project.data.mainFileId}
               />
             )}
           </Suspense>

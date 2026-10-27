@@ -47,6 +47,8 @@ export const projectIndexResponse = z.object({
   ),
   /** Keys cited somewhere in the project's sources, to tell cited entries apart. */
   cited: z.array(z.string()),
+  /** Packages loaded anywhere in the project, for the reminders of the insertion assistants. */
+  packages: z.array(z.string()),
 });
 export type ProjectIndexResponse = z.infer<typeof projectIndexResponse>;
 

@@ -1,6 +1,7 @@
 import type { AccessToken } from '@galley/shared';
 import { useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { DictionarySection, ZoteroSection } from '../components/AccountWriting.js';
 import { Button, ConfirmDialog, ErrorAlert, TextField, useFieldError } from '../components/ui.js';
 import { useAccessTokenMutations, useAccessTokens } from '../lib/tokens.js';
 
@@ -40,7 +41,7 @@ function CreatedToken({ token }: { token: string }) {
   );
 }
 
-/** The user's own settings; for now, the personal access tokens used by Git. */
+/** The user's own settings: Git access tokens, Zotero library, personal dictionary. */
 export function AccountPage() {
   const { t, i18n } = useTranslation();
   const tokens = useAccessTokens();
@@ -147,6 +148,8 @@ export function AccountPage() {
           </ul>
         )}
       </section>
+      <ZoteroSection />
+      <DictionarySection />
       <ConfirmDialog
         open={revoking !== null}
         onOpenChange={(open) => {

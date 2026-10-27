@@ -1,11 +1,12 @@
 import { lintGutter } from '@codemirror/lint';
-import { EditorSelection } from '@codemirror/state';
-import type { LintIssue } from '@galley/latex-index';
+import { Compartment, EditorSelection, type EditorState } from '@codemirror/state';
+import { type BibIssue, extractStructure, type LintIssue } from '@galley/latex-index';
 import type { Diagnostic } from '@galley/shared';
 import { EditorView } from '@codemirror/view';
 import { useEffect, useRef } from 'react';
 import i18n from '../i18n/index.js';
-import { useEditor, usePreferences } from '../stores/editor.js';
+import { appendedBlock } from '../lib/writing.js';
+import { type Insertion, useEditor, usePreferences } from '../stores/editor.js';
 import { useReview } from '../stores/review.js';
 import type { CompletionSources } from './completion.js';
 import type { ProjectConnection } from './connection.js';
@@ -15,8 +16,11 @@ import {
   setCompileMarkers,
   toLintDiagnostics,
 } from './lint.js';
+import { katexMacros } from './math.js';
+import { colorPreview, mathPreview } from './preview.js';
 import { redrawReview, type ReviewOptions, reviewExtension, suggestingDispatch } from './review.js';
 import { EditorSettings, editorExtensions } from './setup.js';
+import { type SpellingOptions, spellingExtension } from './spelling.js';
 
 interface CodeEditorProps {
   connection: ProjectConnection;
@@ -33,8 +37,14 @@ interface CodeEditorProps {
   completion: () => CompletionSources;
   /** Must be stable, like `completion`. */
   lintContext: () => ProjectLintContext | null;
-  /** Diagnostics of the last compilation located in this file. */
+  /** Diagnostics of the last compilation located in this file, chktex warnings included. */
   diagnostics: readonly Diagnostic[];
+  /** The project's macros with a definition, for formula previews. Must be stable. */
+  macros: () => Record<string, string>;
+  /** Spelling and grammar checking, or null when off or unavailable. */
+  spelling: SpellingOptions | null;
+  /** Turns a chktex rule off for the project; null for those who cannot. */
+  disableChktex: ((rule: number) => void) | null;
 }
 
 /** Only documents are checked as they are typed: packages define environments in pieces. */
@@ -42,6 +52,15 @@ const LIVE_LINT = /\.(tex|ltx)$/i;
 
 function issueMessage(issue: LintIssue): string {
   return i18n.t(`editor.lint.${issue.code}`, { name: issue.name, expected: issue.expected ?? '' });
+}
+
+function bibIssueMessage(issue: BibIssue): string {
+  return i18n.t(`editor.bib.${issue.code}`, { name: issue.name ?? '' });
+}
+
+function checkOf(fileName: string): 'latex' | 'bibtex' | null {
+  if (LIVE_LINT.test(fileName)) return 'latex';
+  return fileName.toLowerCase().endsWith('.bib') ? 'bibtex' : null;
 }
 
 /**
@@ -60,10 +79,17 @@ export function CodeEditor({
   completion,
   lintContext,
   diagnostics,
+  macros,
+  spelling,
+  disableChktex,
 }: CodeEditorProps) {
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<EditorView | null>(null);
   const settings = useRef(new EditorSettings());
+  const spellCompartment = useRef(new Compartment());
+  const latex = LIVE_LINT.test(fileName);
+  const inserted = useRef<Insertion | null>(null);
+  const insertion = useEditor((state) => state.insertion);
   // Status changes re-run the reveal effect; a request must move the cursor only once.
   const revealed = useRef<typeof reveal>(null);
   const { theme, fontSize, lineWrapping } = usePreferences();
@@ -106,11 +132,26 @@ export function CodeEditor({
         reviewExtension(options),
         lintGutter(),
         lintExtension({
-          latex: LIVE_LINT.test(fileName),
+          check: checkOf(fileName),
           project: lintContext,
           translate: issueMessage,
+          translateBib: bibIssueMessage,
           source: i18n.t('editor.lint.sourceEditor'),
         }),
+        spellCompartment.current.of([]),
+        LIVE_LINT.test(fileName)
+          ? [
+              mathPreview({
+                macros: (state: EditorState) => ({
+                  ...macros(),
+                  // The edited file's own definitions, before the index catches up.
+                  ...katexMacros(extractStructure(state.doc.toString()).commands),
+                }),
+                errorLabel: i18n.t('editor.math.error'),
+              }),
+              colorPreview(),
+            ]
+          : [],
         editorExtensions({
           fileName,
           text: document.text,
@@ -139,7 +180,18 @@ export function CodeEditor({
       connection.release(fileId);
     };
     // `reloads` rebinds the editor to the copy loaded after a refused update.
-  }, [connection, fileId, fileName, completion, lintContext, reloads]);
+  }, [connection, fileId, fileName, completion, lintContext, macros, reloads]);
+
+  // Reconfigured in place: turning the checker on or off keeps the editor's state.
+  useEffect(() => {
+    const editor = view.current;
+    if (!editor) return;
+    editor.dispatch({
+      effects: spellCompartment.current.reconfigure(
+        latex && spelling !== null ? spellingExtension(spelling) : [],
+      ),
+    });
+  }, [spelling, latex, reloads]);
 
   useEffect(() => {
     if (view.current && review.current) redrawReview(view.current, review.current);
@@ -165,10 +217,47 @@ export function CodeEditor({
     if (!editor) return;
     editor.dispatch({
       effects: setCompileMarkers.of(
-        toLintDiagnostics(editor.state.doc, diagnostics, i18n.t('editor.lint.sourceCompile')),
+        toLintDiagnostics(
+          editor.state.doc,
+          diagnostics,
+          i18n.t('editor.lint.sourceCompile'),
+          disableChktex === null
+            ? undefined
+            : { name: i18n.t('editor.chktex.disable'), disable: disableChktex },
+        ),
       ),
     });
-  }, [diagnostics, status]);
+  }, [diagnostics, status, disableChktex]);
+
+  // Text inserted by a panel or an assistant goes through the editor, as if typed:
+  // it can be undone, and becomes a suggestion in suggestion mode.
+  useEffect(() => {
+    const editor = view.current;
+    if (!editor || insertion?.fileId !== fileId || inserted.current === insertion) return;
+    if (status === 'connecting' || status === undefined) return;
+    inserted.current = insertion;
+    if (!writable || serverReadOnly) return;
+    const { state } = editor;
+    if (insertion.at === 'end') {
+      const text = appendedBlock(state.doc.toString(), insertion.text);
+      const end = state.doc.length + text.length;
+      editor.dispatch({
+        changes: { from: state.doc.length, insert: text },
+        selection: EditorSelection.cursor(end),
+        effects: EditorView.scrollIntoView(end, { y: 'center' }),
+        userEvent: 'input',
+      });
+    } else {
+      const { from, to } = state.selection.main;
+      editor.dispatch({
+        changes: { from, to, insert: insertion.text },
+        selection: EditorSelection.cursor(from + insertion.text.length),
+        scrollIntoView: true,
+        userEvent: 'input',
+      });
+    }
+    editor.focus();
+  }, [insertion, fileId, status, writable, serverReadOnly]);
 
   useEffect(() => {
     const editor = view.current;

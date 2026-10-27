@@ -2,6 +2,7 @@ import { EditorState, Text } from '@codemirror/state';
 import type { Diagnostic } from '@galley/shared';
 import { describe, expect, it } from 'vitest';
 import {
+  bibtexMarkers,
   compileMarkersOf,
   editorIssues,
   lintExtension,
@@ -35,6 +36,35 @@ describe('toLintDiagnostics', () => {
   it('skips diagnostics without a line', () => {
     expect(toLintDiagnostics(doc, [diagnostic('error', null)])).toEqual([]);
   });
+
+  it('offers to turn off the rule of a chktex warning', () => {
+    const disabled: number[] = [];
+    const [marker] = toLintDiagnostics(
+      doc,
+      [{ ...diagnostic('warning', 3), source: 'chktex', context: '2' }],
+      'Compilation',
+      { name: 'Disable', disable: (rule) => disabled.push(rule) },
+    );
+    expect(marker).toMatchObject({ severity: 'info', source: 'chktex 2' });
+    marker?.actions?.[0]?.apply(null as never, 0, 0);
+    expect(disabled).toEqual([2]);
+  });
+});
+
+describe('bibtexMarkers', () => {
+  it('marks syntax errors and keys defined in another file', () => {
+    const text = '@book{dup,\n  title = {A}\n  year = 2000,\n}\n@book{,\n}';
+    const markers = bibtexMarkers(text, new Set(['dup']), (issue) => issue.code, 'Editor');
+    expect(markers.map((marker) => marker.message)).toEqual([
+      'duplicateKeyElsewhere',
+      'expectedComma',
+      'missingKey',
+    ]);
+    for (const marker of markers) {
+      expect(marker.to).toBeGreaterThan(marker.from);
+      expect(marker.to).toBeLessThanOrEqual(text.length);
+    }
+  });
 });
 
 describe('editorIssues', () => {
@@ -44,7 +74,11 @@ describe('editorIssues', () => {
     issues.map((issue) => `${issue.code}:${issue.name}`);
 
   it('checks references and citations against the project and the live text', () => {
-    const project = { labelCounts: new Map([['other', 1]]), citationKeys: new Set(['k']) };
+    const project = {
+      labelCounts: new Map([['other', 1]]),
+      citationKeys: new Set(['k']),
+      otherBibKeys: new Set<string>(),
+    };
     expect(codes(editorIssues(text, project))).toEqual([
       'unknownReference:missing',
       'unknownCitation:nope',
@@ -53,12 +87,20 @@ describe('editorIssues', () => {
   });
 
   it('counts a label defined here and elsewhere as duplicate', () => {
-    const project = { labelCounts: new Map([['a', 1]]), citationKeys: new Set<string>() };
+    const project = {
+      labelCounts: new Map([['a', 1]]),
+      citationKeys: new Set<string>(),
+      otherBibKeys: new Set<string>(),
+    };
     expect(codes(editorIssues('\\label{a}', project))).toEqual(['duplicateLabel:a']);
   });
 
   it('checks citations only when the project has a bibliography', () => {
-    const project = { labelCounts: new Map(), citationKeys: new Set<string>() };
+    const project = {
+      labelCounts: new Map(),
+      citationKeys: new Set<string>(),
+      otherBibKeys: new Set<string>(),
+    };
     expect(codes(editorIssues('\\cite{x}', project))).toEqual([]);
     expect(codes(editorIssues('\\bibitem{y}\\cite{x}', project))).toEqual(['unknownCitation:x']);
   });
@@ -73,9 +115,10 @@ describe('compile markers', () => {
     let state = EditorState.create({
       doc: 'one\ntwo',
       extensions: lintExtension({
-        latex: false,
+        check: null,
         project: () => null,
         translate: () => '',
+        translateBib: () => '',
         source: 'Editor',
       }),
     });

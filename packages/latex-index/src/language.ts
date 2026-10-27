@@ -89,3 +89,35 @@ export function detectLanguage(source: string): string | null {
   }
   return polyglossia ?? babel;
 }
+
+/** Packages that classes such as beamer load themselves. */
+const CLASS_PACKAGES: Readonly<Record<string, readonly string[]>> = {
+  beamer: ['graphicx', 'amsmath', 'amssymb', 'xcolor', 'hyperref'],
+  amsart: ['amsmath'],
+  amsbook: ['amsmath'],
+  amsproc: ['amsmath'],
+};
+
+/** Packages loaded by a source file with `\usepackage` or `\RequirePackage`, and by its class. */
+export function loadedPackages(source: string): string[] {
+  const loaded = new Set<string>();
+  for (const token of scanCommands(source)) {
+    if (
+      token.name !== 'usepackage' &&
+      token.name !== 'RequirePackage' &&
+      token.name !== 'documentclass'
+    ) {
+      continue;
+    }
+    const { end } = skipOptionals(source, token.end);
+    const names = splitOptions(readGroup(source, end)?.content ?? '');
+    for (const name of names) {
+      if (token.name === 'documentclass') {
+        for (const implied of CLASS_PACKAGES[name] ?? []) loaded.add(implied);
+      } else {
+        loaded.add(name);
+      }
+    }
+  }
+  return [...loaded].sort();
+}

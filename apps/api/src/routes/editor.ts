@@ -3,6 +3,7 @@ import {
   buildProjectIndex,
   extractKeyUses,
   extractStructure,
+  loadedPackages,
   type Structure,
 } from '@galley/latex-index';
 import {
@@ -84,11 +85,13 @@ export function editorRoutes(app: FastifyInstance, context: AppContext): void {
       });
     }
     const cited = new Set<string>();
+    const packages = new Set<string>();
     for (const file of texts) {
       if (file.path.toLowerCase().endsWith('.bib')) continue;
       for (const use of extractKeyUses(file.text)) {
         if (use.kind === 'citation') cited.add(use.key);
       }
+      for (const name of loadedPackages(file.text)) packages.add(name);
     }
     return {
       commands: index.commands.map(locate),
@@ -96,6 +99,7 @@ export function editorRoutes(app: FastifyInstance, context: AppContext): void {
       labels: index.labels.map(locate),
       citations,
       cited: [...cited].sort(),
+      packages: [...packages].sort(),
     };
   });
 

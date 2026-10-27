@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { detectLanguage } from './language.js';
+import { detectLanguage, loadedPackages } from './language.js';
 
 describe('detectLanguage', () => {
   it('reads the last babel language, or main=', () => {
@@ -23,5 +23,24 @@ describe('detectLanguage', () => {
     expect(detectLanguage('\\documentclass{article}\\begin{document}x\\end{document}')).toBeNull();
     expect(detectLanguage('% \\usepackage[french]{babel}')).toBeNull();
     expect(detectLanguage('\\usepackage[french]{csquotes}')).toBeNull();
+  });
+});
+
+describe('loadedPackages', () => {
+  it('lists the packages of every loading command and those implied by the class', () => {
+    expect(
+      loadedPackages(
+        '\\documentclass{beamer}\n\\usepackage[utf8]{inputenc}\n\\usepackage{booktabs, siunitx}\n% \\usepackage{tikz}\n\\RequirePackage{xcolor}',
+      ),
+    ).toEqual([
+      'amsmath',
+      'amssymb',
+      'booktabs',
+      'graphicx',
+      'hyperref',
+      'inputenc',
+      'siunitx',
+      'xcolor',
+    ]);
   });
 });
