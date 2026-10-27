@@ -83,6 +83,10 @@ jobs:
           docker compose run --rm --no-deps --entrypoint bwrap compiler --unshare-all --ro-bind /usr /usr --symlink usr/bin /bin --symlink usr/lib /lib --symlink usr/lib64 /lib64 --proc /proc --dev /dev true && echo "sandbox ok"
       - name: Start the stack and require every service to be healthy
         run: scripts/compose-healthy.sh --no-build
+        env:
+          # The assistant's end-to-end test points a user configuration at a fake
+          # model served by the test runner (e2e/tests/assistant.spec.ts).
+          AI_ALLOW_USER_ENDPOINTS: 'true'
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v5
         with:

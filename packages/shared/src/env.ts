@@ -142,8 +142,8 @@ export const apiEnv = z
     AI_DEFAULT_BASE_URL: blankable(z.url({ protocol: /^https?$/ })),
     AI_DEFAULT_API_KEY: blankable(z.string().check(z.maxLength(500))),
     /** Capabilities of the default model when the built-in table does not know it. */
-    AI_DEFAULT_VISION: z.optional(booleanFlag),
-    AI_DEFAULT_CONTEXT_TOKENS: z.optional(z.coerce.number().check(z.int(), z.gte(2_000))),
+    AI_DEFAULT_VISION: blankable(booleanFlag),
+    AI_DEFAULT_CONTEXT_TOKENS: blankable(z.coerce.number().check(z.int(), z.gte(2_000))),
     /** Lets users point a provider at an address of their choice (see docs/operations.md). */
     AI_ALLOW_USER_ENDPOINTS: z._default(booleanFlag, false),
     AI_RATE_LIMIT_PER_MINUTE: z._default(
