@@ -81,6 +81,19 @@ services:
       GALLEY_MASTER_KEY: ${GALLEY_MASTER_KEY:-Z2FsbGV5LWRldi1tYXN0ZXIta2V5LWNoYW5nZS1tZSE=}
       LANGUAGETOOL_URL: http://languagetool:8010
       CROSSREF_MAILTO: ${CROSSREF_MAILTO:-}
+      SEMANTIC_SCHOLAR_API_KEY: ${SEMANTIC_SCHOLAR_API_KEY:-}
+      AI_ENABLED: ${AI_ENABLED:-true}
+      AI_DEFAULT_PROVIDER: ${AI_DEFAULT_PROVIDER:-}
+      AI_DEFAULT_MODEL: ${AI_DEFAULT_MODEL:-}
+      AI_DEFAULT_BASE_URL: ${AI_DEFAULT_BASE_URL:-}
+      AI_DEFAULT_API_KEY: ${AI_DEFAULT_API_KEY:-}
+      AI_DEFAULT_VISION: ${AI_DEFAULT_VISION:-}
+      AI_DEFAULT_CONTEXT_TOKENS: ${AI_DEFAULT_CONTEXT_TOKENS:-}
+      AI_ALLOW_USER_ENDPOINTS: ${AI_ALLOW_USER_ENDPOINTS:-false}
+      AI_RATE_LIMIT_PER_MINUTE: ${AI_RATE_LIMIT_PER_MINUTE:-20}
+    # A model served on the host (Ollama, LM Studio) is reached at host.docker.internal.
+    extra_hosts:
+      - host.docker.internal:host-gateway
     volumes:
       # One bare repository per project; rebuilt from the project if lost (SPEC §6.7).
       - git-data:/var/lib/galley/git

@@ -8,6 +8,7 @@ import {
 } from '@galley/shared';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useAiStatus } from '../lib/ai.js';
 import { useUpdateProject } from '../lib/projects.js';
 import { parseRules } from '../lib/writing.js';
 import { ErrorAlert } from './ui.js';
@@ -101,5 +102,32 @@ export function WritingOptions({
       </p>
       <ErrorAlert error={update.error} />
     </fieldset>
+  );
+}
+
+/**
+ * The owner's switch for the assistant in the project. Hidden when the
+ * instance has turned the assistant off: there is nothing to switch.
+ */
+export function AiOption({ project }: { project: ProjectDetails }) {
+  const { t } = useTranslation();
+  const update = useUpdateProject(project.id);
+  const status = useAiStatus(project.id);
+  if (project.role !== 'owner' || status.data?.reason === 'instance-disabled') return null;
+  return (
+    <div className="space-y-1">
+      <label className="flex items-center gap-2" title={t('ai.options.enabledHint')}>
+        <input
+          type="checkbox"
+          checked={project.aiEnabled}
+          disabled={update.isPending}
+          onChange={(event) => {
+            update.mutate({ aiEnabled: event.currentTarget.checked });
+          }}
+        />
+        {t('ai.options.enabled')}
+      </label>
+      <ErrorAlert error={update.error} />
+    </div>
   );
 }

@@ -6,8 +6,10 @@ import { EditorView } from '@codemirror/view';
 import { useEffect, useRef } from 'react';
 import i18n from '../i18n/index.js';
 import { appendedBlock } from '../lib/writing.js';
-import { type Insertion, useEditor, usePreferences } from '../stores/editor.js';
+import { type Insertion, setSelection, useEditor, usePreferences } from '../stores/editor.js';
+import { pendingHunksOf, useAi } from '../stores/ai.js';
 import { useReview } from '../stores/review.js';
+import { aiExtension, setProposals } from './ai.js';
 import type { CompletionSources } from './completion.js';
 import type { ProjectConnection } from './connection.js';
 import {
@@ -98,10 +100,11 @@ export function CodeEditor({
   const reloads = useReview((state) => state.reloads[fileId] ?? 0);
   const openThreads = useReview((state) => state.openThreads);
   // Read by the editor at each edit, so that switching modes needs no rebuild.
-  const live = useRef({ suggesting, userId });
+  const live = useRef({ suggesting, userId, readOnly });
   useEffect(() => {
-    live.current = { suggesting, userId };
-  }, [suggesting, userId]);
+    live.current = { suggesting, userId, readOnly };
+  }, [suggesting, userId, readOnly]);
+  const changesets = useAi((state) => state.changesets);
   const review = useRef<ReviewOptions | null>(null);
 
   useEffect(() => {
@@ -130,6 +133,20 @@ export function CodeEditor({
       dispatchTransactions: suggestingDispatch(options),
       extensions: [
         reviewExtension(options),
+        aiExtension({
+          canEdit: () => !live.current.readOnly,
+          onInline: (selection) => {
+            useAi.getState().startInline({ fileId, ...selection });
+          },
+          onDecide: (proposal, decision) => {
+            void useAi.getState().decide(proposal.changesetId, decision, [proposal.id]);
+          },
+          labels: {
+            accept: i18n.t('ai.accept'),
+            reject: i18n.t('ai.reject'),
+            proposal: i18n.t('ai.proposal'),
+          },
+        }),
         lintGutter(),
         lintExtension({
           check: checkOf(fileName),
@@ -165,8 +182,10 @@ export function CodeEditor({
             readOnly: true,
           },
           completion,
-          onCursorLine: (line) => {
-            if (useEditor.getState().activeId === fileId) setCursorLine(line);
+          onCursor: (line, selection) => {
+            if (useEditor.getState().activeId !== fileId) return;
+            setCursorLine(line);
+            setSelection({ fileId, ...selection });
           },
           onLocalEdit: noteEdit,
         }),
@@ -196,6 +215,11 @@ export function CodeEditor({
   useEffect(() => {
     if (view.current && review.current) redrawReview(view.current, review.current);
   }, [openThreads]);
+
+  // The assistant's pending proposals for this file, drawn until accepted or rejected.
+  useEffect(() => {
+    view.current?.dispatch({ effects: setProposals.of(pendingHunksOf(changesets, fileId)) });
+  }, [changesets, fileId, reloads]);
 
   // Editing opens once the server has sent the content and granted write access.
   const writable = !readOnly && (status === 'saved' || status === 'saving' || status === 'offline');

@@ -48,7 +48,16 @@
     "OWNER_CANNOT_LEAVE": "Le propriétaire ne peut pas quitter son projet : transférez d'abord la propriété.",
     "IDENTIFIER_INVALID": "Identifiant invalide : vérifiez le DOI, l'identifiant arXiv ou l'ISBN.",
     "REFERENCE_NOT_FOUND": "Aucune référence ne correspond à cet identifiant.",
-    "SECRETS_UNAVAILABLE": "Cette instance ne peut pas enregistrer de clé : la clé maître n'est pas configurée."
+    "SECRETS_UNAVAILABLE": "Cette instance ne peut pas enregistrer de clé : la clé maître n'est pas configurée.",
+    "AI_DISABLED": "L'assistant IA est désactivé pour ce projet ou cette instance.",
+    "AI_NOT_CONFIGURED": "Aucun fournisseur IA n'est configuré. Renseignez-en un dans votre compte.",
+    "AI_AUTH_FAILED": "Le fournisseur IA a refusé la clé d'API.",
+    "AI_RATE_LIMITED": "Le fournisseur IA limite les requêtes, réessayez plus tard.",
+    "AI_UNAVAILABLE": "Le fournisseur IA ne répond pas.",
+    "AI_BAD_RESPONSE": "Réponse inattendue du fournisseur IA.",
+    "AI_NO_VISION": "Le modèle configuré ne lit pas les images.",
+    "AI_ENDPOINT_FORBIDDEN": "Adresse de fournisseur personnalisée non autorisée sur cette instance.",
+    "UNKNOWN_CITATION": "La proposition cite une clé absente de la bibliographie."
   },
   "common": {
     "cancel": "Annuler",
@@ -246,7 +255,8 @@
       "review": "Revue",
       "chat": "Discussion",
       "references": "Références",
-      "words": "Mots"
+      "words": "Mots",
+      "assistant": "Assistant"
     },
     "status": {
       "connecting": "Connexion…",
@@ -512,6 +522,39 @@
       "add": "Ajouter",
       "none": "Aucun mot pour le moment.",
       "remove": "Retirer {{word}}"
+    },
+    "ai": {
+      "title": "Assistant IA",
+      "intro": "Choisissez le fournisseur et le modèle de l'assistant. Votre clé d'API est chiffrée sur le serveur et n'est plus jamais affichée en entier.",
+      "provider": "Fournisseur",
+      "providers": {
+        "anthropic": "Anthropic",
+        "openai": "OpenAI",
+        "mistral": "Mistral",
+        "openai-compatible": "Compatible OpenAI (Ollama, vLLM…)"
+      },
+      "model": "Modèle",
+      "modelPlaceholder": "ex. mistral-large-latest, llama3.1",
+      "baseUrl": "Adresse du serveur",
+      "baseUrlHint": "Obligatoire pour un serveur compatible OpenAI, ex. http://host.docker.internal:11434/v1",
+      "baseUrlForbidden": "L'administrateur n'autorise pas d'adresse personnalisée.",
+      "key": "Clé d'API",
+      "keyHint": "Laissez vide pour garder la clé enregistrée.",
+      "keyStored": "Clé enregistrée : …{{hint}}",
+      "noKey": "Aucune clé enregistrée.",
+      "save": "Enregistrer",
+      "remove": "Supprimer ma configuration",
+      "instanceDefault": "Sans configuration personnelle, l'instance fournit {{provider}} / {{model}}.",
+      "noDefault": "L'instance ne fournit pas de modèle par défaut.",
+      "disabled": "L'assistant est désactivé sur cette instance.",
+      "usage": {
+        "title": "Consommation du mois",
+        "requests": "{{count}} requêtes",
+        "tokens": "{{input}} jetons en entrée, {{output}} en sortie",
+        "cost": "Coût estimé : {{cost}}",
+        "unpriced": "{{count}} requêtes sur des modèles sans prix ne sont pas comptées.",
+        "none": "Aucune requête ce mois-ci."
+      }
     }
   },
   "history": {
@@ -754,6 +797,96 @@
       "ca-ES": "Catalan",
       "pl-PL": "Polonais",
       "ru-RU": "Russe"
+    }
+  },
+  "ai": {
+    "model": "Modèle : {{provider}} / {{model}}",
+    "empty": "Posez une question sur le projet, demandez une correction ou une reformulation. L'assistant lit les fichiers et propose des modifications que vous acceptez ou rejetez.",
+    "message": "Message à l'assistant",
+    "send": "Envoyer",
+    "stop": "Arrêter",
+    "newConversation": "Nouvelle conversation",
+    "hint": "Ctrl+Alt+K sur une sélection pour la réécrire. Rien n'est modifié sans votre accord.",
+    "thinking": "L'assistant réfléchit…",
+    "toolFailed": "échec",
+    "proposal": "Modification proposée",
+    "newFile": "nouveau fichier",
+    "accept": "Accepter",
+    "acceptFile": "Accepter le fichier",
+    "acceptAll": "Tout accepter",
+    "reject": "Rejeter",
+    "rejectFile": "Rejeter le fichier",
+    "rejectAll": "Tout rejeter",
+    "status": {
+      "pending": "En attente",
+      "applied": "Acceptée",
+      "rejected": "Rejetée",
+      "conflict": "Conflit : le texte a changé, la modification n'a pas été appliquée."
+    },
+    "configure": "Configurer un fournisseur dans Mon compte",
+    "unavailable": {
+      "instance-disabled": "L'assistant est désactivé sur cette instance.",
+      "project-disabled": "L'assistant est désactivé pour ce projet.",
+      "not-configured": "Aucun modèle n'est configuré. Renseignez votre fournisseur et votre clé dans Mon compte."
+    },
+    "tools": {
+      "list_files": "Liste des fichiers",
+      "read_file": "Lecture",
+      "search_project": "Recherche",
+      "get_outline": "Lecture du plan",
+      "get_compile_log": "Lecture du journal",
+      "compile_snippet": "Compilation d'essai",
+      "propose_changes": "Proposition de modification",
+      "search_literature": "Recherche bibliographique",
+      "fetch_bibtex": "Récupération de la référence"
+    },
+    "usage": {
+      "line": "{{input}} jetons en entrée ({{cached}} en cache), {{output}} en sortie",
+      "noPrice": "coût inconnu"
+    },
+    "inline": {
+      "title": "Réécrire la sélection",
+      "instruction": "Consigne (ex. : plus concis, en anglais…)",
+      "submit": "Proposer"
+    },
+    "fix": {
+      "button": "Expliquer et corriger",
+      "prompt": "Explique cette erreur de compilation et propose une correction."
+    },
+    "generate": {
+      "open": "Générer…",
+      "title": "Générer du LaTeX",
+      "kind": "Type",
+      "kinds": {
+        "auto": "Automatique",
+        "table": "Tableau",
+        "figure": "Figure TikZ",
+        "plot": "Graphique pgfplots",
+        "formula": "Formule"
+      },
+      "description": "Description",
+      "descriptionPlaceholder": "Ex. : tableau des résultats avec trois colonnes, moyenne et écart type",
+      "image": "Image (facultatif)",
+      "imageHint": "PNG, JPEG ou WebP de 4 Mo au plus : tableau, formule ou schéma à reproduire.",
+      "imageTooLarge": "Image trop lourde (4 Mo au plus).",
+      "noVision": "Le modèle configuré ne lit pas les images.",
+      "imagePrompt": "Reproduis cette image en LaTeX.",
+      "submit": "Générer",
+      "preview": "Aperçu",
+      "code": "Code",
+      "insert": "Insérer au curseur",
+      "outcome": {
+        "success": "Compilé sans erreur.",
+        "failure": "La compilation d'essai a échoué :",
+        "timeout": "La compilation d'essai a dépassé le temps imparti.",
+        "error": "Aucun compilateur disponible pour l'aperçu.",
+        "skipped": "Pas d'aperçu."
+      },
+      "preamble": "À ajouter au préambule si absent"
+    },
+    "options": {
+      "enabled": "Assistant IA",
+      "enabledHint": "Désactivé, l'assistant n'est proposé à aucun membre du projet."
     }
   }
 }

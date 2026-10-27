@@ -56,6 +56,7 @@ export const projectDetails = z.object({
   citeKeyPattern: z.string(),
   spellLanguage,
   chktexDisabled: z.array(z.number()),
+  aiEnabled: z.boolean(),
 });
 export type ProjectDetails = z.infer<typeof projectDetails>;
 
@@ -88,6 +89,8 @@ export const updateProjectRequest = z.object({
   citeKeyPattern: z.optional(citeKeyPattern),
   spellLanguage: z.optional(spellLanguage),
   chktexDisabled: z.optional(chktexDisabled),
+  /** Owner only: lets the AI assistant work on the project (SPEC §3.8). */
+  aiEnabled: z.optional(z.boolean()),
 });
 export type UpdateProjectRequest = z.input<typeof updateProjectRequest>;
 

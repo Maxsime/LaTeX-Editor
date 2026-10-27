@@ -5,6 +5,7 @@ import type { Database } from '@galley/db';
 import type { DocumentGateway } from './collab/documents.js';
 import type { CompileQueue } from './compile/service.js';
 import type { SynctexClient } from './compile/synctex.js';
+import type { SnippetCompiler } from './ai/snippets.js';
 
 /** Long-lived dependencies shared by every route. */
 export interface AppContext {
@@ -15,4 +16,6 @@ export interface AppContext {
   documents: DocumentGateway;
   compileQueue: CompileQueue;
   synctex: SynctexClient;
+  /** Compiles assistant previews; absent where no worker serves them (some tests). */
+  snippets?: SnippetCompiler;
 }

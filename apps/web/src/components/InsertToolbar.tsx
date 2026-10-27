@@ -1,3 +1,4 @@
+import type { AiStatus } from '@galley/shared';
 import { Popover } from 'radix-ui';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -12,6 +13,7 @@ import {
   tableLatex,
 } from '../lib/assistants.js';
 import { useEditor } from '../stores/editor.js';
+import { GenerateDialog } from './GenerateDialog.js';
 import { Button, Dialog } from './ui.js';
 
 interface InsertToolbarProps {
@@ -22,6 +24,9 @@ interface InsertToolbarProps {
   mainPath: string | null;
   /** Packages loaded by the project, for the reminders. */
   packages: readonly string[];
+  projectId: string;
+  /** The assistant, offered for generation when available. */
+  aiStatus: AiStatus | undefined;
 }
 
 const input = 'rounded border border-slate-300 px-2 py-1 text-sm';
@@ -437,10 +442,17 @@ function AlignDialog({
 }
 
 /** Symbol palette and insertion assistants, inserting at the cursor of the active file. */
-export function InsertToolbar({ fileId, images, mainPath, packages }: InsertToolbarProps) {
+export function InsertToolbar({
+  fileId,
+  images,
+  mainPath,
+  packages,
+  projectId,
+  aiStatus,
+}: InsertToolbarProps) {
   const { t } = useTranslation();
   const insert = useEditor((state) => state.insert);
-  const [dialog, setDialog] = useState<'table' | 'figure' | 'align' | null>(null);
+  const [dialog, setDialog] = useState<'table' | 'figure' | 'align' | 'generate' | null>(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const onInsert = (text: string) => {
     if (fileId !== null) insert({ fileId, text, at: 'cursor' });
@@ -489,6 +501,29 @@ export function InsertToolbar({ fileId, images, mainPath, packages }: InsertTool
           {t(`insert.${kind}.open`)}
         </Button>
       ))}
+      {aiStatus?.available === true && (
+        <Button
+          variant="ghost"
+          disabled={disabled}
+          className="px-2 py-0.5 text-xs"
+          onClick={() => {
+            setDialog('generate');
+          }}
+        >
+          {t('ai.generate.open')}
+        </Button>
+      )}
+      {aiStatus?.available === true && (
+        <GenerateDialog
+          open={dialog === 'generate'}
+          onOpenChange={close}
+          projectId={projectId}
+          status={aiStatus}
+          fileId={fileId}
+          packages={packages}
+          onInsert={onInsert}
+        />
+      )}
       <TableDialog
         open={dialog === 'table'}
         onOpenChange={close}

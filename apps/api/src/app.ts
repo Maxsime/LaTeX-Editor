@@ -9,6 +9,7 @@ import type { AppContext } from './context.js';
 import { registerErrorHandling } from './errors.js';
 import { createMetrics } from './metrics.js';
 import { adminRoutes } from './routes/admin.js';
+import { aiRoutes } from './routes/ai.js';
 import { archiveRoutes } from './routes/archive.js';
 import { authRoutes } from './routes/auth.js';
 import { compileRoutes } from './routes/compile.js';
@@ -103,6 +104,7 @@ export function buildApp({
       tokenRoutes(api, context);
       reviewRoutes(api, context);
       writingRoutes(api, context);
+      aiRoutes(api, context);
     });
     // Git clients authenticate with access tokens, never with the session cookie.
     void app.register((gitApp, _options, done) => {

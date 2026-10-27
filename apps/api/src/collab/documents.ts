@@ -1,9 +1,18 @@
 import { type Database, yjsStates } from '@galley/db';
-import { COLLAB_TOKEN_HEADER, type ReplaceDocumentRequest } from '@galley/shared';
+import {
+  applyEdits,
+  COLLAB_TOKEN_HEADER,
+  type EditDocumentRequest,
+  type EditDocumentResponse,
+  editDocumentResponse,
+  realignHunks,
+  type ReplaceDocumentRequest,
+} from '@galley/shared';
+import { eq } from 'drizzle-orm';
 import type { FastifyBaseLogger } from 'fastify';
 import type { ApiConfig } from '../config.js';
 import type { DocumentChanges } from '../files/tree.js';
-import { textToState } from '../yjs/text.js';
+import { stateToText, textToState } from '../yjs/text.js';
 
 /**
  * Access to text documents that collab may hold in memory. The API never
@@ -15,6 +24,11 @@ export interface DocumentGateway {
   flushProject(projectId: string): Promise<void>;
   /** Applies the document changes of a committed transaction. */
   apply(changes: DocumentChanges): Promise<void>;
+  /**
+   * Applies accepted assistant hunks to a file, realigned on its current text
+   * (SPEC §6.8); `null` when the file is gone.
+   */
+  edit(fileId: string, request: EditDocumentRequest): Promise<EditDocumentResponse | null>;
 }
 
 const TIMEOUT_MS = 10_000;
@@ -31,6 +45,30 @@ function directGateway(database: Database): DocumentGateway {
           .values({ fileId, state })
           .onConflictDoUpdate({ target: yjsStates.fileId, set: { state, updatedAt: new Date() } });
       }
+    },
+    async edit(fileId, { hunks }) {
+      return database.db.transaction(async (tx) => {
+        const [row] = await tx
+          .select({ state: yjsStates.state })
+          .from(yjsStates)
+          .where(eq(yjsStates.fileId, fileId))
+          .for('update');
+        if (!row) return null;
+        const text = stateToText(row.state);
+        const { edits, results } = realignHunks(text, hunks);
+        if (edits.length > 0) {
+          await tx
+            .update(yjsStates)
+            .set({ state: textToState(applyEdits(text, edits)), updatedAt: new Date() })
+            .where(eq(yjsStates.fileId, fileId));
+        }
+        return {
+          results: hunks.map((hunk) => ({
+            id: hunk.id,
+            status: results.get(hunk.id) ?? 'conflict',
+          })),
+        };
+      });
     },
   };
 }
@@ -52,8 +90,11 @@ export function createDocumentGateway(
   const direct = directGateway(database);
   if (base === undefined || token === undefined) return direct;
 
-  /** Returns the response status, or `null` when collab could not be reached. */
-  async function call(path: string, body?: ReplaceDocumentRequest): Promise<number | null> {
+  /** Returns the response, or `null` when collab could not be reached. */
+  async function request(
+    path: string,
+    body?: ReplaceDocumentRequest | EditDocumentRequest,
+  ): Promise<Response | null> {
     const headers: Record<string, string> = { [COLLAB_TOKEN_HEADER]: token ?? '' };
     const init: RequestInit = { method: 'POST', headers, signal: AbortSignal.timeout(TIMEOUT_MS) };
     if (body !== undefined) {
@@ -61,12 +102,18 @@ export function createDocumentGateway(
       init.body = JSON.stringify(body);
     }
     try {
-      const response = await fetch(new URL(`/internal/${path}`, base), init);
-      return response.status;
+      return await fetch(new URL(`/internal/${path}`, base), init);
     } catch (error) {
       logger.warn({ err: error, path }, 'collab unreachable');
       return null;
     }
+  }
+
+  /** Returns the response status, or `null` when collab could not be reached. */
+  async function call(path: string, body?: ReplaceDocumentRequest): Promise<number | null> {
+    const response = await request(path, body);
+    await response?.body?.cancel();
+    return response?.status ?? null;
   }
 
   function expectNoContent(status: number | null, path: string): void {
@@ -95,6 +142,20 @@ export function createDocumentGateway(
           expectNoContent(status, path);
         }
       }
+    },
+    async edit(fileId, body) {
+      const path = `documents/${fileId}/edit`;
+      const response = await request(path, body);
+      if (response === null) return direct.edit(fileId, body);
+      if (response.status === 404) return null;
+      const parsed = editDocumentResponse.safeParse(
+        response.ok ? await response.json() : undefined,
+      );
+      if (!parsed.success) {
+        logger.error({ status: response.status, path }, 'collab internal call failed');
+        throw new Error('collab edit failed');
+      }
+      return parsed.data;
     },
   };
 }

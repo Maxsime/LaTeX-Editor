@@ -4,6 +4,7 @@ import { and, isNotNull, lt } from 'drizzle-orm';
 import type { FastifyBaseLogger } from 'fastify';
 import type { Redis } from 'ioredis';
 import { type Executor, projects } from '@galley/db';
+import { purgeSnippets } from '../ai/snippets.js';
 import type { AppContext } from '../context.js';
 import { pruneSnapshots, takeDueSnapshots } from '../history/snapshots.js';
 
@@ -45,6 +46,8 @@ export async function startMaintenance(
       if (job.name === PURGE_JOB) {
         const count = await purgeTrash(db, now);
         if (count > 0) logger.info({ count }, 'trashed projects purged');
+        const previews = await purgeSnippets(context, now);
+        if (previews > 0) logger.debug({ count: previews }, 'assistant previews deleted');
       } else if (job.name === SNAPSHOT_JOB) {
         const count = await takeDueSnapshots(context, now);
         if (count > 0) logger.debug({ count }, 'automatic snapshots taken');

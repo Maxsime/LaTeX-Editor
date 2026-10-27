@@ -314,15 +314,9 @@ function textOf(value: z.infer<typeof xmlText>): string | undefined {
   return typeof value === 'string' ? value : value?.['#text'];
 }
 
-/** Reads the Atom feed of arXiv's query API for one identifier. */
-export function parseArxiv(body: string, id: string): Reference {
-  const parsed = atomFeed.safeParse(xml.parse(body));
-  if (!parsed.success) throw new ApiError('SERVICE_UNAVAILABLE', 'unexpected answer');
-  const feed = parsed.data;
-  const entry = feed.feed?.entry?.find(
-    (candidate) => candidate.id !== undefined && !candidate.id.includes('/api/errors'),
-  );
-  if (entry?.id === undefined) throw notFound();
+type AtomEntry = NonNullable<NonNullable<z.infer<typeof atomFeed>['feed']>['entry']>[number];
+
+function arxivReference(entry: AtomEntry & { id: string }, id: string): Reference {
   const eprint = /arxiv\.org\/abs\/(.+?)(?:v\d+)?$/.exec(entry.id)?.[1] ?? id.replace(/v\d+$/, '');
   const reference: Reference = {
     type: 'misc',
@@ -347,6 +341,28 @@ export function parseArxiv(body: string, id: string): Reference {
   const journal = textOf(entry['arxiv:journal_ref']);
   if (journal !== undefined) reference.note = cleanText(decodeEntities(journal));
   return reference;
+}
+
+/** Every entry of an Atom feed of arXiv's query API, e.g. a search. */
+export function parseArxivFeed(body: string): Reference[] {
+  const parsed = atomFeed.safeParse(xml.parse(body));
+  if (!parsed.success) throw new ApiError('SERVICE_UNAVAILABLE', 'unexpected answer');
+  return (parsed.data.feed?.entry ?? []).flatMap((entry) =>
+    entry.id === undefined || entry.id.includes('/api/errors')
+      ? []
+      : [arxivReference({ ...entry, id: entry.id }, '')],
+  );
+}
+
+/** Reads the Atom feed of arXiv's query API for one identifier. */
+export function parseArxiv(body: string, id: string): Reference {
+  const parsed = atomFeed.safeParse(xml.parse(body));
+  if (!parsed.success) throw new ApiError('SERVICE_UNAVAILABLE', 'unexpected answer');
+  const entry = parsed.data.feed?.entry?.find(
+    (candidate) => candidate.id !== undefined && !candidate.id.includes('/api/errors'),
+  );
+  if (entry?.id === undefined) throw notFound();
+  return arxivReference({ ...entry, id: entry.id }, id);
 }
 
 /** The few XML entities a feed holds, decoded by hand since the parser leaves them. */

@@ -1,4 +1,6 @@
+export * from './ai.js';
 export * from './auth.js';
+export * from './changeset.js';
 export * from './collab.js';
 export * from './compile-job.js';
 export * from './compile.js';

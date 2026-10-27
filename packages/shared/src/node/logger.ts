@@ -1,4 +1,4 @@
-import { pino, type Logger, type LoggerOptions } from 'pino';
+import { type DestinationStream, pino, type Logger, type LoggerOptions } from 'pino';
 
 /**
  * Paths removed from every log line. Document content, API keys and tokens must
@@ -19,16 +19,19 @@ export const redactedPaths = [
 export interface LoggerSettings {
   service: string;
   level: LoggerOptions['level'];
+  /** Where lines go; stdout by default. Tests pass a stream to read the logs back. */
+  destination?: DestinationStream;
 }
 
 /** Creates the structured logger shared by all server-side services. */
-export function createLogger({ service, level }: LoggerSettings): Logger {
-  return pino({
+export function createLogger({ service, level, destination }: LoggerSettings): Logger {
+  const options: LoggerOptions = {
     level: level ?? 'info',
     base: { service },
     redact: { paths: redactedPaths, censor: '[redacted]' },
     timestamp: pino.stdTimeFunctions.isoTime,
-  });
+  };
+  return destination === undefined ? pino(options) : pino(options, destination);
 }
 
 export type { Logger } from 'pino';

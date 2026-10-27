@@ -15,6 +15,28 @@ export interface Reveal {
 }
 
 /** Text to insert in a file by a panel or an assistant, through the file's editor. */
+/** Where the cursor and the main selection of a file stand. */
+export interface EditorSelectionState {
+  fileId: string;
+  head: number;
+  from: number;
+  to: number;
+}
+
+// Outside the store: it changes at every keystroke and is only read when the
+// assistant is asked, so no component needs to render for it.
+let selection: EditorSelectionState | null = null;
+
+/** Records the cursor and main selection of the active tab. */
+export function setSelection(next: EditorSelectionState): void {
+  selection = next;
+}
+
+/** Cursor and main selection of the active tab, as offsets, for the assistant's context. */
+export function currentSelection(): EditorSelectionState | null {
+  return selection;
+}
+
 export interface Insertion {
   fileId: string;
   text: string;
@@ -76,6 +98,7 @@ export const useEditor = create<EditorState>()((set, get) => ({
       insertion: null,
       cursorLine: 1,
     });
+    selection = null;
   },
   openTab: (fileId) => {
     set(({ tabs }) => ({

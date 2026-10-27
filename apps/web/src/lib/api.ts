@@ -19,6 +19,11 @@ export function setCsrfToken(token: string | null): void {
   csrfToken = token;
 }
 
+/** Headers a state-changing call needs besides its body: the CSRF token. */
+export function csrfHeaders(): Record<string, string> {
+  return csrfToken === null ? {} : { [CSRF_HEADER]: csrfToken };
+}
+
 export interface RequestOptions {
   json?: unknown;
   form?: FormData;
@@ -33,6 +38,14 @@ function buildUrl(path: string, query: RequestOptions['query']): string {
   }
   const search = params.toString();
   return search === '' ? path : `${path}?${search}`;
+}
+
+/** The {@link ApiRequestError} a failed response carries in its JSON body. */
+export async function errorOf(response: Response): Promise<ApiRequestError> {
+  const payload: unknown = await response.json().catch(() => null);
+  const parsed = apiErrorBody.safeParse(payload);
+  if (!parsed.success) return new ApiRequestError(response.status, 'INTERNAL_ERROR');
+  return new ApiRequestError(response.status, parsed.data.error.code, parsed.data.error.fields);
 }
 
 /**
@@ -53,7 +66,7 @@ export async function api<T>(
   } else if (options.form !== undefined) {
     body = options.form;
   }
-  if (method !== 'GET' && csrfToken !== null) headers[CSRF_HEADER] = csrfToken;
+  if (method !== 'GET') Object.assign(headers, csrfHeaders());
 
   let response: Response;
   try {
@@ -70,12 +83,8 @@ export async function api<T>(
   }
   // Callers of 204 routes type the result as void or unknown.
   if (response.status === 204) return undefined as T;
+  if (!response.ok) throw await errorOf(response);
   const payload: unknown = await response.json().catch(() => null);
-  if (!response.ok) {
-    const parsed = apiErrorBody.safeParse(payload);
-    if (!parsed.success) throw new ApiRequestError(response.status, 'INTERNAL_ERROR');
-    throw new ApiRequestError(response.status, parsed.data.error.code, parsed.data.error.fields);
-  }
   // The API validates its own responses' shape; the client trusts the contract.
   return payload as T;
 }
