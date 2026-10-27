@@ -48,7 +48,7 @@ describe('compileJob', () => {
   };
 
   it('accepts a well-formed job and defaults clean to false', () => {
-    expect(compileJob.parse(job)).toEqual({ ...job, clean: false });
+    expect(compileJob.parse(job)).toEqual({ ...job, clean: false, chktexDisabled: [] });
   });
 
   it('rejects traversal in manifest keys and bad digests', () => {
@@ -86,7 +86,7 @@ describe('compile keys and results', () => {
       texlive: 'TeX Live 2026',
       shellEscapeDowngraded: false,
     };
-    expect(compileResult.parse(result)).toEqual(result);
+    expect(compileResult.parse(result)).toEqual({ ...result, lint: [], wordCount: null });
     expect(compileResult.safeParse({ ...result, outcome: 'queued' }).success).toBe(false);
   });
 });

@@ -59,7 +59,7 @@ describe('buildProjectIndex', () => {
       ]),
     );
     expect(index.commands).toEqual([
-      { name: 'R', args: 1, optional: false, line: 1, path: 'a.sty' },
+      { name: 'R', args: 1, optional: false, line: 1, path: 'a.sty', definition: 'y' },
     ]);
     expect(index.environments).toEqual([{ name: 'env', args: 2, line: 1, path: 'a.sty' }]);
     expect(index.labels).toEqual([{ name: 'b', line: 1, path: 'b.tex' }]);
