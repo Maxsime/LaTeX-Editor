@@ -57,6 +57,13 @@
       "when": 1793129731211,
       "tag": "0007_ai",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1793134812540,
+      "tag": "0008_admin",
+      "breakpoints": true
     }
   ]
 }

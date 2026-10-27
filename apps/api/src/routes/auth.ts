@@ -152,9 +152,13 @@ export function authRoutes(app: FastifyInstance, context: AppContext): void {
     async (request, reply) => {
       const body = parse(loginRequest, request.body);
       const row = await findUserByLogin(database.db, body.login);
-      const valid = row
-        ? await verifyPassword(row.passwordHash, body.password)
-        : await verifyAgainstDummy(body.password);
+      // An account without a password (created through OIDC) is checked like an
+      // unknown one, so that timing does not tell them apart.
+      const hash = row?.passwordHash ?? null;
+      const valid =
+        hash === null
+          ? await verifyAgainstDummy(body.password)
+          : await verifyPassword(hash, body.password);
       if (!row || !valid) {
         throw new ApiError('UNAUTHENTICATED', 'invalid credentials');
       }

@@ -57,7 +57,14 @@
     "AI_BAD_RESPONSE": "Réponse inattendue du fournisseur IA.",
     "AI_NO_VISION": "Le modèle configuré ne lit pas les images.",
     "AI_ENDPOINT_FORBIDDEN": "Adresse de fournisseur personnalisée non autorisée sur cette instance.",
-    "UNKNOWN_CITATION": "La proposition cite une clé absente de la bibliographie."
+    "UNKNOWN_CITATION": "La proposition cite une clé absente de la bibliographie.",
+    "QUOTA_STORAGE_EXCEEDED": "L'espace de stockage du propriétaire du projet est plein.",
+    "QUOTA_COMPILE_EXCEEDED": "Votre temps de compilation du mois est épuisé.",
+    "LAST_ADMIN": "L'instance doit garder au moins un administrateur actif.",
+    "OIDC_NOT_CONFIGURED": "La connexion par fournisseur d'identité n'est pas configurée.",
+    "OIDC_FAILED": "La connexion par le fournisseur d'identité a échoué.",
+    "OIDC_EMAIL_UNVERIFIED": "Le fournisseur d'identité ne garantit pas votre adresse e-mail.",
+    "OIDC_SIGNUP_CLOSED": "Aucun compte n'est associé à cette identité et l'inscription est fermée."
   },
   "common": {
     "cancel": "Annuler",

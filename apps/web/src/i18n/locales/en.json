@@ -57,7 +57,14 @@
     "AI_BAD_RESPONSE": "Unexpected answer from the AI provider.",
     "AI_NO_VISION": "The configured model cannot read images.",
     "AI_ENDPOINT_FORBIDDEN": "Custom provider addresses are not allowed on this instance.",
-    "UNKNOWN_CITATION": "The proposal cites a key missing from the bibliography."
+    "UNKNOWN_CITATION": "The proposal cites a key missing from the bibliography.",
+    "QUOTA_STORAGE_EXCEEDED": "The project owner's storage space is full.",
+    "QUOTA_COMPILE_EXCEEDED": "Your compilation time for this month is used up.",
+    "LAST_ADMIN": "The instance must keep at least one active administrator.",
+    "OIDC_NOT_CONFIGURED": "Sign-in with an identity provider is not configured.",
+    "OIDC_FAILED": "Sign-in with the identity provider failed.",
+    "OIDC_EMAIL_UNVERIFIED": "The identity provider does not vouch for your e-mail address.",
+    "OIDC_SIGNUP_CLOSED": "No account matches this identity and registration is closed."
   },
   "common": {
     "cancel": "Cancel",

@@ -150,8 +150,24 @@ export const apiEnv = z
       z.coerce.number().check(z.int(), z.gte(1), z.lte(1_000)),
       20,
     ),
+    /** Public host name and HTTPS port, from which the API derives its own address. */
+    GALLEY_HOST: z._default(z.string().check(z.minLength(1)), 'localhost'),
+    GALLEY_HTTPS_PORT: z._default(port, 443),
+    /** OpenID Connect provider (SPEC §3.9); sign-in through it is off while the issuer is empty. */
+    OIDC_ISSUER: blankable(z.url({ protocol: /^https?$/ })),
+    OIDC_CLIENT_ID: blankable(z.string().check(z.maxLength(500))),
+    OIDC_CLIENT_SECRET: blankable(z.string().check(z.maxLength(1_000))),
+    /** Label of the sign-in button, e.g. "Keycloak de l'école". */
+    OIDC_DISPLAY_NAME: z._default(z.string().check(z.minLength(1), z.maxLength(80)), 'SSO'),
+    OIDC_SCOPES: z._default(z.string(), 'openid email profile'),
+    /** Creates accounts on first sign-in even when registration is not open. */
+    OIDC_ALLOW_SIGNUP: z._default(booleanFlag, false),
   })
   .check(
+    z.refine((env) => !env.OIDC_ISSUER || Boolean(env.OIDC_CLIENT_ID), {
+      message: 'OIDC_CLIENT_ID is required when OIDC_ISSUER is set',
+      path: ['OIDC_CLIENT_ID'],
+    }),
     z.refine(
       (env) => env.COLLAB_INTERNAL_URL === undefined || env.COLLAB_INTERNAL_TOKEN !== undefined,
       {

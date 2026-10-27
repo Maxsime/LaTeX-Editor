@@ -111,6 +111,21 @@ describe('loadConfig', () => {
     expect(config.COLLAB_INTERNAL_URL).toBe('http://collab:3001');
   });
 
+  it('requires a client id once an OIDC issuer is set, and treats an empty issuer as unset', () => {
+    expect(loadConfig(apiEnv, { ...validApiEnv, OIDC_ISSUER: '' }).OIDC_ISSUER).toBe('');
+    expect(() =>
+      loadConfig(apiEnv, { ...validApiEnv, OIDC_ISSUER: 'https://id.example.org/realms/x' }),
+    ).toThrow(/OIDC_CLIENT_ID/);
+    const config = loadConfig(apiEnv, {
+      ...validApiEnv,
+      OIDC_ISSUER: 'https://id.example.org/realms/x',
+      OIDC_CLIENT_ID: 'galley',
+    });
+    expect(config.OIDC_DISPLAY_NAME).toBe('SSO');
+    expect(config.OIDC_ALLOW_SIGNUP).toBe(false);
+    expect(config.GALLEY_HOST).toBe('localhost');
+  });
+
   it('validates the collab and compiler schemas', () => {
     const collab = loadConfig(collabEnv, {
       DATABASE_URL: validApiEnv.DATABASE_URL,
