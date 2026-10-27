@@ -1,6 +1,8 @@
 import {
   type Diagnostic,
+  hasRole,
   type ProjectEventMessage,
+  type ProjectRole,
   presenceUserOf,
   type TreeNode,
 } from '@galley/shared';
@@ -12,11 +14,13 @@ import { FilePreview } from '../components/FilePreview.js';
 import { compileKey } from '../lib/compile.js';
 import { indexKey, outlineKey, useProjectIndex } from '../lib/editor.js';
 import { projectQuery } from '../lib/projects.js';
+import { addMessage, useThreads } from '../lib/review.js';
 import { useSession } from '../lib/session.js';
 import { useCompileStore } from '../stores/compile.js';
 import { FONT_SIZES, useEditor, usePreferences } from '../stores/editor.js';
 import { useNotices } from '../stores/notices.js';
 import { usePresence } from '../stores/presence.js';
+import { useReview } from '../stores/review.js';
 import { CodeEditor } from './CodeEditor.js';
 import type { CompletionSources } from './completion.js';
 import type { ProjectLintContext } from './lint.js';
@@ -27,7 +31,9 @@ interface EditorAreaProps {
   nodes: readonly TreeNode[];
   /** Project-relative path of each node. */
   paths: ReadonlyMap<string, string>;
-  readOnly: boolean;
+  role: ProjectRole;
+  /** The owner asked for every editor's changes to be suggestions. */
+  trackChanges: boolean;
   /** Diagnostics of the last compilation, by project-relative path. */
   diagnostics: ReadonlyMap<string, readonly Diagnostic[]>;
 }
@@ -108,7 +114,8 @@ export default function EditorArea({
   projectId,
   nodes,
   paths,
-  readOnly,
+  role,
+  trackChanges,
   diagnostics,
 }: EditorAreaProps) {
   const { t } = useTranslation();
@@ -143,6 +150,10 @@ export default function EditorArea({
         checkAccessRef.current();
         return;
       }
+      if (event.type === 'chat.message') {
+        addMessage(client, projectId, event.message);
+        return;
+      }
       if (event.type === 'compile.updated') {
         void client.invalidateQueries({ queryKey: compileKey(projectId) });
         return;
@@ -151,6 +162,7 @@ export default function EditorArea({
     };
   }, [client, navigate, projectId, user]);
 
+  const [reloaded, setReloaded] = useState(false);
   // The parent remounts this component per project, so one connection per instance suffices.
   const [connection] = useState(
     () =>
@@ -159,8 +171,37 @@ export default function EditorArea({
         onEventRef,
         setStatus,
         usePresence.getState().setParticipants,
+        (fileId) => {
+          useReview.getState().noteReload(fileId);
+          setReloaded(true);
+        },
       ),
   );
+  useEffect(() => {
+    useReview.getState().setConnection(connection);
+    return () => {
+      useReview.getState().setConnection(null);
+    };
+  }, [connection]);
+
+  // Anchors of resolved threads are not drawn.
+  const threads = useThreads(projectId);
+  useEffect(() => {
+    useReview
+      .getState()
+      .setOpenThreads(
+        new Set(
+          (threads.data ?? [])
+            .filter((thread) => thread.resolvedAt === null)
+            .map((thread) => thread.id),
+        ),
+      );
+  }, [threads.data]);
+
+  const personal = useReview((state) => state.suggesting);
+  // Reviewers can only suggest; editors when the owner or they themselves ask for it.
+  const readOnly = !hasRole(role, 'reviewer');
+  const suggesting = role === 'reviewer' || (hasRole(role, 'editor') && (trackChanges || personal));
   useEffect(
     () =>
       connection.onChannelDenied(() => {
@@ -319,8 +360,48 @@ export default function EditorArea({
             );
           })}
         </div>
+        {!readOnly && (
+          <label
+            className={`ml-2 flex items-center gap-1 rounded px-2 py-0.5 text-xs ${suggesting ? 'bg-emerald-100 text-emerald-900' : ''}`}
+            title={t(
+              role === 'reviewer'
+                ? 'review.mode.reviewer'
+                : trackChanges
+                  ? 'review.mode.project'
+                  : 'review.mode.help',
+            )}
+          >
+            <input
+              type="checkbox"
+              checked={suggesting}
+              // Imposed on reviewers by their role, and on editors by the owner's setting.
+              disabled={role === 'reviewer' || trackChanges}
+              onChange={(event) => {
+                useReview.getState().setSuggesting(event.currentTarget.checked);
+              }}
+            />
+            <span>{t('review.mode.label')}</span>
+          </label>
+        )}
         <Preferences />
       </div>
+      {reloaded && (
+        <div
+          role="alert"
+          className="flex items-center gap-2 border-b border-amber-300 bg-amber-50 px-3 py-1 text-sm text-amber-900"
+        >
+          {t('review.reloaded')}
+          <button
+            type="button"
+            className="ml-auto underline"
+            onClick={() => {
+              setReloaded(false);
+            }}
+          >
+            {t('common.close')}
+          </button>
+        </div>
+      )}
       {activeId !== null && status[activeId] !== undefined && (
         <p className="sr-only" aria-live="polite">
           {t(`editor.status.${status[activeId]}`)}
@@ -345,6 +426,8 @@ export default function EditorArea({
               fileName={node.name}
               active={id === activeId}
               readOnly={readOnly}
+              suggesting={suggesting}
+              userId={user?.id ?? ''}
               completion={completion}
               lintContext={lintContext}
               diagnostics={diagnostics.get(paths.get(id) ?? '') ?? NO_DIAGNOSTICS}

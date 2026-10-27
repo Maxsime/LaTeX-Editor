@@ -1,6 +1,8 @@
+import { RANGES_KEY } from '@galley/review';
 import {
   COLLAB_PATH,
   fileDocumentName,
+  INVALID_UPDATE_REASON,
   type PresenceUser,
   projectDocumentName,
   projectEventMessage,
@@ -29,6 +31,8 @@ export interface OpenDocument {
   fileId: string;
   doc: Y.Doc;
   text: Y.Text;
+  /** Suggestions and comment anchors of the text (`@galley/review`). */
+  ranges: Y.Map<unknown>;
   provider: HocuspocusProvider;
   /** Whether the server granted write access; known after authentication. */
   readOnly: boolean;
@@ -64,6 +68,11 @@ export class ProjectConnection {
     private readonly onEvent: { readonly current: (event: ProjectEventMessage) => void },
     private readonly onStatus: (fileId: string, status: SyncStatus) => void,
     private readonly onPresence: (participants: Participant[]) => void = () => undefined,
+    /**
+     * The server refused an update of this document and it was loaded again:
+     * editors showing it must rebind to the new copy.
+     */
+    private readonly onReload: (fileId: string) => void = () => undefined,
   ) {
     // Nothing touches the network before start(), so React may build this during render.
     this.socket = new HocuspocusProviderWebsocket({
@@ -142,6 +151,18 @@ export class ProjectConnection {
       existing.users += 1;
       return existing.document;
     }
+    const entry: Entry = { document: this.connectDocument(fileId), users: 1, loaded: false };
+    this.entries.set(fileId, entry);
+    this.report(fileId);
+    return entry.document;
+  }
+
+  /** The open document of a file, if a tab shows it. */
+  document(fileId: string): OpenDocument | undefined {
+    return this.entries.get(fileId)?.document;
+  }
+
+  private connectDocument(fileId: string): OpenDocument {
     const doc = new Y.Doc();
     const provider = new HocuspocusProvider({
       websocketProvider: this.socket,
@@ -152,29 +173,50 @@ export class ProjectConnection {
       fileId,
       doc,
       text: doc.getText(TEXT_KEY),
+      ranges: doc.getMap(RANGES_KEY),
       provider,
       readOnly: false,
     };
     if (this.user !== null) provider.setAwarenessField('user', this.user);
-    const entry: Entry = { document, users: 1, loaded: false };
-    this.entries.set(fileId, entry);
+    const current = () => this.entries.get(fileId)?.document === document;
     provider.on('authenticated', ({ scope }: { scope: string }) => {
       document.readOnly = scope === 'readonly';
-      this.report(fileId);
+      if (current()) this.report(fileId);
     });
     provider.on('authenticationFailed', () => {
-      this.onStatus(fileId, 'denied');
+      if (current()) this.onStatus(fileId, 'denied');
     });
     provider.on('synced', () => {
+      const entry = this.entries.get(fileId);
+      if (entry?.document !== document) return;
       entry.loaded = true;
       this.report(fileId);
     });
     provider.on('unsyncedChanges', () => {
-      this.report(fileId);
+      if (current()) this.report(fileId);
+    });
+    provider.on('close', ({ event }: { event: { reason?: string } }) => {
+      if (event.reason === INVALID_UPDATE_REASON && current()) this.reload(fileId);
     });
     provider.attach();
-    this.report(fileId);
     return document;
+  }
+
+  /**
+   * Replaces a document the server refused an update of: the local copy holds
+   * a change the server will never accept, so it is dropped, and the content
+   * is fetched again.
+   */
+  private reload(fileId: string): void {
+    const entry = this.entries.get(fileId);
+    if (!entry) return;
+    const stale = entry.document;
+    entry.document = this.connectDocument(fileId);
+    entry.loaded = false;
+    stale.provider.destroy();
+    stale.doc.destroy();
+    this.report(fileId);
+    this.onReload(fileId);
   }
 
   /** Drops one use of a document; the last one disconnects it. */
