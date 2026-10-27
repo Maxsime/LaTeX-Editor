@@ -523,7 +523,9 @@
       "label": "Suggest",
       "help": "Your changes are recorded as suggestions, to accept or reject.",
       "reviewer": "As a reviewer, your changes are always suggestions.",
-      "project": "The owner turned on change tracking for everyone."
+      "project": "The owner turned on change tracking for everyone.",
+      "everyone": "For everyone",
+      "everyoneHelp": "Record every editor's changes as suggestions."
     },
     "hover": {
       "insert": "Suggested insertion, {{date}}",

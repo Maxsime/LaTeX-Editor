@@ -13,7 +13,7 @@ import { useTranslation } from 'react-i18next';
 import { FilePreview } from '../components/FilePreview.js';
 import { compileKey } from '../lib/compile.js';
 import { indexKey, outlineKey, useProjectIndex } from '../lib/editor.js';
-import { projectQuery } from '../lib/projects.js';
+import { projectQuery, useUpdateProject } from '../lib/projects.js';
 import { addMessage, useThreads } from '../lib/review.js';
 import { useSession } from '../lib/session.js';
 import { useCompileStore } from '../stores/compile.js';
@@ -199,6 +199,7 @@ export default function EditorArea({
   }, [threads.data]);
 
   const personal = useReview((state) => state.suggesting);
+  const updateProject = useUpdateProject(projectId);
   // Reviewers can only suggest; editors when the owner or they themselves ask for it.
   const readOnly = !hasRole(role, 'reviewer');
   const suggesting = role === 'reviewer' || (hasRole(role, 'editor') && (trackChanges || personal));
@@ -381,6 +382,22 @@ export default function EditorArea({
               }}
             />
             <span>{t('review.mode.label')}</span>
+          </label>
+        )}
+        {role === 'owner' && (
+          <label
+            className="flex items-center gap-1 px-1 text-xs"
+            title={t('review.mode.everyoneHelp')}
+          >
+            <input
+              type="checkbox"
+              checked={trackChanges}
+              disabled={updateProject.isPending}
+              onChange={(event) => {
+                updateProject.mutate({ trackChanges: event.currentTarget.checked });
+              }}
+            />
+            <span>{t('review.mode.everyone')}</span>
           </label>
         )}
         <Preferences />

@@ -15,6 +15,14 @@ async function openPanel(page: Page, name: 'Revue' | 'Discussion'): Promise<void
   await page.getByRole('tablist', { name: 'Panneaux' }).getByRole('tab', { name }).click();
 }
 
+async function pressTimes(page: Page, key: string, times: number): Promise<void> {
+  let remaining = times;
+  while (remaining > 0) {
+    await page.keyboard.press(key);
+    remaining -= 1;
+  }
+}
+
 test.describe('review', () => {
   test('J7 A1, A2: a reviewer suggests, an editor accepts one suggestion and rejects another', async ({
     browser,
@@ -36,12 +44,8 @@ test.describe('review', () => {
     await reviewer.page.keyboard.type(' Ajout.');
     // Select "commun", after "Le paragraphe ", and delete it.
     await reviewer.page.keyboard.press('Home');
-    for (let step = 0; step < 'Le paragraphe '.length; step += 1) {
-      await reviewer.page.keyboard.press('ArrowRight');
-    }
-    for (let step = 0; step < 'commun'.length; step += 1) {
-      await reviewer.page.keyboard.press('Shift+ArrowRight');
-    }
+    await pressTimes(reviewer.page, 'ArrowRight', 'Le paragraphe '.length);
+    await pressTimes(reviewer.page, 'Shift+ArrowRight', 'commun'.length);
     await reviewer.page.keyboard.press('Backspace');
     await synced(reviewer.page);
     await expect(editor(reviewer.page).locator('.cm-suggest-insert')).toHaveText(' Ajout.');

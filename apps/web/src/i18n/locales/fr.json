@@ -523,7 +523,9 @@
       "label": "Suggérer",
       "help": "Vos modifications sont enregistrées comme suggestions, à accepter ou rejeter.",
       "reviewer": "En tant que relecteur, vos modifications sont toujours des suggestions.",
-      "project": "Le propriétaire a activé le suivi des modifications pour tout le monde."
+      "project": "Le propriétaire a activé le suivi des modifications pour tout le monde.",
+      "everyone": "Pour tous",
+      "everyoneHelp": "Enregistrer les modifications de tous les éditeurs comme suggestions."
     },
     "hover": {
       "insert": "Insertion suggérée, {{date}}",
