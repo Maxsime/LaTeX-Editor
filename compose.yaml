@@ -139,11 +139,15 @@ services:
     # Each compilation runs under bubblewrap (SPEC §6.3), which needs to create user
     # namespaces and mount a fresh /proc: the seccomp profile is Docker's default plus
     # the namespace calls, and systempaths=unconfined lifts the /proc masks that would
-    # forbid the mount. The container itself keeps no capability and a read-only root.
+    # forbid the mount. Docker's default AppArmor profile denies every mount, bwrap's
+    # included, on hosts that enforce AppArmor (Ubuntu): this container runs without it,
+    # bwrap being the confinement (docs/decisions.md). The container itself keeps no
+    # capability and a read-only root.
     security_opt:
       - no-new-privileges:true
       - seccomp=./infra/compiler/seccomp.json
       - systempaths=unconfined
+      - apparmor=unconfined
     cap_drop: [ALL]
     read_only: true
     tmpfs: [/tmp]

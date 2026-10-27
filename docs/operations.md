@@ -9,7 +9,7 @@ Ce document rassemble ce qu'un administrateur doit savoir pour faire tourner une
 
 ## Bac à sable de compilation
 
-Le worker refuse de démarrer si `bwrap` ne peut pas créer son bac à sable, et son journal donne la raison (`sandbox unavailable: ...`). `compose.yaml` fournit déjà ce qu'il faut côté Docker : profil seccomp `infra/compiler/seccomp.json` et `systempaths=unconfined` sur le seul conteneur `compiler`.
+Le worker refuse de démarrer si `bwrap` ne peut pas créer son bac à sable, et son journal donne la raison (`sandbox unavailable: ...`). `compose.yaml` fournit déjà ce qu'il faut côté Docker : profil seccomp `infra/compiler/seccomp.json`, `systempaths=unconfined` et `apparmor=unconfined` sur le seul conteneur `compiler` (le profil AppArmor par défaut de Docker interdit les montages dont `bwrap` a besoin ; voir `docs/decisions.md`).
 
 Côté hôte, Ubuntu 23.10 et suivantes (24.04 comprise) interdisent par défaut les espaces de noms utilisateur non privilégiés. Il faut lever cette restriction :
 

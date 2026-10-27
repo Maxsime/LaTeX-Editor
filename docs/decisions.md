@@ -139,3 +139,11 @@ Le plan prévoyait de garder les trois dernières compilations réussies. Sont g
 ## 2026-10-27 — Modèle « vide » (J3)
 
 Un document sans contenu ne produit aucun PDF (« No pages of output »). Le modèle vide contient donc une ligne de texte, pour qu'un projet neuf compile dès son ouverture.
+
+## 2026-10-27 — AppArmor et bac à sable de compilation (J3)
+
+Contexte. Sur un hôte qui applique AppArmor (Ubuntu, dont le runner de la CI), le profil `docker-default` interdit tout montage dans le conteneur. `bwrap` ne peut alors pas préparer son système de fichiers (« Failed to make / slave: Permission denied ») et le worker refuse de démarrer. Docker Desktop n'est pas concerné.
+
+Décision (Maxime, 2026-10-27). Le seul conteneur `compiler` tourne avec `apparmor=unconfined`. Le confinement des compilations reste assuré par `bwrap` (espaces de noms, réseau coupé, vue minimale du système de fichiers, limites), le conteneur gardant `cap_drop: [ALL]`, `no-new-privileges`, le profil seccomp restreint et une racine en lecture seule. Les autres services gardent le profil par défaut.
+
+Alternatives écartées. Profil AppArmor dédié : plus strict, mais à charger sur l'hôte par l'administrateur (`apparmor_parser`), ce qui casse l'installation par `docker compose up` seul. Conteneur éphémère par compilation : 300 à 800 ms de plus par compilation et accès du worker au démon Docker (voir l'entrée sur le bac à sable).
