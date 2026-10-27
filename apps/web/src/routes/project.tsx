@@ -238,7 +238,7 @@ export function ProjectPage() {
       <ErrorAlert error={updateProject.error} />
       <div className={`grid h-[calc(100vh-11rem)] min-h-[28rem] gap-3 ${GRID[viewMode]}`}>
         <aside className="flex min-h-0 flex-col">
-          <div role="tablist" aria-label={t('editor.panels')} className="mb-2 flex gap-1">
+          <div role="tablist" aria-label={t('editor.panels')} className="mb-2 flex flex-wrap gap-1">
             {PANELS.map((name) => (
               <button
                 key={name}

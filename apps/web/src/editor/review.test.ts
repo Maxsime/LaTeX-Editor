@@ -43,7 +43,12 @@ describe('reviewMarks', () => {
     ]);
     // Positions past the editor's text (not caught up yet) are left out.
     expect(
-      reviewMarks(resolveRanges(text, ranges), 5, () => true, () => '').map((mark) => mark.type),
+      reviewMarks(
+        resolveRanges(text, ranges),
+        5,
+        () => true,
+        () => '',
+      ).map((mark) => mark.type),
     ).toEqual(['comment', 'delete']);
   });
 });
