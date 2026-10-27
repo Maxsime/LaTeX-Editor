@@ -16,6 +16,7 @@ import { editorRoutes } from './routes/editor.js';
 import { fileRoutes } from './routes/files.js';
 import { healthRoutes } from './routes/health.js';
 import { projectRoutes } from './routes/projects.js';
+import { sharingRoutes } from './routes/sharing.js';
 import { tagRoutes } from './routes/tags.js';
 
 export interface AppDependencies {
@@ -87,6 +88,7 @@ export function buildApp({
       authRoutes(api, context);
       adminRoutes(api, context);
       projectRoutes(api, context);
+      sharingRoutes(api, context);
       tagRoutes(api, context);
       fileRoutes(api, context);
       editorRoutes(api, context);

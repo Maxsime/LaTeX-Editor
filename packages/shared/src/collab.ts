@@ -44,6 +44,12 @@ export const projectEvent = z.discriminatedUnion('type', [
   z.object({ type: z.literal('tree.changed') }),
   z.object({ type: z.literal('project.updated') }),
   z.object({ type: z.literal('project.deleted') }),
+  /**
+   * Members, invitations or links changed. `userId` names a member whose access
+   * was changed or removed: collab closes their connections so they reconnect
+   * with their new rights.
+   */
+  z.object({ type: z.literal('members.changed'), userId: z.nullable(z.uuid()) }),
   /** A compilation of the project changed state; clients fetch it to refresh the PDF. */
   z.object({
     type: z.literal('compile.updated'),

@@ -55,6 +55,15 @@ L'import reçoit l'archive dans un dossier temporaire (`API_TMP_DIR`), valide to
 - Persistance : écriture dans `yjs_states` 2 s après la dernière modification, au plus tard 10 s après la première (`COLLAB_PERSIST_DEBOUNCE_MS`, `COLLAB_PERSIST_MAX_DEBOUNCE_MS`), et immédiatement à la dernière déconnexion. L'écriture met à jour la taille du fichier et la date du projet ; elle est abandonnée si le fichier a été supprimé ou est devenu binaire.
 - Routes internes de `collab`, sur son port et protégées par `COLLAB_INTERNAL_TOKEN` : `POST /internal/projects/:id/flush` (écrire maintenant les documents chargés du projet), `POST /internal/documents/:fileId/replace` (remplacer le texte par une connexion serveur), `POST /internal/documents/:fileId/close` (déconnecter et oublier un document supprimé). `materializeProject`, le plan, l'index et la recherche appellent `flush` avant de lire `yjs_states`.
 - Avec plusieurs instances de `collab`, l'extension Redis de Hocuspocus synchronise les documents entre elles ; `flush` ne vide que l'instance appelée, ce qui suffit tant qu'une seule instance tourne.
+- Présence : chaque client publie dans l'awareness de ses documents un champ `user` (identifiant, nom, couleur) et, sur le canal du projet, l'identifiant du fichier de l'onglet actif. `collab` remplace le champ `user` par l'identité de la session avant toute diffusion (`beforeHandleAwareness`), si bien qu'un client ne peut pas se faire passer pour un autre. La couleur dérive de l'identifiant (`presenceColor`, `packages/shared`).
+- Révocation : un changement de rôle, un retrait ou un transfert publie `members.changed` avec l'utilisateur concerné. Chaque instance de `collab` ferme alors la WebSocket de cet utilisateur sur le projet (code 4205) ; le client se reconnecte aussitôt et chaque document est autorisé de nouveau, avec le nouveau rôle ou refusé. L'interface recharge le projet et revient au tableau de bord si l'accès a disparu, y compris lorsque l'événement a été manqué pendant une coupure (refus du canal du projet).
+
+## Partage
+
+- Tables `project_invites` (invitation nominative en attente, une au plus par projet et par personne) et `project_links` (lien de partage : empreinte SHA-256 du jeton, rôle, expiration facultative, révocation, nombre d'utilisations).
+- Seul le propriétaire invite, crée ou révoque des liens, change les rôles, retire des membres et transfère la propriété (l'ancien propriétaire devient éditeur). Tout membre voit la liste des membres et peut quitter le projet ; les adresses e-mail ne sont montrées qu'au propriétaire.
+- Une invitation vise un compte existant, trouvé par adresse ou nom d'utilisateur ; elle s'accepte depuis le tableau de bord. Un lien de partage (`/join/<jeton>`, 32 octets aléatoires) n'est affiché qu'à sa création ; il ne rétrograde jamais un membre existant. Limites de débit : 30 invitations par heure et par utilisateur, 30 usages de lien par minute.
+- Un visiteur non connecté qui ouvre un lien passe par la page de connexion (`/login?redirect=...`, chemin interne uniquement) puis revient au lien.
 
 ## Indexation LaTeX
 

@@ -5,6 +5,8 @@ import { and, eq, isNull } from 'drizzle-orm';
 /** What collab knows about a WebSocket connection once it is authorised. */
 export interface CollabContext {
   userId: string;
+  /** Shown to other participants; taken from the account, never from the client. */
+  displayName: string;
   projectId: string;
   role: ProjectRole;
   /** `null` on the project event channel. */
@@ -102,7 +104,13 @@ export async function authorize(
   if (!member) throw new AccessDenied('forbidden');
 
   return {
-    context: { userId: session.user.id, projectId, role: member.role, fileId },
+    context: {
+      userId: session.user.id,
+      displayName: session.user.displayName,
+      projectId,
+      role: member.role,
+      fileId,
+    },
     readOnly: !hasRole(member.role, 'editor'),
   };
 }

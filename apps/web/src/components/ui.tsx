@@ -96,19 +96,26 @@ export function Dialog({
   onOpenChange,
   title,
   description,
+  wide = false,
   children,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   title: string;
   description?: string;
+  /** Room for lists and tables, scrolling when taller than the window. */
+  wide?: boolean;
   children: ReactNode;
 }) {
   return (
     <RadixDialog.Root open={open} onOpenChange={onOpenChange}>
       <RadixDialog.Portal>
         <RadixDialog.Overlay className="fixed inset-0 bg-slate-900/40" />
-        <RadixDialog.Content className="fixed top-1/2 left-1/2 w-[min(28rem,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 space-y-4 rounded-lg bg-white p-5 shadow-xl">
+        <RadixDialog.Content
+          className={`fixed top-1/2 left-1/2 max-h-[calc(100vh-2rem)] -translate-x-1/2 -translate-y-1/2 space-y-4 overflow-y-auto rounded-lg bg-white p-5 shadow-xl ${
+            wide ? 'w-[min(40rem,calc(100vw-2rem))]' : 'w-[min(28rem,calc(100vw-2rem))]'
+          }`}
+        >
           <RadixDialog.Title className="text-lg font-semibold">{title}</RadixDialog.Title>
           {description ? (
             <RadixDialog.Description className="text-sm text-slate-700">

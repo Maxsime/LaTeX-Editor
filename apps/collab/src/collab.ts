@@ -3,6 +3,7 @@ import {
   fileDocumentName,
   parseDocumentName,
   type ProjectEventMessage,
+  presenceUserOf,
   runHealthChecks,
   TEXT_KEY,
 } from '@galley/shared';
@@ -12,7 +13,7 @@ import { type Document, Server } from '@hocuspocus/server';
 import type { Redis } from 'ioredis';
 import { collectDefaultMetrics, Counter, Gauge, Registry } from 'prom-client';
 import * as Y from 'yjs';
-import { AccessDenied, authorize, originAllowed } from './access.js';
+import { AccessDenied, authorize, type CollabContext, originAllowed } from './access.js';
 import { type CollabConfig, parseRedisUrl } from './config.js';
 import { relayProjectEvents } from './events.js';
 import { handleInternalRequest, type InternalOperations } from './internal.js';
@@ -41,6 +42,9 @@ export interface Collab {
   /** Persists pending documents, closes connections and stops the relay. */
   destroy(): Promise<void>;
 }
+
+/** Close code after which Hocuspocus clients reconnect at once (`ResetConnection`). */
+const RESET_CONNECTION = 4205;
 
 /**
  * Builds the collaboration server: Hocuspocus with session authentication,
@@ -155,6 +159,19 @@ export function createCollab({
       }
     },
 
+    /**
+     * Presence names the connection's own account: whatever identity a client
+     * announces is replaced, so nobody can show a cursor under another name.
+     */
+    beforeHandleAwareness({ context, states }) {
+      // Hocuspocus types the context as any; onAuthenticate returns a CollabContext.
+      const identity = context as CollabContext | undefined;
+      if (identity === undefined) return Promise.resolve();
+      const user = presenceUserOf(identity.userId, identity.displayName);
+      for (const state of states.values()) state.user = user;
+      return Promise.resolve();
+    },
+
     async onLoadDocument({ documentName, document }) {
       const target = parseDocumentName(documentName);
       if (target === null) throw new AccessDenied('forbidden');
@@ -263,6 +280,19 @@ export function createCollab({
     if (message.type === 'project.deleted') {
       for (const document of documentsOf(message.projectId)) {
         server.hocuspocus.closeConnections(document.name);
+      }
+    }
+    if (message.type === 'members.changed' && message.userId !== null) {
+      // Closing the whole socket, not only the document, makes the client reconnect
+      // and authenticate every document again: with the new role, or refused.
+      for (const document of documentsOf(message.projectId)) {
+        for (const connection of document.getConnections()) {
+          // Same context as above, typed any by Hocuspocus.
+          const context = connection.context as CollabContext | undefined;
+          if (context?.userId === message.userId) {
+            connection.webSocket.close(RESET_CONNECTION, 'Reset Connection');
+          }
+        }
       }
     }
   }

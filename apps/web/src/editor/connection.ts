@@ -1,6 +1,7 @@
 import {
   COLLAB_PATH,
   fileDocumentName,
+  type PresenceUser,
   projectDocumentName,
   projectEventMessage,
   type ProjectEventMessage,
@@ -12,6 +13,7 @@ import {
   WebSocketStatus,
 } from '@hocuspocus/provider';
 import * as Y from 'yjs';
+import { type Participant, participantsOf } from '../lib/presence.js';
 
 /**
  * Synchronisation state of one open document, as shown on its tab:
@@ -35,6 +37,8 @@ export interface OpenDocument {
 interface Entry {
   document: OpenDocument;
   users: number;
+  /** Whether the content arrived once; the provider forgets it at each disconnection. */
+  loaded: boolean;
 }
 
 /** WebSocket URL of collab, behind the same origin as the application. */
@@ -52,12 +56,14 @@ export class ProjectConnection {
   private readonly events: HocuspocusProvider;
   private readonly entries = new Map<string, Entry>();
   private online = false;
+  private user: PresenceUser | null = null;
 
   constructor(
     readonly projectId: string,
     /** Read at each event, so the handler can change without reconnecting. */
     private readonly onEvent: { readonly current: (event: ProjectEventMessage) => void },
     private readonly onStatus: (fileId: string, status: SyncStatus) => void,
+    private readonly onPresence: (participants: Participant[]) => void = () => undefined,
   ) {
     // Nothing touches the network before start(), so React may build this during render.
     this.socket = new HocuspocusProviderWebsocket({
@@ -82,6 +88,39 @@ export class ProjectConnection {
         if (result.success) this.onEvent.current(result.data);
       },
     });
+    this.events.awareness?.on('change', () => {
+      const states = this.events.awareness?.getStates() ?? new Map();
+      this.onPresence(participantsOf(states, this.user?.id ?? null));
+    });
+  }
+
+  /**
+   * Announces who this tab belongs to, for cursors and the list of people
+   * present. collab replaces it with the session's identity anyway.
+   */
+  setUser(user: PresenceUser): void {
+    this.user = user;
+    this.events.setAwarenessField('user', user);
+    for (const entry of this.entries.values()) {
+      entry.document.provider.setAwarenessField('user', user);
+    }
+  }
+
+  /**
+   * Called when collab refuses the project channel, typically after losing
+   * access while disconnected, when the event saying so could not arrive.
+   * Returns a function that removes the listener.
+   */
+  onChannelDenied(listener: () => void): () => void {
+    this.events.on('authenticationFailed', listener);
+    return () => {
+      this.events.off('authenticationFailed', listener);
+    };
+  }
+
+  /** Tells the other participants which file this tab shows. */
+  setActiveFile(fileId: string | null): void {
+    this.events.setAwarenessField('fileId', fileId);
   }
 
   /** Connects and joins the project's event channel. Safe to call after {@link stop}. */
@@ -116,7 +155,8 @@ export class ProjectConnection {
       provider,
       readOnly: false,
     };
-    const entry: Entry = { document, users: 1 };
+    if (this.user !== null) provider.setAwarenessField('user', this.user);
+    const entry: Entry = { document, users: 1, loaded: false };
     this.entries.set(fileId, entry);
     provider.on('authenticated', ({ scope }: { scope: string }) => {
       document.readOnly = scope === 'readonly';
@@ -126,6 +166,7 @@ export class ProjectConnection {
       this.onStatus(fileId, 'denied');
     });
     provider.on('synced', () => {
+      entry.loaded = true;
       this.report(fileId);
     });
     provider.on('unsyncedChanges', () => {
@@ -162,9 +203,11 @@ export class ProjectConnection {
     if (!entry) return;
     const { provider } = entry.document;
     let status: SyncStatus;
-    if (!this.online) status = provider.isSynced ? 'offline' : 'connecting';
-    else if (!provider.isSynced) status = 'connecting';
-    else status = provider.hasUnsyncedChanges ? 'saving' : 'saved';
+    if (!entry.loaded) status = 'connecting';
+    else if (!this.online) status = 'offline';
+    // After a reconnection the content is already here: it is being saved again.
+    else if (!provider.isSynced || provider.hasUnsyncedChanges) status = 'saving';
+    else status = 'saved';
     this.onStatus(fileId, status);
   }
 }

@@ -41,7 +41,11 @@
     "RATE_LIMITED": "Trop de requêtes, réessayez plus tard.",
     "INVALID_PATTERN": "Expression régulière invalide.",
     "SERVICE_UNAVAILABLE": "Service momentanément indisponible.",
-    "INTERNAL_ERROR": "Erreur interne."
+    "INTERNAL_ERROR": "Erreur interne.",
+    "USER_NOT_FOUND": "Aucun compte ne correspond. La personne doit d'abord créer un compte ; vous pouvez aussi lui envoyer un lien de partage.",
+    "ALREADY_MEMBER": "Cette personne est déjà membre du projet.",
+    "LINK_INVALID": "Ce lien de partage n'est pas valide : il a expiré ou a été révoqué.",
+    "OWNER_CANNOT_LEAVE": "Le propriétaire ne peut pas quitter son projet : transférez d'abord la propriété."
   },
   "common": {
     "cancel": "Annuler",
@@ -176,6 +180,17 @@
         "blank": "Projet vide",
         "article": "Article avec bibliographie"
       }
+    },
+    "invites": {
+      "title": "Invitations",
+      "from": "{{name}} vous invite à rejoindre « {{project}} » comme {{role}}.",
+      "anonymous": "Vous êtes invité à rejoindre « {{project}} » comme {{role}}.",
+      "accept": "Accepter",
+      "decline": "Refuser"
+    },
+    "flash": {
+      "accessLost": "Vous n'avez plus accès à ce projet.",
+      "projectDeleted": "Ce projet a été supprimé."
     }
   },
   "project": {
@@ -366,5 +381,65 @@
     "pages_other": "{{count}} pages",
     "download": "Télécharger le PDF",
     "loadFailed": "Le PDF n'a pas pu être affiché."
+  },
+  "roles": {
+    "owner": "Propriétaire",
+    "editor": "Éditeur",
+    "reviewer": "Relecteur",
+    "reader": "Lecteur"
+  },
+  "share": {
+    "open": "Partager",
+    "title": "Partager « {{project}} »",
+    "members": {
+      "title": "Membres",
+      "role": "Rôle de {{name}}",
+      "transfer": "Transférer la propriété",
+      "remove": "Retirer",
+      "leave": "Quitter le projet",
+      "confirmRemove": "Retirer {{name}} du projet ? Son accès est coupé immédiatement.",
+      "confirmTransfer": "Faire de {{name}} le propriétaire du projet ? Vous deviendrez éditeur et ne pourrez plus gérer le partage.",
+      "confirmLeave": "Quitter « {{project}} » ? Il faudra une nouvelle invitation pour y revenir."
+    },
+    "invite": {
+      "title": "Inviter une personne",
+      "identifier": "Adresse e-mail ou nom d'utilisateur",
+      "role": "Rôle proposé",
+      "submit": "Inviter",
+      "hint": "La personne doit avoir un compte. L'invitation apparaît sur son tableau de bord.",
+      "pending": "Invitations en attente",
+      "pendingRole": "invité comme {{role}}",
+      "cancel": "Annuler"
+    },
+    "links": {
+      "title": "Liens de partage",
+      "role": "Rôle donné par le lien",
+      "expiry": "Validité du lien",
+      "never": "Sans limite",
+      "days_one": "{{count}} jour",
+      "days_other": "{{count}} jours",
+      "create": "Créer un lien",
+      "created": "Nouveau lien",
+      "copy": "Copier",
+      "copied": "Copié",
+      "once": "Ce lien ne sera plus affiché : copiez-le maintenant. Vous pourrez en créer un autre.",
+      "active": "Liens actifs",
+      "noExpiry": "sans limite",
+      "expires": "jusqu'au {{date}}",
+      "uses_one": "{{count}} utilisation",
+      "uses_other": "{{count}} utilisations",
+      "revoke": "Révoquer"
+    }
+  },
+  "presence": {
+    "label": "Personnes présentes",
+    "inFile": "{{name}} : {{path}}"
+  },
+  "join": {
+    "title": "Rejoindre un projet",
+    "offer": "Vous êtes invité à rejoindre « {{project}} » comme {{role}}.",
+    "alreadyMember": "Vous avez déjà accès à « {{project}} » ({{role}}).",
+    "submit": "Rejoindre le projet",
+    "open": "Ouvrir le projet"
   }
 }

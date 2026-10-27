@@ -324,6 +324,9 @@ importers:
       yauzl:
         specifier: 3.4.0
         version: 3.4.0
+      yjs:
+        specifier: 13.6.33
+        version: 13.6.33
 
   packages/db:
     dependencies:

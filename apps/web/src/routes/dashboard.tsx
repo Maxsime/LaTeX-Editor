@@ -20,6 +20,7 @@ import {
   useTagMutations,
   useTags,
 } from '../lib/projects.js';
+import { useAnswerInvite, useReceivedInvites } from '../lib/sharing.js';
 import { useDashboard } from '../stores/dashboard.js';
 import { useNotices } from '../stores/notices.js';
 
@@ -143,6 +144,95 @@ function ImportButton() {
         </div>
       )}
     </>
+  );
+}
+
+/** Invitations to other people's projects, answered here since no e-mail is sent. */
+function ReceivedInvites() {
+  const { t } = useTranslation();
+  const invites = useReceivedInvites();
+  const answer = useAnswerInvite();
+  const navigate = useNavigate();
+  const list = invites.data ?? [];
+  if (list.length === 0) return null;
+  return (
+    <section
+      aria-labelledby="invites-title"
+      className="space-y-2 rounded-md border border-accent/30 bg-sky-50 p-3"
+    >
+      <h2 id="invites-title" className="text-sm font-semibold">
+        {t('dashboard.invites.title')}
+      </h2>
+      <ul className="space-y-1 text-sm">
+        {list.map((invite) => (
+          <li key={invite.id} className="flex flex-wrap items-center gap-2">
+            <span className="mr-auto">
+              {t(
+                invite.invitedBy === null
+                  ? 'dashboard.invites.anonymous'
+                  : 'dashboard.invites.from',
+                {
+                  project: invite.project.name,
+                  name: invite.invitedBy?.displayName ?? '',
+                  role: t(`roles.${invite.role}`).toLocaleLowerCase(),
+                },
+              )}
+            </span>
+            <Button
+              variant="primary"
+              disabled={answer.isPending}
+              onClick={() => {
+                answer.mutate(
+                  { id: invite.id, accept: true },
+                  {
+                    onSuccess: () =>
+                      void navigate({
+                        to: '/projects/$projectId',
+                        params: { projectId: invite.project.id },
+                      }),
+                  },
+                );
+              }}
+            >
+              {t('dashboard.invites.accept')}
+            </Button>
+            <Button
+              disabled={answer.isPending}
+              onClick={() => {
+                answer.mutate({ id: invite.id, accept: false });
+              }}
+            >
+              {t('dashboard.invites.decline')}
+            </Button>
+          </li>
+        ))}
+      </ul>
+      <ErrorAlert error={answer.error} />
+    </section>
+  );
+}
+
+/** Message left by the page that sent the user back to the dashboard. */
+function Flash() {
+  const { t } = useTranslation();
+  const flash = useNotices((state) => state.flash);
+  const setFlash = useNotices((state) => state.setFlash);
+  if (flash === null) return null;
+  return (
+    <div
+      role="status"
+      className="flex items-center gap-2 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-950"
+    >
+      <span className="mr-auto">{t(`dashboard.flash.${flash}`)}</span>
+      <Button
+        variant="ghost"
+        onClick={() => {
+          setFlash(null);
+        }}
+      >
+        {t('common.close')}
+      </Button>
+    </div>
   );
 }
 
@@ -296,6 +386,8 @@ export function DashboardPage() {
           <ImportButton />
         </div>
         <NewProjectDialog open={creating} onOpenChange={setCreating} />
+        <Flash />
+        <ReceivedInvites />
 
         <div className="flex flex-wrap items-center gap-2">
           <ToggleGroup.Root

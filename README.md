@@ -71,6 +71,12 @@ Un clic sur un fichier texte l'ouvre dans un onglet. Chaque frappe part aussitô
 
 L'éditeur colore LaTeX et BibTeX, replie les environnements et les sections, et complète les commandes, les environnements et les chemins de fichiers, y compris ceux que le projet définit. Après `\ref{` et ses variantes, il propose les labels du projet ; après `\cite{` et ses variantes (natbib, BibLaTeX), les clés de tous les `.bib` du projet et des `\bibitem`, avec auteurs et année ; dans `\usepackage[...]` et `\documentclass[...]`, les options des paquets et classes courants. Sans compiler, il souligne les environnements mal fermés, les labels en double et les références ou citations inconnues. Le panneau « Plan » suit `\input`, `\include` et `\subfile` depuis le document principal et mène à la section choisie. Le panneau « Recherche » cherche dans tout le projet (texte ou expression régulière, casse, mot entier) et remplace partout après confirmation. Thème, taille de police et retour à la ligne se règlent au-dessus de l'éditeur.
 
+### Travailler à plusieurs
+
+Le bouton « Partager » d'un projet liste ses membres. Son propriétaire peut inviter une personne qui a déjà un compte (par adresse e-mail ou nom d'utilisateur) comme éditeur, relecteur ou lecteur : l'invitation apparaît sur le tableau de bord de la personne, qui l'accepte ou la refuse. Il peut aussi créer un lien de partage pour un rôle, avec une durée de validité facultative ; le lien n'est affiché qu'une fois et se révoque à tout moment. Depuis la même fenêtre, il change les rôles, retire un membre (son accès est coupé aussitôt) ou transfère la propriété.
+
+Les relecteurs et lecteurs voient le projet sans pouvoir le modifier. Les pastilles de l'en-tête indiquent qui a le projet ouvert et dans quel fichier ; un clic y mène. Dans l'éditeur, le curseur et la sélection de chacun s'affichent à son nom. Après une coupure réseau, les modifications faites des deux côtés se fusionnent sans perte.
+
 ### Compiler
 
 Le PDF s'affiche à droite de l'éditeur ; les boutons de l'en-tête basculent entre éditeur seul, PDF seul ou les deux. Un projet compile à son ouverture, puis à chaque pause de frappe (2 s par défaut, réglable ou désactivable dans « Options »), avec le bouton « Compiler », Ctrl+S ou Ctrl+Entrée. Le PDF garde sa position de lecture et son zoom d'une compilation à l'autre.

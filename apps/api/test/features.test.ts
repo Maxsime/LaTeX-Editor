@@ -6,6 +6,7 @@ import {
   type CompileJob,
   outlineResponse,
   projectIndexResponse,
+  projectChannel,
   searchResponse,
   SESSION_COOKIE,
 } from '@galley/shared';
@@ -22,7 +23,7 @@ import { createDocumentGateway } from '../src/collab/documents.js';
 import { DEFAULT_ARCHIVE_LIMITS } from '../src/archive/limits.js';
 import { ensureSetupCode } from '../src/auth/setup.js';
 import { readConfig } from '../src/config.js';
-import { createDatabase, type Database, projects } from '@galley/db';
+import { createDatabase, type Database, projectLinks, projects } from '@galley/db';
 import { runMigrations } from '@galley/db';
 import { purgeTrash } from '../src/projects/purge.js';
 import { createS3Client, ensureBucket } from '../src/storage/s3.js';
@@ -77,6 +78,10 @@ describe.skipIf(!dockerAvailable)('accounts, projects and files', () => {
     });
     expect(response.statusCode).toBe(201);
     return user;
+  }
+
+  async function userIdOf(user: Client): Promise<string> {
+    return (await user.send('GET', '/api/auth/session')).json<{ user: { id: string } }>().user.id;
   }
 
   async function importArchive(user: Client, data: Buffer, filename = 'projet.zip') {
@@ -755,6 +760,218 @@ describe.skipIf(!dockerAvailable)('accounts, projects and files', () => {
       const list = await bob.send('GET', '/api/projects');
       expect(list.json<{ projects: unknown[] }>().projects).toEqual([]);
       expect((await alice.send('GET', `/api/projects/${id}`)).statusCode).toBe(200);
+    });
+  });
+  describe('sharing', () => {
+    let projectId = '';
+    let dora: Client;
+
+    async function newProject(owner: Client, name: string): Promise<string> {
+      const created = await owner.send('POST', '/api/projects', { json: { name } });
+      return created.json<{ project: { id: string } }>().project.id;
+    }
+
+    async function roleOf(user: Client, id: string): Promise<string | number> {
+      const response = await user.send('GET', `/api/projects/${id}`);
+      return response.statusCode === 200
+        ? response.json<{ role: string }>().role
+        : response.statusCode;
+    }
+
+    it('invites an existing account, which accepts from its own list', async () => {
+      projectId = await newProject(alice, 'Partagé');
+      const events = new Redis(redis.options);
+      const received: unknown[] = [];
+      await events.subscribe(projectChannel(projectId));
+      events.on('message', (_channel, message) => received.push(JSON.parse(message)));
+      try {
+        const unknown = await alice.send('POST', `/api/projects/${projectId}/invites`, {
+          json: { identifier: 'nobody@example.org', role: 'editor' },
+        });
+        expect(unknown.json<{ error: { code: string } }>().error.code).toBe('USER_NOT_FOUND');
+        const invited = await alice.send('POST', `/api/projects/${projectId}/invites`, {
+          json: { identifier: 'bob', role: 'reader' },
+        });
+        expect(invited.statusCode).toBe(201);
+        // Inviting again replaces the pending invitation.
+        await alice.send('POST', `/api/projects/${projectId}/invites`, {
+          json: { identifier: 'bob@example.org', role: 'reviewer' },
+        });
+        const pending = await alice.send('GET', `/api/projects/${projectId}/invites`);
+        expect(pending.json<{ invites: { role: string }[] }>().invites).toEqual([
+          expect.objectContaining({ role: 'reviewer' }),
+        ]);
+        expect(await roleOf(bob, projectId)).toBe(404);
+
+        const mine = await bob.send('GET', '/api/invites');
+        const [invite] = mine.json<{ invites: { id: string; project: { name: string } }[] }>()
+          .invites;
+        expect(invite?.project.name).toBe('Partagé');
+        // Someone else cannot answer it.
+        expect(
+          (await alice.send('POST', `/api/invites/${invite?.id ?? ''}/accept`)).statusCode,
+        ).toBe(404);
+        const accepted = await bob.send('POST', `/api/invites/${invite?.id ?? ''}/accept`);
+        expect(accepted.json()).toEqual({ projectId });
+        expect(await roleOf(bob, projectId)).toBe('reviewer');
+        expect((await bob.send('GET', '/api/invites')).json()).toEqual({ invites: [] });
+
+        const again = await alice.send('POST', `/api/projects/${projectId}/invites`, {
+          json: { identifier: 'bob', role: 'editor' },
+        });
+        expect(again.json<{ error: { code: string } }>().error.code).toBe('ALREADY_MEMBER');
+        await expect
+          .poll(() => received)
+          .toContainEqual({ type: 'members.changed', userId: null, projectId });
+      } finally {
+        events.disconnect();
+      }
+    });
+
+    it('shows e-mail addresses to the owner only, and keeps sharing to the owner', async () => {
+      const members = (user: Client) =>
+        user.send('GET', `/api/projects/${projectId}/members`).then(
+          (response) =>
+            response.json<{
+              members: { username: string; email: string | null; role: string }[];
+            }>().members,
+        );
+      expect(await members(alice)).toEqual([
+        expect.objectContaining({ username: 'alice', role: 'owner', email: 'alice@example.org' }),
+        expect.objectContaining({ username: 'bob', role: 'reviewer', email: 'bob@example.org' }),
+      ]);
+      expect((await members(bob)).map((member) => member.email)).toEqual([null, null]);
+
+      const attempts: [Parameters<Client['send']>[0], string, unknown?][] = [
+        ['GET', `/api/projects/${projectId}/invites`],
+        ['POST', `/api/projects/${projectId}/invites`, { identifier: 'admin', role: 'editor' }],
+        ['GET', `/api/projects/${projectId}/links`],
+        ['POST', `/api/projects/${projectId}/links`, { role: 'editor' }],
+        [
+          'PATCH',
+          `/api/projects/${projectId}/members/${await userIdOf(alice)}`,
+          { role: 'reader' },
+        ],
+        ['POST', `/api/projects/${projectId}/transfer`, { userId: await userIdOf(bob) }],
+      ];
+      for (const [method, url, json] of attempts) {
+        const response = await bob.send(method, url, json === undefined ? {} : { json });
+        expect(`${method} ${url} → ${String(response.statusCode)}`).toBe(`${method} ${url} → 403`);
+      }
+    });
+
+    it('lets anyone signed in join through a link until it is revoked or expires', async () => {
+      dora = await register('dora');
+      const created = await alice.send('POST', `/api/projects/${projectId}/links`, {
+        json: { role: 'editor', expiresInDays: 7 },
+      });
+      expect(created.statusCode).toBe(201);
+      const { token, link } = created.json<{ token: string; link: { id: string } }>();
+
+      expect((await client().send('GET', `/api/links/${token}`)).statusCode).toBe(401);
+      const preview = await dora.send('GET', `/api/links/${token}`);
+      expect(preview.json()).toEqual({
+        project: { id: projectId, name: 'Partagé' },
+        role: 'editor',
+        currentRole: null,
+      });
+      expect((await dora.send('POST', `/api/links/${token}/join`)).json()).toEqual({ projectId });
+      expect(await roleOf(dora, projectId)).toBe('editor');
+      // Joining again changes nothing, and a link never lowers a role.
+      await dora.send('POST', `/api/links/${token}/join`);
+      const reader = await alice.send('POST', `/api/projects/${projectId}/links`, {
+        json: { role: 'reader' },
+      });
+      await dora.send('POST', `/api/links/${reader.json<{ token: string }>().token}/join`);
+      expect(await roleOf(dora, projectId)).toBe('editor');
+      const links = await alice.send('GET', `/api/projects/${projectId}/links`);
+      expect(links.json<{ links: { id: string; uses: number }[] }>().links).toContainEqual(
+        expect.objectContaining({ id: link.id, uses: 1 }),
+      );
+
+      expect(
+        (await alice.send('DELETE', `/api/projects/${projectId}/links/${link.id}`)).statusCode,
+      ).toBe(204);
+      const revoked = await admin.send('POST', `/api/links/${token}/join`);
+      expect(revoked.json<{ error: { code: string } }>().error.code).toBe('LINK_INVALID');
+      // Revoking a link keeps the members who joined through it.
+      expect(await roleOf(dora, projectId)).toBe('editor');
+
+      const expiring = await alice.send('POST', `/api/projects/${projectId}/links`, {
+        json: { role: 'reader', expiresInDays: 1 },
+      });
+      await database.db
+        .update(projectLinks)
+        .set({ expiresAt: new Date(Date.now() - 1000) })
+        .where(eq(projectLinks.id, expiring.json<{ link: { id: string } }>().link.id));
+      const expired = await admin.send(
+        'GET',
+        `/api/links/${expiring.json<{ token: string }>().token}`,
+      );
+      expect(expired.json<{ error: { code: string } }>().error.code).toBe('LINK_INVALID');
+      expect((await admin.send('GET', `/api/links/${'x'.repeat(43)}`)).statusCode).toBe(404);
+    });
+
+    it('changes roles, removes members and lets members leave', async () => {
+      const doraId = await userIdOf(dora);
+      const events = new Redis(redis.options);
+      const received: unknown[] = [];
+      await events.subscribe(projectChannel(projectId));
+      events.on('message', (_channel, message) => received.push(JSON.parse(message)));
+      try {
+        expect(
+          (
+            await alice.send('PATCH', `/api/projects/${projectId}/members/${doraId}`, {
+              json: { role: 'reader' },
+            })
+          ).statusCode,
+        ).toBe(204);
+        expect(await roleOf(dora, projectId)).toBe('reader');
+        expect(
+          (await alice.send('DELETE', `/api/projects/${projectId}/members/${doraId}`)).statusCode,
+        ).toBe(204);
+        expect(await roleOf(dora, projectId)).toBe(404);
+        await expect
+          .poll(() => received)
+          .toContainEqual({ type: 'members.changed', userId: doraId, projectId });
+      } finally {
+        events.disconnect();
+      }
+
+      const left = await bob.send(
+        'DELETE',
+        `/api/projects/${projectId}/members/${await userIdOf(bob)}`,
+      );
+      expect(left.statusCode).toBe(204);
+      expect(await roleOf(bob, projectId)).toBe(404);
+      const ownerLeaves = await alice.send(
+        'DELETE',
+        `/api/projects/${projectId}/members/${await userIdOf(alice)}`,
+      );
+      expect(ownerLeaves.json<{ error: { code: string } }>().error.code).toBe('OWNER_CANNOT_LEAVE');
+    });
+
+    it('transfers ownership to a member', async () => {
+      const id = await newProject(alice, 'À transmettre');
+      const link = await alice.send('POST', `/api/projects/${id}/links`, {
+        json: { role: 'reader' },
+      });
+      await bob.send('POST', `/api/links/${link.json<{ token: string }>().token}/join`);
+      const transfer = await alice.send('POST', `/api/projects/${id}/transfer`, {
+        json: { userId: await userIdOf(bob) },
+      });
+      expect(transfer.statusCode).toBe(204);
+      expect(await roleOf(bob, id)).toBe('owner');
+      expect(await roleOf(alice, id)).toBe('editor');
+      const listed = await bob.send('GET', '/api/projects');
+      expect(
+        listed.json<{ projects: { id: string; owner: { displayName: string } }[] }>().projects,
+      ).toContainEqual(
+        expect.objectContaining({
+          id,
+          owner: expect.objectContaining({ displayName: 'bob' }) as unknown,
+        }),
+      );
     });
   });
 });
