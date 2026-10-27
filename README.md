@@ -77,6 +77,19 @@ Le bouton « Partager » d'un projet liste ses membres. Son propriétaire peut i
 
 Les relecteurs et lecteurs voient le projet sans pouvoir le modifier. Les pastilles de l'en-tête indiquent qui a le projet ouvert et dans quel fichier ; un clic y mène. Dans l'éditeur, le curseur et la sélection de chacun s'affichent à son nom. Après une coupure réseau, les modifications faites des deux côtés se fusionnent sans perte.
 
+### Historique et Git
+
+Le bouton « Historique » d'un projet liste ses versions : un enregistrement automatique toutes les 5 minutes d'activité, un après chaque compilation réussie, et les versions nommées. Pour chaque version, la fenêtre montre les fichiers modifiés depuis, le différentiel ligne à ligne des fichiers texte, et permet de restaurer un fichier ou tout le projet, ou de télécharger la version en zip. Restaurer n'efface rien : l'état remplacé reste dans l'historique.
+
+Chaque projet est aussi un dépôt Git. Créez un jeton dans « Mon compte » (lien en haut de page), puis :
+
+```sh
+git clone https://localhost/git/<identifiant-du-projet>
+# Nom d'utilisateur : quelconque. Mot de passe : le jeton.
+```
+
+L'adresse exacte est affichée dans la fenêtre « Historique ». `git pull` récupère les modifications faites dans l'éditeur, `git push` envoie les vôtres, visibles aussitôt par les personnes qui ont le projet ouvert. Un push est refusé si le projet a changé depuis votre dernier `git pull` : récupérez, laissez Git fusionner, puis poussez. Seule la branche `main` est acceptée ; liens symboliques et sous-modules sont refusés. Avec le certificat local, indiquez-le à Git : `git -c http.sslCAInfo=root.crt clone ...`.
+
 ### Compiler
 
 Le PDF s'affiche à droite de l'éditeur ; les boutons de l'en-tête basculent entre éditeur seul, PDF seul ou les deux. Un projet compile à son ouverture, puis à chaque pause de frappe (2 s par défaut, réglable ou désactivable dans « Options »), avec le bouton « Compiler », Ctrl+S ou Ctrl+Entrée. Le PDF garde sa position de lecture et son zoom d'une compilation à l'autre.
