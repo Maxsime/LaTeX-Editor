@@ -201,3 +201,20 @@ Décision. L'API lance directement `git upload-pack` et `git receive-pack` en mo
 - Messages de refus en français, ou en anglais si le client Git annonce l'anglais (`Accept-Language`, déduit de `LANG`).
 
 Alternatives écartées. `http-backend` avec `git-daemon` : un paquet et une couche CGI de plus pour le même résultat. Bibliothèque Git en JavaScript (isomorphic-git) : protocole serveur incomplet, moins éprouvée que Git. Fusion côté serveur des pushs en retard : conflits impossibles à présenter à l'utilisateur pendant un push.
+
+## 2026-10-27 — Suggestions et commentaires (J7)
+
+Contexte. SPEC §6.6 place suggestions et ancres de commentaires dans le document Yjs du fichier. Le plan J7 prévoyait de les repérer par positions relatives (`Y.RelativePosition`) et de garder le texte supprimé avec une ancre. Les tests de propriétés ont montré deux défauts de ce modèle : deux personnes qui suppriment le même caractère en même temps le rendent deux fois au texte accepté, et un texte tapé par un éditeur au milieu d'une suppression suggérée se retrouve déplacé.
+
+Décision.
+
+- Une suggestion nomme les éléments Yjs qu'elle concerne, par plages `[client, horloge, longueur]` (insertion) ou `[client, horloge, texte]` (suppression), dans un `Y.Map` `ranges` à côté du `Y.Text` `content`. Un élément supprimé garde sa place dans la séquence Yjs : le texte accepté est obtenu en parcourant la séquence, éléments supprimés compris, sans les caractères insérés par suggestion et avec les caractères supprimés par suggestion. Un caractère réclamé par deux suppressions n'apparaît qu'une fois ; un texte tapé au milieu reste au milieu.
+- Le contenu des éléments supprimés est ramassé par Yjs, d'où le texte gardé dans l'entrée de suppression. Rejeter une suppression réinsère le texte ; comme Yjs insère après tous les éléments supprimés d'une même position, les autres suppressions suggérées à cette position sont réécrites dans l'ordre puis supprimées de nouveau, et leurs entrées repointées.
+- Les ancres de commentaires gardent des positions relatives : un commentaire porte sur une étendue, pas sur des caractères précis.
+- Noyau pur dans `packages/review` (dépendance : `yjs`, en dépendance directe à la même version exacte que les services, pour que l'installation de production la résolve ; pnpm n'en garde qu'un exemplaire). Tests de propriétés avec `fast-check` 4.10.2 (MIT, outil de test seulement) : suggestions seules, rejets un à un dans un ordre quelconque, édition concurrente d'un éditeur et d'un relecteur, deux relecteurs concurrents.
+
+Contrôle serveur. `collab` ouvre en écriture les connexions des relecteurs et applique chacune de leurs mises à jour (`beforeSync`, étape 2 et mises à jour) à une copie du document avant Hocuspocus. Elle est refusée, et la connexion du document fermée avec la raison `invalid-update`, si le texte accepté change, si une entrée d'un autre est créée, modifiée ou supprimée, si un autre type racine que `content` et `ranges` apparaît, si des attributs sont posés sur le texte, ou si la mise à jour laisse des changements en attente d'historique manquant (sans quoi la mise à jour suivante d'un éditeur les appliquerait sans contrôle). Le client recharge alors le document depuis le serveur et prévient. Les éditeurs ne sont pas filtrés : ils peuvent de toute façon modifier directement.
+
+Alternatives écartées. Positions relatives pour les suggestions (défauts ci-dessus). Validation de la forme des opérations Yjs plutôt que d'un invariant : règles nombreuses et contournables, là où l'invariant « texte accepté inchangé, entrées d'autrui intactes » couvre toute mise à jour forgée. Suggestions en base de données : elles ne suivraient pas les éditions concurrentes.
+
+Mentions : `@identifiant` d'un membre du projet, enregistrées à la création et à la modification d'un commentaire, visibles sur le tableau de bord jusqu'à l'ouverture du fil. Notifications par e-mail reportées (SMTP facultatif, J10 au plus tôt). Discussion : 4 000 caractères par message, 30 messages par minute et par personne (limite comptée par compte, après authentification).

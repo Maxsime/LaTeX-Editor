@@ -192,6 +192,11 @@
     "flash": {
       "accessLost": "You no longer have access to this project.",
       "projectDeleted": "This project has been deleted."
+    },
+    "mentions": {
+      "title": "You were mentioned",
+      "from": "{{name}} in “{{project}}”",
+      "open": "Open"
     }
   },
   "project": {
@@ -234,7 +239,9 @@
     "panel": {
       "files": "Files",
       "outline": "Outline",
-      "search": "Search"
+      "search": "Search",
+      "review": "Review",
+      "chat": "Chat"
     },
     "status": {
       "connecting": "Connecting…",
@@ -508,5 +515,60 @@
       "hint": "Use a personal access token as password.",
       "tokens": "Manage my tokens"
     }
+  },
+  "review": {
+    "reloaded": "The server refused a change: the file was reloaded from its last saved version.",
+    "deletedUser": "Deleted account",
+    "mode": {
+      "label": "Suggest",
+      "help": "Your changes are recorded as suggestions, to accept or reject.",
+      "reviewer": "As a reviewer, your changes are always suggestions.",
+      "project": "The owner turned on change tracking for everyone.",
+      "everyone": "For everyone",
+      "everyoneHelp": "Record every editor's changes as suggestions."
+    },
+    "hover": {
+      "insert": "Suggested insertion, {{date}}",
+      "delete": "Suggested deletion, {{date}}",
+      "comment": "Comment"
+    },
+    "suggestions": {
+      "title_one": "{{count}} suggestion in this file",
+      "title_other": "{{count}} suggestions in this file",
+      "insert": "{{name}} suggests adding",
+      "delete": "{{name}} suggests deleting",
+      "accept": "Accept",
+      "reject": "Reject",
+      "acceptAll": "Accept all",
+      "rejectAll": "Reject all"
+    },
+    "comment": {
+      "body": "Comment",
+      "placeholder": "Your comment (@username to mention someone)",
+      "submit": "Comment",
+      "edit": "Edit",
+      "delete": "Delete",
+      "deleted": "Comment deleted",
+      "edited": "edited"
+    },
+    "threads": {
+      "title": "Comments",
+      "showResolved": "Show resolved",
+      "hint": "Select text, then Ctrl+Alt+M (⌘⌥M on Mac) to comment.",
+      "empty": "No comments.",
+      "noFile": "Deleted file",
+      "lost": "commented text gone",
+      "reply": "Reply",
+      "send": "Send",
+      "resolve": "Resolve",
+      "reopen": "Reopen",
+      "delete": "Delete thread"
+    }
+  },
+  "chat": {
+    "empty": "No messages yet.",
+    "older": "Older messages",
+    "message": "Message",
+    "send": "Send"
   }
 }

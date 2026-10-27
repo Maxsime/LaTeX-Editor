@@ -6,6 +6,7 @@ import { EditorView } from '@codemirror/view';
 import { useEffect, useRef } from 'react';
 import i18n from '../i18n/index.js';
 import { useEditor, usePreferences } from '../stores/editor.js';
+import { useReview } from '../stores/review.js';
 import type { CompletionSources } from './completion.js';
 import type { ProjectConnection } from './connection.js';
 import {
@@ -14,6 +15,7 @@ import {
   setCompileMarkers,
   toLintDiagnostics,
 } from './lint.js';
+import { redrawReview, type ReviewOptions, reviewExtension, suggestingDispatch } from './review.js';
 import { EditorSettings, editorExtensions } from './setup.js';
 
 interface CodeEditorProps {
@@ -23,6 +25,10 @@ interface CodeEditorProps {
   active: boolean;
   /** Role-based restriction; the server enforces it regardless. */
   readOnly: boolean;
+  /** Whether edits are recorded as suggestions; the server enforces it for reviewers. */
+  suggesting: boolean;
+  /** Current user, author of suggestions and comments. */
+  userId: string;
   /** Must be stable: a new function rebuilds the editor. */
   completion: () => CompletionSources;
   /** Must be stable, like `completion`. */
@@ -49,6 +55,8 @@ export function CodeEditor({
   fileName,
   active,
   readOnly,
+  suggesting,
+  userId,
   completion,
   lintContext,
   diagnostics,
@@ -61,6 +69,14 @@ export function CodeEditor({
   const { theme, fontSize, lineWrapping } = usePreferences();
   const reveal = useEditor((state) => state.reveal);
   const status = useEditor((state) => state.status[fileId]);
+  const reloads = useReview((state) => state.reloads[fileId] ?? 0);
+  const openThreads = useReview((state) => state.openThreads);
+  // Read by the editor at each edit, so that switching modes needs no rebuild.
+  const live = useRef({ suggesting, userId });
+  useEffect(() => {
+    live.current = { suggesting, userId };
+  }, [suggesting, userId]);
+  const review = useRef<ReviewOptions | null>(null);
 
   useEffect(() => {
     const parent = host.current;
@@ -68,9 +84,26 @@ export function CodeEditor({
     const document = connection.open(fileId);
     const { setCursorLine, noteEdit } = useEditor.getState();
     const preferences = usePreferences.getState();
+    const options: ReviewOptions = {
+      text: document.text,
+      ranges: document.ranges,
+      suggesting: () => live.current.suggesting,
+      author: () => live.current.userId,
+      isOpenThread: (threadId) => useReview.getState().openThreads.has(threadId),
+      onComment: (selection) => {
+        useReview.getState().setPending({ fileId, ...selection });
+      },
+      describe: (range) =>
+        i18n.t(`review.hover.${range.kind}`, {
+          date: 'at' in range ? new Date(range.at).toLocaleString(i18n.language) : '',
+        }),
+    };
+    review.current = options;
     const editor = new EditorView({
       parent,
+      dispatchTransactions: suggestingDispatch(options),
       extensions: [
+        reviewExtension(options),
         lintGutter(),
         lintExtension({
           latex: LIVE_LINT.test(fileName),
@@ -81,6 +114,7 @@ export function CodeEditor({
         editorExtensions({
           fileName,
           text: document.text,
+          ranges: document.ranges,
           awareness: document.provider.awareness,
           settings: settings.current,
           live: {
@@ -100,10 +134,16 @@ export function CodeEditor({
     view.current = editor;
     return () => {
       view.current = null;
+      review.current = null;
       editor.destroy();
       connection.release(fileId);
     };
-  }, [connection, fileId, fileName, completion, lintContext]);
+    // `reloads` rebinds the editor to the copy loaded after a refused update.
+  }, [connection, fileId, fileName, completion, lintContext, reloads]);
+
+  useEffect(() => {
+    if (view.current && review.current) redrawReview(view.current, review.current);
+  }, [openThreads]);
 
   // Editing opens once the server has sent the content and granted write access.
   const writable = !readOnly && (status === 'saved' || status === 'saving' || status === 'offline');

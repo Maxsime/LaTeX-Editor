@@ -20,7 +20,9 @@ import {
   useTagMutations,
   useTags,
 } from '../lib/projects.js';
+import { useMentions, useReadMentions } from '../lib/review.js';
 import { useAnswerInvite, useReceivedInvites } from '../lib/sharing.js';
+import { useReview } from '../stores/review.js';
 import { useDashboard } from '../stores/dashboard.js';
 import { useNotices } from '../stores/notices.js';
 
@@ -148,6 +150,59 @@ function ImportButton() {
 }
 
 /** Invitations to other people's projects, answered here since no e-mail is sent. */
+/** Comments naming the user, until they open them. */
+function Mentions() {
+  const { t, i18n } = useTranslation();
+  const mentions = useMentions();
+  const read = useReadMentions();
+  const navigate = useNavigate();
+  const list = mentions.data ?? [];
+  if (list.length === 0) return null;
+  return (
+    <section
+      aria-labelledby="mentions-title"
+      className="space-y-2 rounded-md border border-amber-300 bg-amber-50 p-3"
+    >
+      <h2 id="mentions-title" className="text-sm font-semibold">
+        {t('dashboard.mentions.title')}
+      </h2>
+      <ul className="space-y-2 text-sm">
+        {list.map((mention) => (
+          <li
+            key={mention.commentId}
+            data-testid="mention"
+            className="flex flex-wrap items-start gap-2"
+          >
+            <span className="mr-auto min-w-0">
+              <span className="block text-xs text-slate-600">
+                {t('dashboard.mentions.from', {
+                  name: mention.author?.displayName ?? t('review.deletedUser'),
+                  project: mention.projectName,
+                })}{' '}
+                · {new Date(mention.createdAt).toLocaleString(i18n.language)}
+              </span>
+              <span className="line-clamp-2 break-words">{mention.excerpt}</span>
+            </span>
+            <Button
+              variant="primary"
+              onClick={() => {
+                read.mutate(mention.threadId);
+                useReview.getState().setShowReview(true);
+                void navigate({
+                  to: '/projects/$projectId',
+                  params: { projectId: mention.projectId },
+                });
+              }}
+            >
+              {t('dashboard.mentions.open')}
+            </Button>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 function ReceivedInvites() {
   const { t } = useTranslation();
   const invites = useReceivedInvites();
@@ -388,6 +443,7 @@ export function DashboardPage() {
         <NewProjectDialog open={creating} onOpenChange={setCreating} />
         <Flash />
         <ReceivedInvites />
+        <Mentions />
 
         <div className="flex flex-wrap items-center gap-2">
           <ToggleGroup.Root

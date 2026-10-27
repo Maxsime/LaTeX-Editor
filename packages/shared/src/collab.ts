@@ -1,8 +1,15 @@
 import * as z from 'zod/mini';
 import { compileStatus } from './compile-job.js';
+import { projectMessage } from './review.js';
 
 /** Name of the shared text holding a file's content, fixed for the whole application. */
 export const TEXT_KEY = 'content';
+
+/**
+ * Close reason sent to a client whose update was refused (a reviewer writing
+ * outside suggestions). The client's copy has diverged and must be reloaded.
+ */
+export const INVALID_UPDATE_REASON = 'invalid-update';
 
 /** Path under which the reverse proxy exposes the collaboration WebSocket. */
 export const COLLAB_PATH = '/collab';
@@ -50,6 +57,10 @@ export const projectEvent = z.discriminatedUnion('type', [
    * with their new rights.
    */
   z.object({ type: z.literal('members.changed'), userId: z.nullable(z.uuid()) }),
+  /** A comment thread was created, answered, edited, resolved or deleted. */
+  z.object({ type: z.literal('review.changed'), threadId: z.uuid() }),
+  /** A message was posted in the project's chat. */
+  z.object({ type: z.literal('chat.message'), message: projectMessage }),
   /** A snapshot was added to the history, or a version renamed. */
   z.object({ type: z.literal('history.changed') }),
   /** A compilation of the project changed state; clients fetch it to refresh the PDF. */

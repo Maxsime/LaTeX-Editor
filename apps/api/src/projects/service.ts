@@ -154,6 +154,7 @@ export async function projectDetails(
     engine: row.engine,
     bibTool: row.bibTool,
     shellEscape: row.shellEscape,
+    trackChanges: row.trackChanges,
   };
 }
 

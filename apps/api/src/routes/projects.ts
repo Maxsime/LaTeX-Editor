@@ -78,7 +78,7 @@ export function projectRoutes(app: FastifyInstance, context: AppContext): void {
       db,
       id,
       auth.user.id,
-      body.name === undefined ? 'editor' : 'owner',
+      body.name === undefined && body.trackChanges === undefined ? 'editor' : 'owner',
     );
     if (body.mainFileId !== undefined && body.mainFileId !== null) {
       const node = await getNode(db, id, body.mainFileId);
@@ -92,6 +92,7 @@ export function projectRoutes(app: FastifyInstance, context: AppContext): void {
         ...(body.engine === undefined ? {} : { engine: body.engine }),
         ...(body.bibTool === undefined ? {} : { bibTool: body.bibTool }),
         ...(body.shellEscape === undefined ? {} : { shellEscape: body.shellEscape }),
+        ...(body.trackChanges === undefined ? {} : { trackChanges: body.trackChanges }),
         updatedAt: new Date(),
       })
       .where(eq(projects.id, id))

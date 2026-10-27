@@ -141,6 +141,8 @@ function accessExtension(readOnly: boolean): Extension {
 export interface EditorOptions {
   fileName: string;
   text: Y.Text;
+  /** Suggestions and comment anchors: undo takes back a suggestion with its entry. */
+  ranges: Y.Map<unknown>;
   awareness: Parameters<typeof yCollab>[1];
   settings: EditorSettings;
   live: LiveSettings;
@@ -153,7 +155,7 @@ export interface EditorOptions {
 export function editorExtensions(options: EditorOptions): Extension {
   const language = languageFor(options.fileName);
   // Undo is per user and per document, handled by Yjs rather than CodeMirror's history.
-  const undoManager = new Y.UndoManager(options.text);
+  const undoManager = new Y.UndoManager([options.text, options.ranges]);
   const nonce = styleNonce();
   return [
     nonce === null ? [] : EditorView.cspNonce.of(nonce),

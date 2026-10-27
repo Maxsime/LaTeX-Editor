@@ -86,6 +86,8 @@ export const projects = pgTable(
     bibTool: bibToolEnum('bib_tool').notNull().default('biber'),
     shellEscape: shellEscapeEnum('shell_escape').notNull().default('restricted'),
     aiEnabled: boolean('ai_enabled').notNull().default(true),
+    /** Every editor's changes are recorded as suggestions (SPEC §3.4). */
+    trackChanges: boolean('track_changes').notNull().default(false),
     type: projectType('type').notNull().default('document'),
     archivedAt: timestamp('archived_at', { withTimezone: true }),
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
@@ -354,3 +356,78 @@ export const gitRepositories = pgTable('git_repositories', {
   objects: jsonb('objects').$type<Record<string, string>>().notNull().default({}),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
+
+/**
+ * A comment thread on a file (SPEC §3.4). Its anchor lives in the file's Yjs
+ * document, under the thread's id; `quote` is the text it was attached to,
+ * shown when the anchor is lost.
+ */
+export const commentThreads = pgTable(
+  'comment_threads',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    projectId: uuid('project_id')
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade' }),
+    fileId: uuid('file_id').references(() => files.id, { onDelete: 'set null' }),
+    authorId: uuid('author_id').references(() => users.id, { onDelete: 'set null' }),
+    quote: text('quote').notNull(),
+    resolvedAt: timestamp('resolved_at', { withTimezone: true }),
+    resolvedBy: uuid('resolved_by').references(() => users.id, { onDelete: 'set null' }),
+    ...timestamps,
+  },
+  (table) => [index('comment_threads_project_idx').on(table.projectId, table.createdAt)],
+);
+
+export const comments = pgTable(
+  'comments',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    threadId: uuid('thread_id')
+      .notNull()
+      .references(() => commentThreads.id, { onDelete: 'cascade' }),
+    authorId: uuid('author_id').references(() => users.id, { onDelete: 'set null' }),
+    body: text('body').notNull(),
+    editedAt: timestamp('edited_at', { withTimezone: true }),
+    /** Deleted comments keep their place in the thread, without their body. */
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
+    ...timestamps,
+  },
+  (table) => [index('comments_thread_idx').on(table.threadId, table.createdAt)],
+);
+
+/** A member named with `@username` in a comment, until they open the thread. */
+export const commentMentions = pgTable(
+  'comment_mentions',
+  {
+    commentId: uuid('comment_id')
+      .notNull()
+      .references(() => comments.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    readAt: timestamp('read_at', { withTimezone: true }),
+    ...timestamps,
+  },
+  (table) => [
+    primaryKey({ columns: [table.commentId, table.userId] }),
+    index('comment_mentions_unread_idx')
+      .on(table.userId)
+      .where(sql`${table.readAt} is null`),
+  ],
+);
+
+/** The project's chat (SPEC §3.4). */
+export const projectMessages = pgTable(
+  'project_messages',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    projectId: uuid('project_id')
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade' }),
+    authorId: uuid('author_id').references(() => users.id, { onDelete: 'set null' }),
+    body: text('body').notNull(),
+    ...timestamps,
+  },
+  (table) => [index('project_messages_project_idx').on(table.projectId, table.createdAt)],
+);

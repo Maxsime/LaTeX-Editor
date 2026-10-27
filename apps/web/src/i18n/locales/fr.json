@@ -192,6 +192,11 @@
     "flash": {
       "accessLost": "Vous n'avez plus accès à ce projet.",
       "projectDeleted": "Ce projet a été supprimé."
+    },
+    "mentions": {
+      "title": "On vous mentionne",
+      "from": "{{name}} dans « {{project}} »",
+      "open": "Ouvrir"
     }
   },
   "project": {
@@ -234,7 +239,9 @@
     "panel": {
       "files": "Fichiers",
       "outline": "Plan",
-      "search": "Recherche"
+      "search": "Recherche",
+      "review": "Revue",
+      "chat": "Discussion"
     },
     "status": {
       "connecting": "Connexion…",
@@ -508,5 +515,60 @@
       "hint": "Utilisez un jeton d'accès personnel comme mot de passe.",
       "tokens": "Gérer mes jetons"
     }
+  },
+  "review": {
+    "reloaded": "Une modification a été refusée par le serveur : le fichier a été rechargé depuis la dernière version enregistrée.",
+    "deletedUser": "Compte supprimé",
+    "mode": {
+      "label": "Suggérer",
+      "help": "Vos modifications sont enregistrées comme suggestions, à accepter ou rejeter.",
+      "reviewer": "En tant que relecteur, vos modifications sont toujours des suggestions.",
+      "project": "Le propriétaire a activé le suivi des modifications pour tout le monde.",
+      "everyone": "Pour tous",
+      "everyoneHelp": "Enregistrer les modifications de tous les éditeurs comme suggestions."
+    },
+    "hover": {
+      "insert": "Insertion suggérée, {{date}}",
+      "delete": "Suppression suggérée, {{date}}",
+      "comment": "Commentaire"
+    },
+    "suggestions": {
+      "title_one": "{{count}} suggestion dans ce fichier",
+      "title_other": "{{count}} suggestions dans ce fichier",
+      "insert": "{{name}} propose d'ajouter",
+      "delete": "{{name}} propose de supprimer",
+      "accept": "Accepter",
+      "reject": "Rejeter",
+      "acceptAll": "Tout accepter",
+      "rejectAll": "Tout rejeter"
+    },
+    "comment": {
+      "body": "Commentaire",
+      "placeholder": "Votre commentaire (@identifiant pour mentionner quelqu'un)",
+      "submit": "Commenter",
+      "edit": "Modifier",
+      "delete": "Supprimer",
+      "deleted": "Commentaire supprimé",
+      "edited": "modifié"
+    },
+    "threads": {
+      "title": "Commentaires",
+      "showResolved": "Afficher les résolus",
+      "hint": "Sélectionnez du texte puis Ctrl+Alt+M (⌘⌥M sur Mac) pour commenter.",
+      "empty": "Aucun commentaire.",
+      "noFile": "Fichier supprimé",
+      "lost": "texte commenté disparu",
+      "reply": "Répondre",
+      "send": "Envoyer",
+      "resolve": "Résoudre",
+      "reopen": "Rouvrir",
+      "delete": "Supprimer le fil"
+    }
+  },
+  "chat": {
+    "empty": "Aucun message pour l'instant.",
+    "older": "Messages précédents",
+    "message": "Message",
+    "send": "Envoyer"
   }
 }

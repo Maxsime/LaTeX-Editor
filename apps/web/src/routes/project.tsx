@@ -9,6 +9,7 @@ import { HistoryDialog } from '../components/HistoryDialog.js';
 import { OutlinePanel } from '../components/OutlinePanel.js';
 import { PresenceBadges } from '../components/PresenceBadges.js';
 import { SearchPanel } from '../components/SearchPanel.js';
+import { ChatPanel } from '../components/ChatPanel.js';
 import { ShareDialog } from '../components/ShareDialog.js';
 import { Button, ErrorAlert, NameDialog } from '../components/ui.js';
 import { ApiRequestError } from '../lib/api.js';
@@ -19,13 +20,16 @@ import { fromFileList } from '../lib/upload.js';
 import { useCompilePreferences, type ViewMode } from '../stores/compile.js';
 import { useEditor } from '../stores/editor.js';
 import { useNotices } from '../stores/notices.js';
+import { useReview } from '../stores/review.js';
 import { useTreeState } from '../stores/tree.js';
 
 // CodeMirror, Yjs and the collab client load with the first project opened, not the dashboard.
 const EditorArea = lazy(() => import('../editor/EditorArea.js'));
+// Needs Yjs as well, for the suggestions of the open file.
+const ReviewPanel = lazy(() => import('../components/ReviewPanel.js'));
 
-type Panel = 'files' | 'outline' | 'search';
-const PANELS: readonly Panel[] = ['files', 'outline', 'search'];
+type Panel = 'files' | 'outline' | 'search' | 'review' | 'chat';
+const PANELS: readonly Panel[] = ['files', 'outline', 'search', 'review', 'chat'];
 const VIEW_MODES: readonly ViewMode[] = ['editor', 'both', 'pdf'];
 
 const GRID: Record<ViewMode, string> = {
@@ -76,7 +80,10 @@ export function ProjectPage() {
   const activeId = useEditor((state) => state.activeId);
   const fileInput = useRef<HTMLInputElement>(null);
   const folderInput = useRef<HTMLInputElement>(null);
-  const [panel, setPanel] = useState<Panel>('files');
+  // Opened from a mention on the dashboard: start on the review panel.
+  const [panel, setPanel] = useState<Panel>(() =>
+    useReview.getState().showReview ? 'review' : 'files',
+  );
   const [newFile, setNewFile] = useState(false);
   const [sharing, setSharing] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -92,6 +99,13 @@ export function ProjectPage() {
   const roots = useMemo(() => buildTree(nodes), [nodes]);
   const all = useMemo(() => flatten(roots), [roots]);
   const paths = useMemo(() => new Map(all.map((item) => [item.id, item.path])), [all]);
+  // Commenting a selection (Ctrl+Alt+M) opens the review panel to type the comment.
+  useEffect(() => {
+    useReview.getState().setShowReview(false);
+    return useReview.subscribe((state, previous) => {
+      if (state.pending !== null && previous.pending === null) setPanel('review');
+    });
+  }, []);
   const selected = nodes.find((node) => node.id === selectedId);
   const canEdit = project.data !== undefined && hasRole(project.data.role, 'editor');
   const fileIds = useMemo(() => new Map(all.map((item) => [item.path, item.id])), [all]);
@@ -224,7 +238,7 @@ export function ProjectPage() {
       <ErrorAlert error={updateProject.error} />
       <div className={`grid h-[calc(100vh-11rem)] min-h-[28rem] gap-3 ${GRID[viewMode]}`}>
         <aside className="flex min-h-0 flex-col">
-          <div role="tablist" aria-label={t('editor.panels')} className="mb-2 flex gap-1">
+          <div role="tablist" aria-label={t('editor.panels')} className="mb-2 flex flex-wrap gap-1">
             {PANELS.map((name) => (
               <button
                 key={name}
@@ -300,6 +314,12 @@ export function ProjectPage() {
             )}
             {panel === 'outline' && <OutlinePanel projectId={projectId} />}
             {panel === 'search' && <SearchPanel projectId={projectId} canEdit={canEdit} />}
+            {panel === 'review' && project.data && (
+              <Suspense fallback={<p className="text-slate-600">{t('common.loading')}</p>}>
+                <ReviewPanel projectId={projectId} role={project.data.role} names={paths} />
+              </Suspense>
+            )}
+            {panel === 'chat' && <ChatPanel projectId={projectId} />}
           </div>
         </aside>
         <section
@@ -312,7 +332,8 @@ export function ProjectPage() {
                 projectId={projectId}
                 nodes={nodes}
                 paths={paths}
-                readOnly={!canEdit}
+                role={project.data.role}
+                trackChanges={project.data.trackChanges}
                 diagnostics={diagnostics}
               />
             )}

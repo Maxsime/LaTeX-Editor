@@ -60,8 +60,9 @@ export function originAllowed(origin: string | undefined, host: string | undefin
 /**
  * Authorises a connection to a document from the session cookie. A missing
  * document, a document of another project and a project the user is not a
- * member of are indistinguishable to the client. Readers and reviewers get a
- * read-only connection, enforced by Hocuspocus on every update they send.
+ * member of are indistinguishable to the client. Readers get a read-only
+ * connection, enforced by Hocuspocus on every update they send; reviewers may
+ * write suggestions, each update checked by `checkReviewerUpdate`.
  */
 export async function authorize(
   db: Executor,
@@ -111,6 +112,6 @@ export async function authorize(
       role: member.role,
       fileId,
     },
-    readOnly: !hasRole(member.role, 'editor'),
+    readOnly: !hasRole(member.role, 'reviewer'),
   };
 }

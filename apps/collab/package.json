@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@galley/db": "workspace:*",
+    "@galley/review": "workspace:*",
     "@galley/shared": "workspace:*",
     "@hocuspocus/extension-redis": "4.7.1",
     "@hocuspocus/server": "4.7.1",
