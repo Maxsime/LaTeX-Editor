@@ -2,7 +2,7 @@
 
 Éditeur LaTeX collaboratif, auto-hébergé, avec assistant IA intégré. Le cahier des charges est dans [`SPEC.md`](SPEC.md), les consignes de développement dans [`CLAUDE.md`](CLAUDE.md).
 
-État : jalon J4 (navigation et diagnostics). On crée un compte, on gère ses projets, on importe un projet Overleaf ou Prism en zip, on édite ses fichiers dans un éditeur LaTeX synchronisé en continu, on compile avec TeX Live 2026 dans un bac à sable, on lit le PDF à côté du source et on passe de l'un à l'autre par SyncTeX. La collaboration (présence, commentaires, partage) arrive au jalon suivant (`SPEC.md` §9).
+État : jalon J10 (administration et exploitation). Comptes, projets, import Overleaf ou Prism, édition synchronisée à plusieurs, compilation TeX Live 2026 en bac à sable avec SyncTeX, commentaires et suivi des modifications, historique et accès Git, bibliographie et correcteur, assistant IA qui propose sans écrire. L'administrateur dispose d'une console (comptes, invitations, quotas, connexion unique OIDC, modèle d'IA de l'instance) et de scripts de sauvegarde et de restauration. Reste le jalon J11 (finitions, `SPEC.md` §9).
 
 ## Démarrer une instance
 
@@ -14,7 +14,7 @@ docker compose up --build
 
 Le premier lancement est long : l'image de compilation embarque TeX Live complet (environ 2,6 Gio à télécharger, 7,5 Gio sur le disque). Sur un serveur Ubuntu 24.04, une option du noyau doit être changée avant le démarrage, voir [`docs/operations.md`](docs/operations.md).
 
-L'instance est servie sur <https://localhost>. Aucune configuration n'est nécessaire : `compose.yaml` fournit des valeurs par défaut pour un usage local. Pour les modifier, copier `.env.example` vers `.env`. Avant toute exposition sur un réseau, changer chaque mot de passe et secret.
+L'instance est servie sur <https://localhost>. Aucune configuration n'est nécessaire : `compose.yaml` fournit des valeurs par défaut pour un usage local. Pour les modifier, `scripts/init-env.sh` crée `.env` à partir de `.env.example` avec des secrets aléatoires. Pour une instance publique (nom de domaine, Let's Encrypt, sauvegarde quotidienne, mise à jour), suivre [`docs/installation.md`](docs/installation.md) : l'API refuse de démarrer sur un autre hôte que `localhost` tant qu'un secret garde sa valeur de développement.
 
 ### Faire confiance au certificat local
 
@@ -38,7 +38,7 @@ Ouvrir <https://localhost>, qui redirige vers la page « Créer le compte admini
 
 ### Comptes et invitations
 
-Le mode d'inscription se règle par `REGISTRATION_MODE` :
+Le mode d'inscription se règle dans la console d'administration (menu « Administration ») ou, par défaut, par `REGISTRATION_MODE` :
 
 | Valeur            | Effet                                         |
 | ----------------- | --------------------------------------------- |
@@ -125,6 +125,12 @@ Le bouton « Journal » liste les erreurs et avertissements : un clic ouvre le f
 Un double-clic dans le PDF ouvre le fichier source à la ligne correspondante, y compris dans un fichier inclus. Dans l'autre sens, le bouton « Vers le PDF » ou Ctrl+Alt+J fait défiler le PDF jusqu'à la ligne du curseur et la surligne. Le journal brut et les fichiers produits (`.log`, `.bbl`, `.synctex.gz`...) y sont téléchargeables. Le menu « Options » règle le moteur (pdfLaTeX, XeLaTeX, LuaLaTeX), l'outil bibliographique, le shell-escape, la compilation en brouillon et l'arrêt à la première erreur, et propose « Nettoyer et recompiler ».
 
 Chaque compilation tourne sans réseau, dans un bac à sable limité en temps (3 min), en mémoire et en disque. Le shell-escape complet (minted, par exemple) n'est accepté que si l'administrateur l'autorise (`COMPILER_ALLOW_FULL_SHELL_ESCAPE`) ; sinon le projet compile avec la liste restreinte de TeX Live.
+
+### Administration, quotas et sauvegardes
+
+Le menu « Administration », visible des administrateurs, regroupe les comptes (création, désactivation, rôle, réinitialisation du mot de passe, quotas individuels), les invitations, le mode d'inscription et les quotas par défaut, le modèle d'IA de l'instance et l'état des services. Les réglages faits dans la console priment sur `.env`. Chacun voit sa consommation (stockage, temps de compilation du mois) dans « Mon compte ».
+
+La connexion unique passe par un fournisseur OpenID Connect (`OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`). `scripts/backup.sh` sauvegarde l'instance sans l'arrêter, `scripts/restore.sh` la restaure. Le détail est dans [`docs/operations.md`](docs/operations.md).
 
 ### Vérifier l'état des services
 

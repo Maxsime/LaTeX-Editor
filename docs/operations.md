@@ -1,6 +1,6 @@
 # Exploitation
 
-Ce document rassemble ce qu'un administrateur doit savoir pour faire tourner une instance. L'architecture est décrite dans `docs/architecture.md`.
+Ce document rassemble ce qu'un administrateur doit savoir pour faire tourner une instance. L'installation d'un serveur public est décrite dans `docs/installation.md`, l'architecture dans `docs/architecture.md`.
 
 ## Ressources
 
@@ -10,13 +10,99 @@ Ce document rassemble ce qu'un administrateur doit savoir pour faire tourner une
 
 ## Clé maître
 
-`GALLEY_MASTER_KEY` chiffre au repos les secrets que les utilisateurs confient à l'instance (clés d'API Zotero et des fournisseurs d'IA ; AES-256-GCM, chaque secret lié à son propriétaire). Générer une clé de 32 octets avant toute mise en service :
+`GALLEY_MASTER_KEY` chiffre au repos les secrets que les utilisateurs confient à l'instance (clés d'API Zotero et des fournisseurs d'IA ; AES-256-GCM, chaque secret lié à son propriétaire). `scripts/init-env.sh` en génère une avec les autres secrets. Pour la créer à la main, 32 octets en base64 :
 
 ```sh
 openssl rand -base64 32
 ```
 
-La valeur par défaut de `compose.yaml` est publique et l'API l'annonce en avertissement à chaque démarrage. La clé ne quitte jamais le serveur et n'apparaît pas dans les sauvegardes de la base : la conserver à part, avec les autres secrets. La perdre ou la changer rend les clés enregistrées illisibles ; les utilisateurs les saisissent alors à nouveau (aucune autre donnée n'est perdue).
+La valeur par défaut de `compose.yaml` est publique : l'API l'annonce en avertissement sur `localhost` et refuse de démarrer avec elle sur tout autre nom d'hôte, comme avec les autres secrets de développement. La clé ne quitte jamais le serveur et n'apparaît pas dans les sauvegardes de la base : la conserver à part, avec les autres secrets. La perdre ou la changer rend les clés enregistrées illisibles ; les utilisateurs les saisissent alors à nouveau (aucune autre donnée n'est perdue).
+
+## Console d'administration
+
+Le menu « Administration » (comptes administrateurs seulement) regroupe :
+
+- Utilisateurs : recherche, création avec mot de passe temporaire affiché une fois, désactivation (les sessions de la personne sont fermées), droits d'administration, réinitialisation du mot de passe, quotas propres. L'instance garde toujours au moins un administrateur actif : la console refuse de retirer ses droits ou de désactiver le dernier.
+- Invitations : liens d'inscription à usage unique, de 1 à 90 jours.
+- Inscription et quotas : mode d'inscription (`open`, `invite`, `closed`) et quotas par défaut.
+- Assistant IA : interrupteur de l'instance, modèle par défaut (clé chiffrée par la clé maître, affichée par ses 4 derniers caractères) et table des prix.
+- Services : version, millésime TeX Live, file de compilation, compilations des dernières 24 h, comptes actifs, stockage, connexion unique.
+
+Un réglage modifié dans la console est enregistré en base et l'emporte sur la variable d'environnement correspondante (`REGISTRATION_MODE`, `QUOTA_*`, `AI_ENABLED`, `AI_DEFAULT_*`), qui reste la valeur de départ. La console indique pour chaque réglage d'où vient sa valeur. Pour revenir à la variable d'environnement, supprimer la ligne de la table `instance_settings`, ou, pour le modèle d'IA, utiliser « Revenir à la configuration du serveur ».
+
+Les commandes en ligne de `README.md` (`create-user`, `reset-password`, `create-invite`) restent disponibles, par exemple pour retrouver l'accès si plus aucun administrateur ne peut se connecter.
+
+## Quotas
+
+Deux limites, vides (illimitées) par défaut :
+
+- Espace de stockage (`QUOTA_STORAGE_MB`) : somme des fichiers des projets dont la personne est propriétaire, corbeille comprise jusqu'à la purge. Vérifié avant chaque écriture qui ajoute des données : téléversement, import d'archive, création de projet, push Git, restauration d'une version, fichier créé par l'assistant. Une écriture qui fait grandir l'espace au-delà de la limite est refusée (`QUOTA_STORAGE_EXCEEDED`) ; supprimer ou réduire reste toujours possible. La frappe dans l'éditeur n'est jamais bloquée : un document qui grossit est compté, et c'est l'écriture bloquante suivante qui échoue.
+- Temps de compilation par mois civil (`QUOTA_COMPILE_MINUTES`) : durée des compilations lancées par la personne, aperçus de l'assistant compris. Vérifié au lancement (`QUOTA_COMPILE_EXCEEDED`) ; une compilation en cours n'est jamais interrompue, si bien que le dernier mois peut dépasser la limite d'une compilation.
+
+Chaque personne voit sa consommation dans « Mon compte ». Dans la console, une valeur propre à une personne remplace la valeur par défaut ; `-1` la rend illimitée. Le quota de stockage d'un projet partagé est celui de son propriétaire, quel que soit le membre qui écrit.
+
+## Connexion unique (OIDC)
+
+Galley accepte un fournisseur OpenID Connect : Keycloak, Authentik, Google Workspace, Microsoft Entra ID, ou tout fournisseur conforme. Dans la console du fournisseur, créer un client confidentiel de type « authorization code », avec l'adresse de retour `https://<GALLEY_HOST>/api/auth/oidc/callback`, puis renseigner dans `.env` :
+
+```sh
+OIDC_ISSUER=https://id.example.org/realms/ecole   # adresse de découverte, sans /.well-known/...
+OIDC_CLIENT_ID=galley
+OIDC_CLIENT_SECRET=...
+OIDC_DISPLAY_NAME=Compte de l'école               # texte du bouton « Se connecter avec ... »
+```
+
+Le flux utilise PKCE, `state` et `nonce` ; l'état est lié au navigateur par un cookie, si bien qu'un lien de connexion forgé ne connecte personne. À la première connexion d'une identité :
+
+1. si un compte a la même adresse e-mail et que le fournisseur garantit cette adresse (`email_verified`), l'identité lui est rattachée ;
+2. sinon, si l'inscription est ouverte ou `OIDC_ALLOW_SIGNUP=true`, un compte est créé, sans mot de passe (l'administrateur peut lui en donner un depuis la console) ;
+3. sinon la connexion est refusée avec un message explicite.
+
+Un fournisseur qui ne garantit pas l'adresse e-mail ne peut ni rattacher ni créer de compte : c'est volontaire, sinon n'importe qui pourrait prendre un compte en déclarant son adresse. GitHub n'est pas un fournisseur OpenID Connect pour la connexion des personnes : passer par un courtier comme Keycloak ou Authentik, qui proposent GitHub comme source d'identité. Un fournisseur en HTTP simple n'est accepté que parce que l'administrateur l'a configuré ainsi (réseau interne, tests) ; en production, HTTPS.
+
+## Sauvegarde et restauration
+
+`scripts/backup.sh [dossier]` (défaut `./backups`) sauvegarde une instance en marche dans `galley-<date UTC>/` :
+
+| Fichier         | Contenu                                                                        |
+| --------------- | ------------------------------------------------------------------------------ |
+| `database.dump` | base PostgreSQL (`pg_dump` au format personnalisé)                             |
+| `objects.tar`   | fichiers binaires, contenus des versions, sorties de compilation (stockage S3) |
+| `git.tar`       | dépôts Git des projets                                                         |
+| `manifest.json` | date, version, nombre de migrations, nombre d'objets, empreinte du contenu     |
+| `SHA256SUMS`    | empreintes des quatre fichiers, vérifiées avant toute restauration             |
+
+La base est sauvegardée avant les objets. Un objet n'est jamais réécrit : chaque ligne de la base retrouve donc son objet, et un objet stocké après la sauvegarde de la base est simplement inutilisé. Le dossier n'est lisible que par son propriétaire ; il contient tous les documents et les empreintes des mots de passe : le traiter comme une donnée sensible. Valkey (files d'attente, caches) n'est pas sauvegardé.
+
+`scripts/restore.sh <dossier> [--yes]` restaure sur une instance neuve ou existante :
+
+1. vérifie les empreintes et refuse une sauvegarde d'une version plus récente que le code ;
+2. demande confirmation si l'instance a déjà des comptes ;
+3. arrête les services applicatifs, remplace la base, vide Valkey, restaure les objets et les dépôts Git ;
+4. compare l'empreinte du contenu restauré (comptes, projets, arborescence, texte de chaque fichier, versions, objets) à celle du manifeste, avant que les services ne redémarrent ;
+5. relance l'instance ; les migrations plus récentes s'appliquent au démarrage.
+
+`backup.sh` calcule l'empreinte au début et à la fin de la sauvegarde et ne l'enregistre que si elles sont égales ; sinon (l'instance a changé pendant la sauvegarde, par exemple une version automatique de l'historique), la sauvegarde reste utilisable mais la restauration ne peut pas être vérifiée par l'empreinte. `--verify` fait de toute différence une erreur (CI). La clé maître n'est pas dans la sauvegarde : sur une nouvelle machine, reprendre le `.env` d'origine avant de restaurer, sinon les clés Zotero et d'IA enregistrées devront être ressaisies.
+
+La CI exerce l'ensemble après les tests de bout en bout (`scripts/ci-backup-roundtrip.sh`) : sauvegarde (refaite jusqu'à trois fois si l'instance a changé pendant), `docker compose down --volumes`, pile neuve, restauration avec `--verify`, connexion avec un compte créé avant la sauvegarde.
+
+## Supervision
+
+Chaque service expose ses métriques Prometheus sur le réseau interne, sans passer par Caddy : `api:3000/metrics`, `collab:3001/metrics`, `compiler:3002/metrics`. Outre les métriques de Node.js :
+
+- `galley_http_request_duration_seconds` : durée des requêtes HTTP par route ;
+- `galley_compile_queue_jobs` : compilations en attente, en cours, différées, en échec ;
+- `galley_compile_jobs_total`, `galley_compile_duration_seconds` : issue et durée des compilations ;
+- `galley_collab_connections`, `galley_collab_documents` : connexions et documents ouverts ;
+- `galley_ai_requests_total`, `galley_ai_tokens_total` : requêtes à l'assistant par issue, jetons consommés par fournisseur.
+
+Le profil Compose `monitoring` ajoute un Prometheus qui collecte les trois services (`infra/monitoring/prometheus.yml`), 30 jours de rétention (`PROMETHEUS_RETENTION`) :
+
+```sh
+docker compose --profile monitoring up -d
+```
+
+Il écoute sur `127.0.0.1:9090` du serveur seulement (`PROMETHEUS_PORT`) : y accéder par un tunnel SSH (`ssh -L 9090:localhost:9090 serveur`). `infra/monitoring/grafana-dashboard.json` est un tableau de bord d'exemple à importer dans un Grafana existant.
 
 ## Assistant IA
 
