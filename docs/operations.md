@@ -5,7 +5,18 @@ Ce document rassemble ce qu'un administrateur doit savoir pour faire tourner une
 ## Ressources
 
 - Disque : l'image du worker de compilation (TeX Live complet) occupe environ 7,5 Gio ; le premier `docker compose up --build` télécharge environ 2,6 Gio pour elle seule. Prévoir en plus les répertoires de travail des compilations (volume `compile-work`, 20 Gio au plus par défaut, `COMPILER_WORK_QUOTA_MB`), la base, le stockage objet et les dépôts Git des projets (volume `git-data`, de la taille des projets à peu près ; il se reconstruit depuis les projets s'il est perdu, mais les clones existants devront alors être refaits).
-- Mémoire : chaque compilation peut utiliser jusqu'à `COMPILER_MEMORY_MB` (2 Gio) par processus ; compter au moins 2 Gio par compilation simultanée (`COMPILER_CONCURRENCY`, 2 par défaut) en plus des autres services.
+- Mémoire : chaque compilation peut utiliser jusqu'à `COMPILER_MEMORY_MB` (2 Gio) par processus ; compter au moins 2 Gio par compilation simultanée (`COMPILER_CONCURRENCY`, 2 par défaut) en plus des autres services. LanguageTool réserve en plus son tas Java (`LANGUAGETOOL_MEMORY`, 1 Gio par défaut ; 512 Mio suffisent pour quelques utilisateurs). Son image pèse environ 450 Mo et il met 20 à 40 s à démarrer ; l'éditeur reste utilisable sans lui.
+- Réseau sortant : l'API appelle `api.crossref.org`, `export.arxiv.org`, `openlibrary.org` et `api.zotero.org` pour les imports bibliographiques. Derrière un pare-feu, les ouvrir ou désigner un miroir (`CROSSREF_URL`, `ARXIV_URL`, `OPENLIBRARY_URL`, `ZOTERO_URL`). Aucun autre service ne sort : LanguageTool et le worker de compilation sont sur le réseau interne.
+
+## Clé maître
+
+`GALLEY_MASTER_KEY` chiffre au repos les secrets que les utilisateurs confient à l'instance (aujourd'hui, les clés d'API Zotero ; AES-256-GCM, chaque secret lié à son propriétaire). Générer une clé de 32 octets avant toute mise en service :
+
+```sh
+openssl rand -base64 32
+```
+
+La valeur par défaut de `compose.yaml` est publique et l'API l'annonce en avertissement à chaque démarrage. La clé ne quitte jamais le serveur et n'apparaît pas dans les sauvegardes de la base : la conserver à part, avec les autres secrets. La perdre ou la changer rend les clés Zotero enregistrées illisibles ; les utilisateurs les relient alors à nouveau (aucune autre donnée n'est perdue).
 
 ## Bac à sable de compilation
 
