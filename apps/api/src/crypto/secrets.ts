@@ -1,6 +1,9 @@
 import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
 import { ApiError } from '@galley/shared';
 
+/** Master key of compose.yaml, public: an instance still using it gets a warning at start. */
+export const DEVELOPMENT_MASTER_KEY = 'Z2FsbGV5LWRldi1tYXN0ZXIta2V5LWNoYW5nZS1tZSE=';
+
 /** Format version, first byte of every ciphertext, so the scheme can change later. */
 const VERSION = 1;
 const NONCE_BYTES = 12;

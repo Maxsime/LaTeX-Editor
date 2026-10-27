@@ -24,7 +24,7 @@ const PROJECT_URL = 'https://github.com/Maxsime/LaTeX-Editor';
 
 /** User-Agent sent to the services; Crossref asks for a contact to serve the "polite" pool. */
 export function userAgent(mailto?: string): string {
-  return `Galley (${PROJECT_URL}${mailto === undefined ? '' : `; mailto:${mailto}`})`;
+  return `Galley (${PROJECT_URL}${mailto === undefined || mailto === '' ? '' : `; mailto:${mailto}`})`;
 }
 
 export type Fetch = typeof fetch;

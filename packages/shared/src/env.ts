@@ -117,7 +117,7 @@ export const apiEnv = z
     /** Bibliographic services, overridable for a mirror and for tests. */
     CROSSREF_URL: z._default(z.url({ protocol: /^https?$/ }), 'https://api.crossref.org'),
     /** Contact sent to Crossref, which then serves requests from its faster "polite" pool. */
-    CROSSREF_MAILTO: z.optional(z.email()),
+    CROSSREF_MAILTO: z.optional(z.union([z.literal(''), z.email()])),
     ARXIV_URL: z._default(z.url({ protocol: /^https?$/ }), 'https://export.arxiv.org'),
     OPENLIBRARY_URL: z._default(z.url({ protocol: /^https?$/ }), 'https://openlibrary.org'),
     ZOTERO_URL: z._default(z.url({ protocol: /^https?$/ }), 'https://api.zotero.org'),

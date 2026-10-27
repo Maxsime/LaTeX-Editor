@@ -176,3 +176,15 @@ describe('imports', () => {
     ).toThrow();
   });
 });
+
+describe('corpus project 13-doi-import', () => {
+  it('holds exactly what importing its DOI writes', () => {
+    const reference = parseCrossref(fixture('crossref-10.1093_comjnl_27.2.97.json'));
+    const entry = entryFromReference(reference, { pattern: PATTERN, taken: new Set() });
+    const corpus = readFileSync(
+      new URL('../../../../fixtures/projects/13-doi-import/references.bib', import.meta.url),
+      'utf8',
+    );
+    expect(corpus).toBe(entry.bibtex);
+  });
+});

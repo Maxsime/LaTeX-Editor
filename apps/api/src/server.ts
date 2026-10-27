@@ -9,6 +9,7 @@ import { createSynctexClient } from './compile/synctex.js';
 import { ensureSetupCode } from './auth/setup.js';
 import { countUsers } from './auth/users.js';
 import { readConfig } from './config.js';
+import { DEVELOPMENT_MASTER_KEY } from './crypto/secrets.js';
 import { createDatabase, runMigrations } from '@galley/db';
 import { startMaintenance } from './projects/purge.js';
 import { createS3Client, ensureBucket, headBucket } from './storage/s3.js';
@@ -35,6 +36,13 @@ async function main(): Promise<void> {
       { setupCode: code },
       'no account yet: open Galley and create the administrator with this setup code',
     );
+  }
+  if (config.GALLEY_MASTER_KEY === DEVELOPMENT_MASTER_KEY) {
+    logger.warn(
+      'GALLEY_MASTER_KEY has its development value: set your own before storing real keys',
+    );
+  } else if (config.GALLEY_MASTER_KEY === undefined) {
+    logger.warn('GALLEY_MASTER_KEY is not set: users cannot store Zotero or AI keys');
   }
   // BullMQ needs a connection that retries forever; it must not share the request one.
   const queueRedis = new Redis(config.VALKEY_URL, { maxRetriesPerRequest: null });
