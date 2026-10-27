@@ -26,6 +26,7 @@ import {
 } from '@galley/shared';
 import { createLogger } from '@galley/shared/node';
 import { HocuspocusProvider, HocuspocusProviderWebsocket } from '@hocuspocus/provider';
+import { acceptedText, RANGES_KEY, suggestChanges } from '@galley/review';
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from '@testcontainers/postgresql';
 import { and, eq } from 'drizzle-orm';
 import { Redis } from 'ioredis';
@@ -352,24 +353,57 @@ describe.skipIf(!dockerAvailable)('collab server', () => {
     });
   });
 
-  it('gives readers and reviewers a read-only connection', async () => {
+  it('gives readers a read-only connection', async () => {
     const { fileId, others } = await projectWithFile('original', ['reader', 'reviewer']);
+    const scopes = [];
     for (const member of others) {
-      const scope = await new Promise<string>((resolve) => {
-        connect(fileDocumentName(fileId), member.token, {
-          onAuthenticated: ({ scope: granted }) => {
-            resolve(granted);
-          },
-        });
-      });
-      expect(scope).toBe('readonly');
+      scopes.push(
+        await new Promise<string>((resolve) => {
+          connect(fileDocumentName(fileId), member.token, {
+            onAuthenticated: ({ scope: granted }) => {
+              resolve(granted);
+            },
+          });
+        }),
+      );
     }
+    expect(scopes).toEqual(['readonly', 'read-write']);
     const reader = await synced(fileDocumentName(fileId), others[0]?.token ?? '');
     reader.document.getText(TEXT_KEY).insert(0, 'tampered ');
     await new Promise((resolve) => setTimeout(resolve, 500));
     const live = collab.server.hocuspocus.documents.get(fileDocumentName(fileId));
     expect(live?.getText(TEXT_KEY).toJSON()).toBe('original');
     expect(await storedText(fileId)).toBe('original');
+  });
+
+  it('lets reviewers suggest, and refuses their direct edits', async () => {
+    const { fileId, others } = await projectWithFile('Le chat dort.', ['reviewer']);
+    const member = others[0];
+    if (member === undefined) throw new Error('no reviewer');
+    const name = fileDocumentName(fileId);
+    const reviewer = await synced(name, member.token);
+    suggestChanges(
+      reviewer.document.getText(TEXT_KEY),
+      reviewer.document.getMap(RANGES_KEY),
+      { author: member.id, now: Date.now(), newId: () => 's1' },
+      [{ from: 7, to: 7, insert: ' noir' }],
+    );
+    await eventually(async () => {
+      expect(await storedText(fileId)).toBe('Le chat noir dort.');
+    });
+    const live = collab.server.hocuspocus.documents.get(name);
+    if (live === undefined) throw new Error('document not loaded');
+    expect(acceptedText(live.getText(TEXT_KEY), live.getMap(RANGES_KEY))).toBe('Le chat dort.');
+
+    // The provider reports the server's close message with the reason only.
+    const closed = new Promise<string | undefined>((resolve) => {
+      reviewer.on('close', ({ event }: { event: { reason?: string } }) => {
+        resolve(event.reason);
+      });
+    });
+    reviewer.document.getText(TEXT_KEY).insert(0, 'tampered ');
+    expect(await closed).toBe('invalid-update');
+    expect(live.getText(TEXT_KEY).toJSON()).toBe('Le chat noir dort.');
   });
 
   it('guards the internal routes with the shared token', async () => {

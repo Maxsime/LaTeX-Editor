@@ -4,6 +4,12 @@ import { compileStatus } from './compile-job.js';
 /** Name of the shared text holding a file's content, fixed for the whole application. */
 export const TEXT_KEY = 'content';
 
+/**
+ * Close reason sent to a client whose update was refused (a reviewer writing
+ * outside suggestions). The client's copy has diverged and must be reloaded.
+ */
+export const INVALID_UPDATE_REASON = 'invalid-update';
+
 /** Path under which the reverse proxy exposes the collaboration WebSocket. */
 export const COLLAB_PATH = '/collab';
 

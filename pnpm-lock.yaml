@@ -129,6 +129,9 @@ importers:
       '@galley/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@galley/review':
+        specifier: workspace:*
+        version: link:../../packages/review
       '@galley/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -239,6 +242,9 @@ importers:
       '@galley/latex-index':
         specifier: workspace:*
         version: link:../../packages/latex-index
+      '@galley/review':
+        specifier: workspace:*
+        version: link:../../packages/review
       '@galley/shared':
         specifier: workspace:*
         version: link:../../packages/shared

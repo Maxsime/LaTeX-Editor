@@ -1,6 +1,7 @@
 import type { Database } from '@galley/db';
 import {
   fileDocumentName,
+  hasRole,
   parseDocumentName,
   type ProjectEventMessage,
   presenceUserOf,
@@ -18,6 +19,7 @@ import { type CollabConfig, parseRedisUrl } from './config.js';
 import { relayProjectEvents } from './events.js';
 import { handleInternalRequest, type InternalOperations } from './internal.js';
 import { loadFileState, storeFileState } from './persistence.js';
+import { checkReviewerUpdate, InvalidUpdate } from './review.js';
 import { replaceText } from './text.js';
 
 /** Upper bound for a single WebSocket frame (CLAUDE.md: WebSocket messages are size-limited). */
@@ -185,6 +187,38 @@ export function createCollab({
       if (stored === null) throw new AccessDenied('forbidden');
       projectOf.set(documentName, stored.projectId);
       if (stored.state !== null) Y.applyUpdate(document, stored.state);
+    },
+
+    /**
+     * Reviewers write only suggestions and comment anchors. Sync step 1
+     * carries no change; steps 2 and updates are checked before Hocuspocus
+     * applies them, and a refused one closes the connection.
+     */
+    beforeSync({ context, document, type, payload }) {
+      // Same context as in beforeHandleAwareness.
+      const identity = context as CollabContext | undefined;
+      if (identity === undefined || type === 0 || hasRole(identity.role, 'editor')) {
+        return Promise.resolve();
+      }
+      if (identity.role !== 'reviewer') return Promise.resolve();
+      try {
+        checkReviewerUpdate(document, payload, identity.userId);
+      } catch (error) {
+        if (!(error instanceof InvalidUpdate)) {
+          logger.error(
+            { err: error, projectId: identity.projectId },
+            'reviewer update check failed',
+          );
+          throw new InvalidUpdate('check-failed');
+        }
+        refusals.inc({ reason: error.reason });
+        logger.warn(
+          { userId: identity.userId, projectId: identity.projectId, check: error.detail },
+          'reviewer update refused',
+        );
+        throw error;
+      }
+      return Promise.resolve();
     },
 
     onChange({ documentName, context }) {
