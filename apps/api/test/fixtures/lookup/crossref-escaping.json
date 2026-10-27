@@ -1,0 +1,19 @@
+{
+  "status": "ok",
+  "message-type": "work",
+  "message": {
+    "type": "proceedings-article",
+    "title": ["Fast <i>k</i>-NN search &amp; DNA indexing at 100% recall"],
+    "subtitle": ["a study of R_2 trees"],
+    "author": [
+      { "given": "Élodie", "family": "Lefèvre" },
+      { "given": "Jan", "family": "van der Berg" },
+      { "name": "CERN Collaboration" }
+    ],
+    "container-title": ["Proceedings of the 12th Symposium on Data & Systems"],
+    "page": "10–20",
+    "publisher": "ACM",
+    "DOI": "10.1145/1234567.8901234",
+    "issued": { "date-parts": [[2021]] }
+  }
+}

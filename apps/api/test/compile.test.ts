@@ -72,6 +72,8 @@ function startFakeWorker(url: string, s3: S3Client, bucket: string, redis: Redis
           outputs: [],
           texlive: 'TeX Live 2026',
           shellEscapeDowngraded: false,
+          lint: [],
+          wordCount: null,
         };
       }
       for (const [name, body] of [
@@ -110,6 +112,8 @@ function startFakeWorker(url: string, s3: S3Client, bucket: string, redis: Redis
         ],
         texlive: 'TeX Live 2026',
         shellEscapeDowngraded: false,
+        lint: [],
+        wordCount: null,
       };
     },
     { connection: { url, maxRetriesPerRequest: null }, concurrency: 2 },

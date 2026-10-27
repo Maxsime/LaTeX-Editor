@@ -64,6 +64,17 @@ describe('loadConfig', () => {
     expect(() => loadConfig(apiEnv, { ...validApiEnv, NODE_ENV: 'staging' })).toThrow(/NODE_ENV/);
   });
 
+  it('accepts a 32-byte master key only, and defaults the bibliographic services', () => {
+    const key = Buffer.alloc(32, 7).toString('base64');
+    const config = loadConfig(apiEnv, { ...validApiEnv, GALLEY_MASTER_KEY: key });
+    expect(config.GALLEY_MASTER_KEY).toBe(key);
+    expect(config.CROSSREF_URL).toBe('https://api.crossref.org');
+    const short = Buffer.alloc(16, 7).toString('base64');
+    expect(() => loadConfig(apiEnv, { ...validApiEnv, GALLEY_MASTER_KEY: short })).toThrow(
+      /GALLEY_MASTER_KEY/,
+    );
+  });
+
   it('never echoes the value of an invalid secret', () => {
     const secret = 'short';
     try {

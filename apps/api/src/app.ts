@@ -22,6 +22,7 @@ import { gitRoutes } from './routes/git.js';
 import { projectRoutes } from './routes/projects.js';
 import { sharingRoutes } from './routes/sharing.js';
 import { tagRoutes } from './routes/tags.js';
+import { writingRoutes } from './routes/writing.js';
 
 export interface AppDependencies {
   logger: FastifyBaseLogger;
@@ -101,6 +102,7 @@ export function buildApp({
       historyRoutes(api, context);
       tokenRoutes(api, context);
       reviewRoutes(api, context);
+      writingRoutes(api, context);
     });
     // Git clients authenticate with access tokens, never with the session cookie.
     void app.register((gitApp, _options, done) => {

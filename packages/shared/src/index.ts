@@ -13,3 +13,4 @@ export * from './projects.js';
 export * from './review.js';
 export * from './sharing.js';
 export * from './synctex.js';
+export * from './writing.js';

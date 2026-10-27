@@ -5,6 +5,7 @@ import {
   boolean,
   customType,
   index,
+  integer,
   jsonb,
   pgEnum,
   pgTable,
@@ -88,6 +89,17 @@ export const projects = pgTable(
     aiEnabled: boolean('ai_enabled').notNull().default(true),
     /** Every editor's changes are recorded as suggestions (SPEC §3.4). */
     trackChanges: boolean('track_changes').notNull().default(false),
+    /** Motif of generated citation keys (SPEC §3.6). */
+    citeKeyPattern: text('cite_key_pattern')
+      .notNull()
+      .default('[auth:lower][year][shorttitle:lower]'),
+    /** LanguageTool language, or `auto` to read it from the document (SPEC §3.7). */
+    spellLanguage: text('spell_language').notNull().default('auto'),
+    /** chktex warnings turned off for the project. */
+    chktexDisabled: integer('chktex_disabled')
+      .array()
+      .notNull()
+      .default(sql`'{1,8,13,36,44}'::integer[]`),
     type: projectType('type').notNull().default('document'),
     archivedAt: timestamp('archived_at', { withTimezone: true }),
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
@@ -431,3 +443,29 @@ export const projectMessages = pgTable(
   },
   (table) => [index('project_messages_project_idx').on(table.projectId, table.createdAt)],
 );
+
+/** Words a user accepts in every language, never reported as misspelt (SPEC §3.7). */
+export const userDictionaryWords = pgTable(
+  'user_dictionary_words',
+  {
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    word: text('word').notNull(),
+    ...timestamps,
+  },
+  (table) => [primaryKey({ columns: [table.userId, table.word] })],
+);
+
+/** A user's Zotero library; the API key is encrypted with the master key. */
+export const zoteroAccounts = pgTable('zotero_accounts', {
+  userId: uuid('user_id')
+    .primaryKey()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  zoteroUserId: text('zotero_user_id').notNull(),
+  username: text('username').notNull(),
+  /** AES-256-GCM: nonce, ciphertext and tag, see apps/api/src/crypto. */
+  apiKeyCiphertext: bytea('api_key_ciphertext').notNull(),
+  keyHint: text('key_hint').notNull(),
+  ...timestamps,
+});

@@ -45,7 +45,10 @@
     "USER_NOT_FOUND": "Aucun compte ne correspond. La personne doit d'abord créer un compte ; vous pouvez aussi lui envoyer un lien de partage.",
     "ALREADY_MEMBER": "Cette personne est déjà membre du projet.",
     "LINK_INVALID": "Ce lien de partage n'est pas valide : il a expiré ou a été révoqué.",
-    "OWNER_CANNOT_LEAVE": "Le propriétaire ne peut pas quitter son projet : transférez d'abord la propriété."
+    "OWNER_CANNOT_LEAVE": "Le propriétaire ne peut pas quitter son projet : transférez d'abord la propriété.",
+    "IDENTIFIER_INVALID": "Identifiant invalide : vérifiez le DOI, l'identifiant arXiv ou l'ISBN.",
+    "REFERENCE_NOT_FOUND": "Aucune référence ne correspond à cet identifiant.",
+    "SECRETS_UNAVAILABLE": "Cette instance ne peut pas enregistrer de clé : la clé maître n'est pas configurée."
   },
   "common": {
     "cancel": "Annuler",

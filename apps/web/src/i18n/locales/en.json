@@ -45,7 +45,10 @@
     "USER_NOT_FOUND": "No account matches. The person must sign up first; you can also send them a share link.",
     "ALREADY_MEMBER": "This person is already a member of the project.",
     "LINK_INVALID": "This share link is not valid: it has expired or been revoked.",
-    "OWNER_CANNOT_LEAVE": "The owner cannot leave their project: transfer ownership first."
+    "OWNER_CANNOT_LEAVE": "The owner cannot leave their project: transfer ownership first.",
+    "IDENTIFIER_INVALID": "Invalid identifier: check the DOI, arXiv identifier or ISBN.",
+    "REFERENCE_NOT_FOUND": "No reference matches this identifier.",
+    "SECRETS_UNAVAILABLE": "This instance cannot store keys: its master key is not configured."
   },
   "common": {
     "cancel": "Cancel",
