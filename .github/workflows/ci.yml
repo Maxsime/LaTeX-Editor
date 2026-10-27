@@ -75,6 +75,12 @@ jobs:
           files: compose.yaml
           targets: compiler
           load: true
+      # Ubuntu 24.04 lets AppArmor deny unprivileged user namespaces, which the
+      # compilation sandbox needs; docs/operations.md covers the same host setting.
+      - name: Allow user namespaces for the compilation sandbox
+        run: |
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          docker compose run --rm --no-deps --entrypoint bwrap compiler --unshare-all --ro-bind /usr /usr --symlink usr/bin /bin --symlink usr/lib /lib --proc /proc --dev /dev true && echo "sandbox ok"
       - name: Start the stack and require every service to be healthy
         run: scripts/compose-healthy.sh --no-build
       - uses: pnpm/action-setup@v4

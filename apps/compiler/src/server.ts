@@ -1,6 +1,7 @@
 import { ConfigError } from '@galley/shared';
 import { createLogger, readPackageVersion } from '@galley/shared/node';
 import { readConfig } from './config.js';
+import { checkSandbox } from './sandbox.js';
 import { createS3Client, putOutput, readBlob } from './storage.js';
 import { detectTexLive } from './texlive.js';
 import { createCompilerService } from './worker.js';
@@ -9,6 +10,8 @@ async function main(): Promise<void> {
   const config = readConfig();
   const logger = createLogger({ service: 'compiler', level: config.LOG_LEVEL });
   const version = readPackageVersion(import.meta.url);
+  // Refuse to start rather than accept jobs that would all fail.
+  await checkSandbox();
   const texlive = await detectTexLive();
   const s3 = createS3Client(config);
   const service = createCompilerService(config, logger, version, {
@@ -45,7 +48,8 @@ async function main(): Promise<void> {
 }
 
 main().catch((error: unknown) => {
-  const detail = error instanceof ConfigError ? error.message : String(error);
+  const detail =
+    error instanceof ConfigError || error instanceof Error ? error.message : String(error);
   process.stderr.write(`compiler failed to start: ${detail}\n`);
   process.exit(1);
 });

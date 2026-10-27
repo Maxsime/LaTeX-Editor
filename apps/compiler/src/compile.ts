@@ -68,6 +68,9 @@ const PUBLISHED_EXTENSIONS = [
  * A failure detected by the worker rather than read from a log. The message is
  * a stable code the interface translates; the context carries its value.
  */
+/** Characters of console output kept with a NO_OUTPUT diagnostic. */
+const CONSOLE_TAIL = 2000;
+
 function compilerDiagnostic(code: string, value = '', file: string | null = null): Diagnostic {
   return { level: 'error', source: 'compiler', file, line: null, message: code, context: value };
 }
@@ -210,7 +213,10 @@ export async function compileProject(
       ),
     );
   } else if (!run.cancelled && pdf === null && !diagnostics.some((d) => d.level === 'error')) {
-    diagnostics.unshift(compilerDiagnostic('NO_OUTPUT', '', job.mainFile));
+    // The end of the console says why: latexmk refusing to start, a missing main file, a sandbox failure.
+    diagnostics.unshift(
+      compilerDiagnostic('NO_OUTPUT', run.console.slice(-CONSOLE_TAIL), job.mainFile),
+    );
   }
   const errors = diagnostics.filter((d) => d.level === 'error').length;
 

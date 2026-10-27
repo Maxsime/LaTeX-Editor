@@ -6,9 +6,7 @@
       "expect": {
         "outcome": "success",
         "minPages": 1,
-        "absentWarnings": [
-          "undefined"
-        ]
+        "absentWarnings": ["undefined"]
       }
     }
   ]

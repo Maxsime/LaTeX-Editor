@@ -1,4 +1,4 @@
-import { spawn } from 'node:child_process';
+import { execFile, spawn } from 'node:child_process';
 import { lstat, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 
@@ -211,5 +211,48 @@ export function runSandboxed(
         durationMs: Date.now() - started,
       });
     });
+  });
+}
+
+/** Arguments of the smallest sandbox: the namespaces of a compilation and a read-only `/usr`. */
+export const SANDBOX_PROBE_ARGS = [
+  '--unshare-all',
+  '--die-with-parent',
+  '--clearenv',
+  '--ro-bind',
+  '/usr',
+  '/usr',
+  '--symlink',
+  'usr/bin',
+  '/bin',
+  '--symlink',
+  'usr/lib',
+  '/lib',
+  '--proc',
+  '/proc',
+  '--dev',
+  '/dev',
+  'true',
+];
+
+/**
+ * Checks once at start that the host lets bwrap create its namespaces. A host
+ * that forbids it (seccomp profile missing, AppArmor restricting user
+ * namespaces) would otherwise fail every compilation with no output.
+ *
+ * @param command - The sandbox binary; replaceable in tests.
+ * @throws Error carrying bwrap's own message.
+ */
+export function checkSandbox(command = 'bwrap'): Promise<void> {
+  return new Promise((resolve, reject) => {
+    execFile(
+      command,
+      SANDBOX_PROBE_ARGS,
+      { env: {}, timeout: 10_000 },
+      (error, _stdout, stderr) => {
+        if (error) reject(new Error(`sandbox unavailable: ${stderr.trim() || error.message}`));
+        else resolve();
+      },
+    );
   });
 }

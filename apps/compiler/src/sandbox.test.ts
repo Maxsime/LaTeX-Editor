@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { bwrapArgs, directorySize } from './sandbox.js';
+import { bwrapArgs, checkSandbox, directorySize } from './sandbox.js';
 
 const paths = {
   texliveDir: '/usr/local/texlive/2026',
@@ -102,5 +102,16 @@ describe('directorySize', () => {
     await symlink('/etc/hostname', join(dir, 'link'));
     expect(await directorySize(dir)).toBe(8);
     expect(await directorySize(join(dir, 'missing'))).toBe(0);
+  });
+});
+
+describe('checkSandbox', () => {
+  it('resolves when the sandbox starts', async () => {
+    await expect(checkSandbox('true')).resolves.toBeUndefined();
+  });
+
+  it('reports why the sandbox cannot start', async () => {
+    await expect(checkSandbox('false')).rejects.toThrow(/^sandbox unavailable: /);
+    await expect(checkSandbox('/nonexistent/bwrap')).rejects.toThrow(/ENOENT/);
   });
 });

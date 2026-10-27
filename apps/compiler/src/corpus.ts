@@ -106,7 +106,11 @@ function matches(diagnostic: Diagnostic, expected: z.infer<typeof expectedDiagno
 
 function describeDiagnostics(diagnostics: readonly Diagnostic[]): string {
   return diagnostics
-    .map((d) => `${d.level} ${d.file ?? '-'}:${String(d.line)} ${d.message}`)
+    .map(
+      (d) =>
+        `${d.level} ${d.file ?? '-'}:${String(d.line)} ${d.message}` +
+        (d.source === 'compiler' && d.context !== '' ? ` [${d.context.trim()}]` : ''),
+    )
     .join(' | ');
 }
 

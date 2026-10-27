@@ -35,20 +35,14 @@
           "NETWORK-REACHED",
           "Example Domain"
         ],
-        "logContains": [
-          "READ shell-net.txt: NO-NETWORK"
-        ]
+        "logContains": ["READ shell-net.txt: NO-NETWORK"]
       }
     },
     {
       "main": "write-outside.tex",
       "expect": {
         "pdf": false,
-        "forbiddenPaths": [
-          "../escape.txt",
-          "../../escape.txt",
-          "/tmp/escape.txt"
-        ]
+        "forbiddenPaths": ["../escape.txt", "../../escape.txt", "/tmp/escape.txt"]
       }
     },
     {
@@ -65,10 +59,7 @@
           "NETWORK-REACHED",
           "Example Domain"
         ],
-        "logContains": [
-          "LUA socket: no network",
-          "LUA valkey:"
-        ]
+        "logContains": ["LUA socket: no network", "LUA valkey:"]
       }
     }
   ]
