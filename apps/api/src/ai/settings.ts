@@ -74,7 +74,9 @@ export async function resolveModel(
     source: 'instance',
     config: instance,
     capabilities: capabilitiesOf(instance.provider, instance.model, {
-      ...(typeof config.AI_DEFAULT_VISION === 'boolean' ? { vision: config.AI_DEFAULT_VISION } : {}),
+      ...(typeof config.AI_DEFAULT_VISION === 'boolean'
+        ? { vision: config.AI_DEFAULT_VISION }
+        : {}),
       ...(typeof config.AI_DEFAULT_CONTEXT_TOKENS !== 'number'
         ? {}
         : { contextTokens: config.AI_DEFAULT_CONTEXT_TOKENS }),
