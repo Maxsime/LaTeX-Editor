@@ -1,76 +1,17 @@
-import { type Browser, expect, type Page, test, type WebSocketRoute } from '@playwright/test';
+import { expect, type Page, test, type WebSocketRoute } from '@playwright/test';
 import * as Y from 'yjs';
-import { createProject, editor, open, synced, upload } from '../editing.js';
-import { type Account, createAccount, signIn } from '../instance.js';
-
-const SOURCE =
-  '\\documentclass{article}\n\\begin{document}\nLe paragraphe commun.\n\\end{document}\n';
-
-interface Participant {
-  page: Page;
-  account: Account;
-}
-
-/** A signed-in user in a browser context of their own. */
-async function participant(browser: Browser, name: string): Promise<Participant> {
-  const context = await browser.newContext();
-  const page = await context.newPage();
-  const account = createAccount(name);
-  await signIn(page, account);
-  return { page, account };
-}
-
-/** Creates a project holding `collab.tex` and returns its id and the file's id. */
-async function sharedProject(
-  page: Page,
-  name: string,
-): Promise<{ projectId: string; fileId: string }> {
-  await createProject(page, name);
-  await upload(page, { 'collab.tex': SOURCE });
-  const projectId = /\/projects\/([^/?#]+)/.exec(page.url())?.[1] ?? '';
-  const node = page.getByRole('treeitem', { name: /^collab\.tex/ });
-  const fileId = ((await node.getAttribute('id')) ?? '').replace(/^node-/, '');
-  return { projectId, fileId };
-}
-
-async function openShare(page: Page) {
-  await page.getByRole('button', { name: 'Partager', exact: true }).click();
-  return page.getByRole('dialog');
-}
-
-/** Creates a share link from the owner's dialog and returns its URL. */
-async function shareLink(page: Page, role: string): Promise<string> {
-  const dialog = await openShare(page);
-  await dialog.getByLabel('Rôle donné par le lien').selectOption({ label: role });
-  await dialog.getByRole('button', { name: 'Créer un lien' }).click();
-  const url = await dialog.getByLabel('Nouveau lien').inputValue();
-  await dialog.getByRole('button', { name: 'Fermer' }).click();
-  return url;
-}
-
-async function joinThroughLink(page: Page, url: string, project: string): Promise<void> {
-  await page.goto(url);
-  await page.getByRole('button', { name: 'Rejoindre le projet' }).click();
-  await expect(page.getByRole('heading', { level: 1, name: project })).toBeVisible();
-}
-
-/** Text of the active editor, without the cursors and name tags of other people. */
-function editorText(page: Page): Promise<string> {
-  return editor(page).evaluate((content) =>
-    Array.from(content.querySelectorAll('.cm-line'), (line) => {
-      const copy = line.cloneNode(true) as HTMLElement;
-      for (const widget of copy.querySelectorAll('[class*="cm-ySelection"]')) widget.remove();
-      return copy.textContent;
-    }).join('\n'),
-  );
-}
-
-/** Text of the file as the server stores it. */
-async function serverText(page: Page, projectId: string, fileId: string): Promise<string> {
-  const response = await page.request.get(`/api/projects/${projectId}/files/${fileId}/content`);
-  expect(response.ok()).toBe(true);
-  return response.text();
-}
+import { editor, open, sendRawUpdate, synced } from '../editing.js';
+import { createAccount } from '../instance.js';
+import {
+  editorText,
+  joinThroughLink,
+  openShare,
+  participant,
+  serverText,
+  shareLink,
+  sharedProject,
+  SOURCE,
+} from '../people.js';
 
 /** Puts the cursor at the end of the shared paragraph. */
 async function toParagraphEnd(page: Page): Promise<void> {
@@ -145,50 +86,7 @@ test.describe('collaboration', () => {
     const forged = new Y.Doc();
     forged.getText('content').insert(0, 'FORGED ');
     const update = Array.from(Y.encodeStateAsUpdate(forged));
-    const replies = await reader.page.evaluate(
-      async ({ documentName, update: bytes }) => {
-        const encoder = new TextEncoder();
-        const varUint = (value: number): number[] => {
-          const out: number[] = [];
-          let rest = value;
-          while (rest > 0x7f) {
-            out.push((rest & 0x7f) | 0x80);
-            rest >>>= 7;
-          }
-          out.push(rest);
-          return out;
-        };
-        const varBytes = (data: ArrayLike<number>): number[] => [
-          ...varUint(data.length),
-          ...Array.from(data),
-        ];
-        const varString = (text: string): number[] => varBytes(encoder.encode(text));
-        // Hocuspocus framing: document name, message type, then the payload.
-        const auth = [...varString(documentName), 2, 0, ...varString(''), ...varString('4.7.1')];
-        const sync = [...varString(documentName), 0, 2, ...varBytes(bytes)];
-        const socket = new WebSocket(`${location.origin.replace(/^http/, 'ws')}/collab`);
-        socket.binaryType = 'arraybuffer';
-        let received = 0;
-        await new Promise<void>((resolve, reject) => {
-          socket.onerror = () => {
-            reject(new Error('socket error'));
-          };
-          socket.onopen = () => {
-            socket.send(new Uint8Array(auth));
-          };
-          socket.onmessage = () => {
-            received += 1;
-            if (received === 1) {
-              socket.send(new Uint8Array(sync));
-              setTimeout(resolve, 1500);
-            }
-          };
-        });
-        socket.close();
-        return received;
-      },
-      { documentName: `file:${fileId}`, update },
-    );
+    const replies = await sendRawUpdate(reader.page, `file:${fileId}`, update);
     expect(replies).toBeGreaterThan(0);
 
     await open(owner.page, 'collab.tex');

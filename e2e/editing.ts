@@ -60,3 +60,58 @@ export async function compileStatus(page: Page, status: string, timeout = 60_000
     timeout,
   });
 }
+
+/**
+ * Sends a Yjs update over a WebSocket of its own, with the page's session, as
+ * a hand-crafted client would. Returns how many messages the server sent back.
+ */
+export function sendRawUpdate(
+  page: Page,
+  documentName: string,
+  update: readonly number[],
+): Promise<number> {
+  return page.evaluate(
+    async ({ documentName: name, update: bytes }) => {
+      const encoder = new TextEncoder();
+      const varUint = (value: number): number[] => {
+        const out: number[] = [];
+        let rest = value;
+        while (rest > 0x7f) {
+          out.push((rest & 0x7f) | 0x80);
+          rest >>>= 7;
+        }
+        out.push(rest);
+        return out;
+      };
+      const varBytes = (data: ArrayLike<number>): number[] => [
+        ...varUint(data.length),
+        ...Array.from(data),
+      ];
+      const varString = (text: string): number[] => varBytes(encoder.encode(text));
+      // Hocuspocus framing: document name, message type, then the payload.
+      const auth = [...varString(name), 2, 0, ...varString(''), ...varString('4.7.1')];
+      const sync = [...varString(name), 0, 2, ...varBytes(bytes)];
+      const socket = new WebSocket(`${location.origin.replace(/^http/, 'ws')}/collab`);
+      socket.binaryType = 'arraybuffer';
+      let received = 0;
+      await new Promise<void>((resolve, reject) => {
+        socket.onerror = () => {
+          reject(new Error('socket error'));
+        };
+        socket.onopen = () => {
+          socket.send(new Uint8Array(auth));
+        };
+        socket.onmessage = () => {
+          received += 1;
+          if (received === 1) {
+            socket.send(new Uint8Array(sync));
+            setTimeout(resolve, 1500);
+          }
+        };
+      });
+      socket.close();
+      return received;
+    },
+    { documentName, update: [...update] },
+  );
+}
