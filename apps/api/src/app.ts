@@ -62,7 +62,7 @@ export function buildApp({
     },
   });
 
-  const metrics = createMetrics();
+  const metrics = createMetrics(context?.compileQueue);
   app.addHook('onRequest', (request, reply, done) => {
     void reply.header(REQUEST_ID_HEADER, request.id);
     done();

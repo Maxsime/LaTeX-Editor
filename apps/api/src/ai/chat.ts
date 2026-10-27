@@ -26,6 +26,7 @@ import { and, desc, eq } from 'drizzle-orm';
 import type { FastifyBaseLogger } from 'fastify';
 import type * as z from 'zod/mini';
 import type { AppContext } from '../context.js';
+import { aiTokens } from '../metrics.js';
 import { nodePaths } from '../files/tree.js';
 import { type ProjectText, readProjectTexts } from '../materialize.js';
 import type { ProjectRow } from '../projects/access.js';
@@ -165,6 +166,8 @@ async function recordUsage(
       ),
     );
   const costMicros = price ? estimateCost(usage, price) : null;
+  aiTokens.inc({ provider: model.config.provider, direction: 'input' }, usage.inputTokens);
+  aiTokens.inc({ provider: model.config.provider, direction: 'output' }, usage.outputTokens);
   await db.insert(aiUsage).values({
     userId: options.userId,
     projectId: options.project.id,

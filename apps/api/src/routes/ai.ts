@@ -30,6 +30,7 @@ import {
 import { storageGuard } from '../admin/quotas.js';
 import { instanceSettingsOf } from '../admin/settings.js';
 import { AiStore } from '../ai/store.js';
+import { aiRequests } from '../metrics.js';
 import { requireAdmin, requireAuth } from '../auth/plugin.js';
 import type { AppContext } from '../context.js';
 import { createSecretBox, keyHint, requireSecretBox } from '../crypto/secrets.js';
@@ -273,7 +274,12 @@ export function aiRoutes(app: FastifyInstance, context: AppContext): void {
           logger: request.log,
           send,
         });
+        aiRequests.inc({
+          mode: body.mode,
+          outcome: controller.signal.aborted ? 'cancelled' : 'ok',
+        });
       } catch (error) {
+        aiRequests.inc({ mode: body.mode, outcome: 'error' });
         if (!stream.started) throw error;
         request.log.error(
           { projectId: id, error: error instanceof Error ? error.name : typeof error },

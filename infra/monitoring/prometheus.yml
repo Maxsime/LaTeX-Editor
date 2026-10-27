@@ -1,0 +1,19 @@
+# Scrapes the three Galley services on the internal networks (compose profile
+# "monitoring", docs/operations.md). Their /metrics endpoints are not proxied by Caddy.
+global:
+  scrape_interval: 30s
+  evaluation_interval: 30s
+
+scrape_configs:
+  - job_name: galley-api
+    metrics_path: /metrics
+    static_configs:
+      - targets: ['api:3000']
+  - job_name: galley-collab
+    metrics_path: /metrics
+    static_configs:
+      - targets: ['collab:3001']
+  - job_name: galley-compiler
+    metrics_path: /metrics
+    static_configs:
+      - targets: ['compiler:3002']

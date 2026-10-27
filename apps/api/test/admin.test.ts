@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { Readable, Writable } from 'node:stream';
 import type { S3Client } from '@aws-sdk/client-s3';
 import {
   type AdminUsersResponse,
@@ -25,10 +26,13 @@ import { eq } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import { Redis } from 'ioredis';
 import { OAuth2Server } from 'oauth2-mock-server';
+import * as tar from 'tar-stream';
 import type { StartedTestContainer } from 'testcontainers';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { buildApp } from '../src/app.js';
 import { ensureSetupCode } from '../src/auth/setup.js';
+import { fingerprint } from '../src/backup/fingerprint.js';
+import { exportObjects, importObjects } from '../src/backup/objects.js';
 import { createDocumentGateway } from '../src/collab/documents.js';
 import { readConfig } from '../src/config.js';
 import type { AppContext } from '../src/context.js';
@@ -356,6 +360,10 @@ describe.skipIf(!dockerAvailable)('administration, quotas and OIDC', () => {
         'waiting',
       ]);
       expect(status.users.total).toBeGreaterThanOrEqual(5);
+
+      const metrics = await app.inject({ method: 'GET', url: '/metrics' });
+      expect(metrics.body).toMatch(/galley_compile_queue_jobs\{[^}]*state="waiting"/);
+      expect(metrics.body).toContain('galley_ai_requests_total');
     });
   });
 
@@ -436,6 +444,39 @@ describe.skipIf(!dockerAvailable)('administration, quotas and OIDC', () => {
         compileSecondsThisMonth: 90,
         quotas: { storageMb: null, compileMinutes: 1 },
       });
+    });
+  });
+
+  describe('backups', () => {
+    it('carry every object to another bucket, with the same fingerprint', async () => {
+      const source = 'galley-admin';
+      const target = 'galley-restored';
+      const before = await fingerprint(database.db, s3, source);
+      expect(before.objects).toBeGreaterThan(0);
+
+      const chunks: Buffer[] = [];
+      const sink = new Writable({
+        write(chunk: Buffer, _encoding, done) {
+          chunks.push(chunk);
+          done();
+        },
+      });
+      const exported = await exportObjects(s3, source, sink);
+      expect(exported.count).toBe(before.objects);
+
+      await ensureBucket(s3, target);
+      const imported = await importObjects(s3, target, Readable.from([Buffer.concat(chunks)]));
+      expect(imported).toEqual({ count: exported.count, bytes: exported.bytes });
+      expect(await fingerprint(database.db, s3, target)).toEqual(before);
+    });
+
+    it('refuse an archive entry outside the object keys', async () => {
+      const pack = tar.pack();
+      pack.entry({ name: '../etc/passwd', size: 1 }, 'x');
+      pack.finalize();
+      await expect(importObjects(s3, 'galley-admin', Readable.from(pack))).rejects.toThrow(
+        /refused archive entry/,
+      );
     });
   });
 
