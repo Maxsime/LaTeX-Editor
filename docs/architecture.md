@@ -19,6 +19,7 @@ Le réseau `data` est interne : il n'a pas d'accès sortant et Caddy n'y est pas
 ## Routage par Caddy
 
 - `/api/*` vers `api:3000`, avec un en-tête `X-Request-Id` généré par Caddy et repris dans les logs de l'API.
+- `/git/*` vers `api:3000` : dépôts Git des projets (smart HTTP), authentifiés par jeton d'accès personnel.
 - `/collab` vers `collab:3001`, uniquement pour les requêtes de mise à niveau WebSocket. Les points de santé et les métriques de `collab` ne sont pas exposés.
 - Tout le reste : fichiers statiques de la SPA, avec repli sur `index.html`.
 - `/metrics` n'est exposé par aucun service à travers Caddy : les métriques se collectent sur le réseau interne.
@@ -64,6 +65,22 @@ L'import reçoit l'archive dans un dossier temporaire (`API_TMP_DIR`), valide to
 - Seul le propriétaire invite, crée ou révoque des liens, change les rôles, retire des membres et transfère la propriété (l'ancien propriétaire devient éditeur). Tout membre voit la liste des membres et peut quitter le projet ; les adresses e-mail ne sont montrées qu'au propriétaire.
 - Une invitation vise un compte existant, trouvé par adresse ou nom d'utilisateur ; elle s'accepte depuis le tableau de bord. Un lien de partage (`/join/<jeton>`, 32 octets aléatoires) n'est affiché qu'à sa création ; il ne rétrograde jamais un membre existant. Limites de débit : 30 invitations par heure et par utilisateur, 30 usages de lien par minute.
 - Un visiteur non connecté qui ouvre un lien passe par la page de connexion (`/login?redirect=...`, chemin interne uniquement) puis revient au lien.
+
+## Historique
+
+- Table `snapshots` : projet, nature (`auto`, `compile`, `named`, `restore`, `git`), étiquette facultative, auteurs, manifeste (chemin vers empreinte), dossiers, empreinte de l'état. Un instantané n'est créé que si l'état diffère du précédent, sauf pour une version nommée.
+- Auteurs : `collab` inscrit dans `project_activity` les utilisateurs dont les connexions ont modifié un document, à chaque écriture ; l'API fait de même pour l'arborescence, le remplacement global et les pushs. Un instantané prend ces auteurs et vide la liste, dans la même transaction.
+- Déclenchement : file de maintenance (`take-snapshots` chaque minute pour les projets actifs dont le dernier instantané a plus de 5 min ; `prune-snapshots` chaque jour), compilation réussie, version nommée, restauration, push. Verrou Valkey `history:lock:<projet>`.
+- Rétention : tout pendant 30 jours, puis le dernier instantané de chaque heure jusqu'à 90 jours, puis le dernier de chaque jour. Les versions nommées sont gardées sans limite.
+- Routes sous `/api/projects/:id/history` : liste paginée (50), versions nommées, fichiers et contenu d'une version (`current` pour l'état en cours), comparaison, archive zip, restauration d'un fichier ou du projet. `history.changed` est publié sur le canal du projet.
+- `applyState` rend le projet identique à un état cible en une transaction sur l'arborescence ; les textes restants sont remplacés par `collab`. Il sert à la restauration et au push Git.
+
+## Pont Git
+
+- `https://<hôte>/git/<projectId>` : `GET .../info/refs?service=...`, `POST .../git-upload-pack`, `POST .../git-receive-pack`. Authentification Basic avec un jeton de `personal_access_tokens` (empreinte SHA-256, quatre derniers caractères affichés, expiration facultative, révocation, dernier usage).
+- Dépôts nus dans `GIT_DATA_DIR` (volume `git-data`), un par projet, créés à la première demande. `git_repositories` garde le dernier commit servi, l'empreinte de ses fichiers et les identifiants d'objets Git par empreinte de blob. Un dépôt perdu est reconstruit depuis le projet (nouvel historique Git, l'historique du projet n'est pas touché).
+- Les processus Git tournent avec un environnement réduit (aucune configuration utilisateur ou système, aucune variable de l'API). Push limité à `GIT_MAX_PUSH_MB` (100 Mio par défaut, aussi `receive.maxInputSize`), 100 Mio par fichier, 5 000 fichiers. `receive.denyNonFastForwards`, `receive.denyDeletes` et `receive.fsckObjects` sont activés.
+- Crochet `pre-receive` : appelle `POST /internal/git/pre-receive` sur l'API (127.0.0.1, non routé par Caddy) avec un secret propre au push. L'API vérifie et applique le push sous le verrou `git:lock:<projet>`, puis répond ; un refus fait échouer le push avec son message.
 
 ## Indexation LaTeX
 
