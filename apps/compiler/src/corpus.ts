@@ -4,6 +4,7 @@ import { access, appendFile, mkdtemp, readdir, readFile } from 'node:fs/promises
 import { isAbsolute, join, relative, resolve } from 'node:path';
 import {
   type CompileJob,
+  DEFAULT_CHKTEX_DISABLED,
   type Diagnostic,
   type Manifest,
   synctexInputToProjectPath,
@@ -45,6 +46,10 @@ const expectation = z.object({
    * sandboxed binary the worker uses (SPEC §6.5).
    */
   synctexMedianMs: z.optional(z.number()),
+  /** chktex warnings the run must report. */
+  lint: z.optional(z.array(expectedDiagnostic)),
+  /** texcount results: least total of words, and the section titles in order. */
+  words: z.optional(z.object({ minTotal: z.number(), sections: z.array(z.string()) })),
 });
 
 const corpusRun = z.object({
@@ -209,6 +214,27 @@ export async function checkRun(
       if (!log.includes(text)) failures.push(`log lacks: ${text}`);
     }
   }
+  for (const warning of expected.lint ?? []) {
+    if (!result.lint.some((d) => matches(d, warning))) {
+      failures.push(
+        `missing chktex warning ${JSON.stringify(warning)} among ${describeDiagnostics(result.lint)}`,
+      );
+    }
+  }
+  if (expected.words !== undefined) {
+    const count = result.wordCount;
+    const total =
+      count === null ? 0 : count.total.text + count.total.headers + count.total.captions;
+    if (total < expected.words.minTotal) {
+      failures.push(
+        `${String(total)} words counted, expected at least ${String(expected.words.minTotal)}`,
+      );
+    }
+    const titles = count?.sections.map((section) => section.title) ?? [];
+    if (JSON.stringify(titles) !== JSON.stringify(expected.words.sections)) {
+      failures.push(`sections counted ${JSON.stringify(titles)}`);
+    }
+  }
   for (const path of expected.forbiddenPaths ?? []) {
     const target = isAbsolute(path) ? path : resolve(local.dirs.root, path);
     if (await exists(target)) failures.push(`file written outside the project: ${path}`);
@@ -345,6 +371,7 @@ export async function runCorpus(root: string, options: CorpusOptions): Promise<R
         texmfManifest: {},
         mainFile: run.main,
         engine: run.engine ?? 'pdflatex',
+        chktexDisabled: DEFAULT_CHKTEX_DISABLED,
         bibTool: 'biber',
         shellEscape: run.shellEscape ?? 'restricted',
         draft: false,

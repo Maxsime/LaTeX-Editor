@@ -46,6 +46,19 @@ export interface DefinedCommand {
   /** Whether the first argument is optional. */
   optional: boolean;
   line: number;
+  /**
+   * Replacement text, for previews that expand the project's macros. Absent
+   * when the command has an optional argument or its body is too long.
+   */
+  definition?: string;
+}
+
+/** Longest macro body kept for previews; longer ones are package-like code. */
+const MAX_DEFINITION = 1000;
+
+function bodyOf(text: string, from: number): string | undefined {
+  const body = readGroup(text, from);
+  return body === null || body.content.length > MAX_DEFINITION ? undefined : body.content;
 }
 
 export interface DefinedEnvironment {
@@ -279,19 +292,31 @@ export function extractStructure(text: string): Structure {
       case 'xdef': {
         const match = /^\s*\\([a-zA-Z@]+)((?:#\d)*)/.exec(text.slice(end, end + 200));
         if (match?.[1] !== undefined) {
+          const definition = bodyOf(text, end + match[0].length);
           structure.commands.push({
             name: match[1],
             args: (match[2] ?? '').length / 2,
             optional: false,
             line,
+            ...(definition === undefined ? {} : { definition }),
           });
         }
         break;
       }
       case 'DeclareMathOperator': {
+        // The starred form puts limits under the operator, like \lim.
         const defined = definedName(text, end);
         if (defined !== null) {
-          structure.commands.push({ name: defined.name, args: 0, optional: false, line });
+          const body = bodyOf(text, defined.end);
+          structure.commands.push({
+            name: defined.name,
+            args: 0,
+            optional: false,
+            line,
+            ...(body === undefined
+              ? {}
+              : { definition: `\\operatorname${token.starred ? '*' : ''}{${body}}` }),
+          });
         }
         break;
       }
@@ -323,13 +348,15 @@ export function extractStructure(text: string): Structure {
     if (COMMAND_DEFINITIONS.has(name)) {
       const defined = definedName(text, end);
       if (defined === null) continue;
-      const { optionals } = skipOptionals(text, defined.end);
+      const { optionals, end: bodyStart } = skipOptionals(text, defined.end);
       const args = Number.parseInt(optionals[0] ?? '0', 10);
+      const definition = optionals.length > 1 ? undefined : bodyOf(text, bodyStart);
       structure.commands.push({
         name: defined.name,
         args: Number.isNaN(args) ? 0 : args,
         optional: optionals.length > 1,
         line,
+        ...(definition === undefined ? {} : { definition }),
       });
     } else if (DOCUMENT_COMMANDS.has(name)) {
       const defined = definedName(text, end);

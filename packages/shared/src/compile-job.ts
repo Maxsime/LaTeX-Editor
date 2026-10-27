@@ -43,6 +43,8 @@ export const compileJob = z.object({
   haltOnError: z.boolean(),
   /** Deletes the cached auxiliary files first ("clean and recompile"). */
   clean: z._default(z.boolean(), false),
+  /** chktex warnings the project turned off (SPEC §3.7). */
+  chktexDisabled: z._default(z.array(z.number().check(z.int(), z.gte(0), z.lte(99))), []),
 });
 export type CompileJob = z.infer<typeof compileJob>;
 
@@ -95,7 +97,7 @@ export type CompileStatus = z.infer<typeof compileStatus>;
 /** A located message of the compilation log (SPEC §6.4). */
 export const diagnostic = z.object({
   level: z.enum(['error', 'warning', 'badbox']),
-  source: z.enum(['tex', 'biber', 'bibtex', 'latexmk', 'compiler']),
+  source: z.enum(['tex', 'biber', 'bibtex', 'latexmk', 'compiler', 'chktex']),
   /** Project-relative path, or null when no project file is concerned. */
   file: z.nullable(z.string()),
   externalFile: z.optional(z.string()),
@@ -116,6 +118,24 @@ export const compileOutput = z.object({
 });
 export type CompileOutput = z.infer<typeof compileOutput>;
 
+/** Words of one part of the document, as texcount counts them. */
+export const wordTally = z.object({
+  /** Words of running text. */
+  text: z.number(),
+  /** Words of headings. */
+  headers: z.number(),
+  /** Words of captions and other floats. */
+  captions: z.number(),
+});
+export type WordTally = z.infer<typeof wordTally>;
+
+/** Word count of the document, by section (SPEC §3.7). */
+export const wordCount = z.object({
+  total: wordTally,
+  sections: z.array(z.object({ title: z.string(), ...wordTally.shape })),
+});
+export type WordCount = z.infer<typeof wordCount>;
+
 /** Value a worker returns for a compile job. */
 export const compileResult = z.object({
   outcome: compileOutcome,
@@ -130,5 +150,8 @@ export const compileResult = z.object({
   texlive: z.string(),
   /** Set when shell-escape `full` was asked for but not allowed, and restricted used instead. */
   shellEscapeDowngraded: z.boolean(),
+  /** chktex warnings on the project's sources; absent from results stored before J8. */
+  lint: z._default(z.array(diagnostic), []),
+  wordCount: z._default(z.nullable(wordCount), null),
 });
 export type CompileResult = z.infer<typeof compileResult>;

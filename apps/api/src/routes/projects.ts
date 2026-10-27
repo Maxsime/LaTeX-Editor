@@ -20,6 +20,7 @@ import { publishProjectEvent } from '../projects/events.js';
 import { insertProject, listProjects, projectDetails, toSummary } from '../projects/service.js';
 import { templates } from '../projects/templates.js';
 import { textBytes } from '../yjs/text.js';
+import { unknownKeyTokens } from '../bibliography/keys.js';
 
 export const projectParams = z.object({ id: z.uuid() });
 
@@ -80,6 +81,9 @@ export function projectRoutes(app: FastifyInstance, context: AppContext): void {
       auth.user.id,
       body.name === undefined && body.trackChanges === undefined ? 'editor' : 'owner',
     );
+    if (body.citeKeyPattern !== undefined && unknownKeyTokens(body.citeKeyPattern).length > 0) {
+      throw new ApiError('VALIDATION_FAILED', 'unknown key pattern token');
+    }
     if (body.mainFileId !== undefined && body.mainFileId !== null) {
       const node = await getNode(db, id, body.mainFileId);
       if (node.kind !== 'text') throw new ApiError('BAD_REQUEST', 'main file must be a text file');
@@ -93,6 +97,11 @@ export function projectRoutes(app: FastifyInstance, context: AppContext): void {
         ...(body.bibTool === undefined ? {} : { bibTool: body.bibTool }),
         ...(body.shellEscape === undefined ? {} : { shellEscape: body.shellEscape }),
         ...(body.trackChanges === undefined ? {} : { trackChanges: body.trackChanges }),
+        ...(body.citeKeyPattern === undefined ? {} : { citeKeyPattern: body.citeKeyPattern }),
+        ...(body.spellLanguage === undefined ? {} : { spellLanguage: body.spellLanguage }),
+        ...(body.chktexDisabled === undefined
+          ? {}
+          : { chktexDisabled: [...new Set(body.chktexDisabled)].sort((a, b) => a - b) }),
         updatedAt: new Date(),
       })
       .where(eq(projects.id, id))

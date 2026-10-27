@@ -72,6 +72,16 @@ export const s3Env = z.object({
   S3_FORCE_PATH_STYLE: z._default(booleanFlag, true),
 });
 
+/** Base64 of exactly 32 bytes: an AES-256 key. */
+const masterKey = z
+  .string()
+  .check(
+    z.refine(
+      (value) => /^[A-Za-z0-9+/]{43}=$/.test(value),
+      'must be base64 of 32 bytes (openssl rand -base64 32)',
+    ),
+  );
+
 /** Shared secret of the internal routes between api and collab, never exposed by the proxy. */
 const internalToken = z.string().check(z.minLength(32, 'must be at least 32 characters'));
 
@@ -97,6 +107,20 @@ export const apiEnv = z
      */
     COLLAB_INTERNAL_URL: z.optional(z.url({ protocol: /^https?$/ })),
     COLLAB_INTERNAL_TOKEN: z.optional(internalToken),
+    /**
+     * Key encrypting the secrets users store (Zotero and AI provider keys), as
+     * base64 of 32 random bytes. Without it, storing such secrets is refused.
+     */
+    GALLEY_MASTER_KEY: z.optional(masterKey),
+    /** LanguageTool server, e.g. `http://languagetool:8010`; spell checking is off without it. */
+    LANGUAGETOOL_URL: z.optional(z.url({ protocol: /^https?$/ })),
+    /** Bibliographic services, overridable for a mirror and for tests. */
+    CROSSREF_URL: z._default(z.url({ protocol: /^https?$/ }), 'https://api.crossref.org'),
+    /** Contact sent to Crossref, which then serves requests from its faster "polite" pool. */
+    CROSSREF_MAILTO: z.optional(z.union([z.literal(''), z.email()])),
+    ARXIV_URL: z._default(z.url({ protocol: /^https?$/ }), 'https://export.arxiv.org'),
+    OPENLIBRARY_URL: z._default(z.url({ protocol: /^https?$/ }), 'https://openlibrary.org'),
+    ZOTERO_URL: z._default(z.url({ protocol: /^https?$/ }), 'https://api.zotero.org'),
   })
   .check(
     z.refine(

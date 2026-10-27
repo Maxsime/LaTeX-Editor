@@ -5,6 +5,7 @@ import {
   type ProjectRole,
   type ProjectState,
   type ProjectSummary,
+  spellLanguage,
 } from '@galley/shared';
 import {
   and,
@@ -155,6 +156,10 @@ export async function projectDetails(
     bibTool: row.bibTool,
     shellEscape: row.shellEscape,
     trackChanges: row.trackChanges,
+    citeKeyPattern: row.citeKeyPattern,
+    // Stored as text so that a language can be added without a migration.
+    spellLanguage: spellLanguage.safeParse(row.spellLanguage).data ?? 'auto',
+    chktexDisabled: row.chktexDisabled,
   };
 }
 

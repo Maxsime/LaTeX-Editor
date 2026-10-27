@@ -1,0 +1,15 @@
+\documentclass{article}
+\usepackage[T1]{fontenc}
+\usepackage[french]{babel}
+\usepackage[backend=biber,style=numeric]{biblatex}
+\addbibresource{references.bib}
+\begin{document}
+\section{Programmation lettrée}
+La programmation lettrée a été proposée par Knuth \cite{knuth1984literate}.
+L'entrée de bibliographie est celle que produit l'import du DOI 10.1093/comjnl/27.2.97.
+Voir la section \ref{sec:suite}.
+
+\section{Suite}\label{sec:suite}
+Deux mots.
+\printbibliography
+\end{document}

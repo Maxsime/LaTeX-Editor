@@ -45,7 +45,10 @@
     "USER_NOT_FOUND": "Aucun compte ne correspond. La personne doit d'abord créer un compte ; vous pouvez aussi lui envoyer un lien de partage.",
     "ALREADY_MEMBER": "Cette personne est déjà membre du projet.",
     "LINK_INVALID": "Ce lien de partage n'est pas valide : il a expiré ou a été révoqué.",
-    "OWNER_CANNOT_LEAVE": "Le propriétaire ne peut pas quitter son projet : transférez d'abord la propriété."
+    "OWNER_CANNOT_LEAVE": "Le propriétaire ne peut pas quitter son projet : transférez d'abord la propriété.",
+    "IDENTIFIER_INVALID": "Identifiant invalide : vérifiez le DOI, l'identifiant arXiv ou l'ISBN.",
+    "REFERENCE_NOT_FOUND": "Aucune référence ne correspond à cet identifiant.",
+    "SECRETS_UNAVAILABLE": "Cette instance ne peut pas enregistrer de clé : la clé maître n'est pas configurée."
   },
   "common": {
     "cancel": "Annuler",
@@ -241,7 +244,9 @@
       "outline": "Plan",
       "search": "Recherche",
       "review": "Revue",
-      "chat": "Discussion"
+      "chat": "Discussion",
+      "references": "Références",
+      "words": "Mots"
     },
     "status": {
       "connecting": "Connexion…",
@@ -255,7 +260,8 @@
       "light": "Clair",
       "dark": "Sombre",
       "fontSize": "Taille",
-      "wrap": "Retour à la ligne"
+      "wrap": "Retour à la ligne",
+      "spellCheck": "Orthographe"
     },
     "outline": {
       "title": "Plan du document",
@@ -288,6 +294,28 @@
       "duplicateLabel": "Le label {{name}} est défini plusieurs fois dans le projet.",
       "unknownReference": "Aucun label {{name}} dans le projet.",
       "unknownCitation": "Aucune entrée bibliographique {{name}} dans le projet."
+    },
+    "bib": {
+      "missingKey": "Entrée sans clé de citation.",
+      "unclosedEntry": "Entrée non fermée : il manque une accolade ou une parenthèse.",
+      "expectedComma": "Virgule attendue entre deux champs.",
+      "expectedEquals": "Signe = attendu après le nom du champ {{name}}.",
+      "expectedValue": "Valeur attendue pour le champ {{name}}.",
+      "unclosedValue": "Valeur du champ {{name}} non fermée.",
+      "duplicateField": "Le champ {{name}} apparaît deux fois dans l'entrée.",
+      "duplicateKey": "La clé {{name}} est déjà utilisée dans ce fichier.",
+      "duplicateKeyElsewhere": "La clé {{name}} est déjà utilisée dans un autre fichier .bib du projet."
+    },
+    "chktex": {
+      "disable": "Désactiver cette règle"
+    },
+    "math": {
+      "error": "Aperçu impossible :"
+    },
+    "spelling": {
+      "source": "Orthographe et grammaire",
+      "addWord": "Ajouter au dictionnaire",
+      "ignore": "Ignorer"
     }
   },
   "compile": {
@@ -467,6 +495,23 @@
       "neverUsed": "jamais",
       "revokeTitle": "Révoquer le jeton",
       "confirmRevoke": "Révoquer « {{name}} » ? Git ne pourra plus s'en servir."
+    },
+    "zotero": {
+      "title": "Zotero",
+      "intro": "Reliez votre bibliothèque Zotero avec une clé d'API personnelle (zotero.org, Paramètres, Clés), en lecture seule de préférence. La clé est chiffrée sur le serveur et n'est plus jamais affichée.",
+      "key": "Clé d'API Zotero",
+      "keyHint": "24 lettres et chiffres.",
+      "connect": "Relier",
+      "connected": "Relié au compte {{name}} (clé …{{hint}}).",
+      "disconnect": "Délier"
+    },
+    "dictionary": {
+      "title": "Dictionnaire personnel",
+      "intro": "Mots que le correcteur accepte dans tous vos projets.",
+      "word": "Mot à ajouter",
+      "add": "Ajouter",
+      "none": "Aucun mot pour le moment.",
+      "remove": "Retirer {{word}}"
     }
   },
   "history": {
@@ -570,5 +615,145 @@
     "older": "Messages précédents",
     "message": "Message",
     "send": "Envoyer"
+  },
+  "insert": {
+    "group": "Insérer",
+    "insert": "Insérer",
+    "caption": "Légende",
+    "label": "Label",
+    "missingPackages": "Le projet ne charge pas encore {{packages}} : ajoutez-le au préambule.",
+    "symbols": {
+      "open": "Symboles",
+      "title": "Palette de symboles",
+      "search": "Nom ou commande",
+      "category": "Catégorie",
+      "all": "Toutes les catégories",
+      "none": "Aucun symbole ne correspond.",
+      "package": "paquet {{name}}",
+      "categories": {
+        "greek": "Lettres grecques",
+        "operators": "Opérateurs",
+        "relations": "Relations",
+        "arrows": "Flèches",
+        "sets": "Ensembles et logique",
+        "accents": "Accents",
+        "delimiters": "Délimiteurs",
+        "text": "Symboles de texte"
+      }
+    },
+    "table": {
+      "open": "Tableau",
+      "title": "Insérer un tableau",
+      "rows": "Lignes",
+      "columns": "Colonnes",
+      "header": "Ligne d'en-tête",
+      "booktabs": "Filets booktabs",
+      "align": "Alignement de la colonne {{column}}",
+      "left": "Gauche",
+      "center": "Centré",
+      "right": "Droite",
+      "cell": "Cellule ligne {{row}}, colonne {{column}}"
+    },
+    "figure": {
+      "open": "Figure",
+      "title": "Insérer une figure",
+      "image": "Image",
+      "width": "Largeur",
+      "noImages": "Le projet ne contient aucune image : ajoutez-en une depuis l'arborescence."
+    },
+    "align": {
+      "open": "Équations",
+      "title": "Insérer des équations alignées",
+      "rows": "Lignes",
+      "numbered": "Numérotées"
+    }
+  },
+  "references": {
+    "search": "Rechercher une référence",
+    "list": "Références du projet",
+    "empty": "Aucune entrée bibliographique dans le projet.",
+    "none": "Aucune référence ne correspond.",
+    "uncited": "non citée",
+    "cite": "Citer",
+    "citeHint": "Ouvrez un fichier .tex pour y insérer la citation.",
+    "show": "Voir",
+    "filter": {
+      "label": "Filtrer",
+      "all": "Toutes les références",
+      "cited": "Citées",
+      "uncited": "Non citées"
+    },
+    "import": {
+      "open": "Importer",
+      "title": "Importer des références",
+      "search": "Rechercher",
+      "searching": "Recherche…",
+      "keepKeys": "Garder les clés telles quelles",
+      "target": "Ajouter à",
+      "create": "Nouveau fichier {{name}}",
+      "createHint": "Pensez à déclarer ce fichier dans le document (\\addbibresource ou \\bibliography).",
+      "add_one": "Ajouter l'entrée",
+      "add_other": "Ajouter les {{count}} entrées",
+      "sources": {
+        "doi": "DOI",
+        "arxiv": "arXiv",
+        "isbn": "ISBN",
+        "bibtex": "BibTeX collé",
+        "zotero": "Zotero"
+      },
+      "placeholders": {
+        "doi": "10.1093/comjnl/27.2.97",
+        "arxiv": "1706.03762",
+        "isbn": "978-0-201-13447-6",
+        "bibtex": "@article{…}"
+      }
+    },
+    "zotero": {
+      "notConnected": "Reliez votre bibliothèque Zotero depuis la page Compte.",
+      "search": "Rechercher dans Zotero",
+      "find": "Chercher",
+      "import_one": "Importer {{count}} élément",
+      "import_other": "Importer {{count}} éléments"
+    }
+  },
+  "words": {
+    "none": "Compilez le document pour compter ses mots.",
+    "text": "Mots du texte",
+    "headers": "Mots des titres",
+    "captions": "Mots des légendes",
+    "bySection": "Par section",
+    "section": "Section",
+    "untitled": "(début du document)",
+    "hint": "Comptage de texcount à la dernière compilation, sans les formules ni les commandes."
+  },
+  "writing": {
+    "options": {
+      "title": "Rédaction",
+      "language": "Langue vérifiée",
+      "keyPattern": "Motif des clés importées",
+      "keyPatternHint": "Jetons [auth], [authors2], [year], [shorttitle], [title3], modificateurs :lower et :upper. Défaut : {{example}}.",
+      "chktex": "Règles chktex désactivées",
+      "chktexHint": "Numéros séparés par des virgules. Défaut : {{defaults}}."
+    },
+    "languages": {
+      "auto": "Automatique (babel, polyglossia)",
+      "fr": "Français",
+      "en-US": "Anglais (États-Unis)",
+      "en-GB": "Anglais (Royaume-Uni)",
+      "en-CA": "Anglais (Canada)",
+      "en-AU": "Anglais (Australie)",
+      "en-NZ": "Anglais (Nouvelle-Zélande)",
+      "de-DE": "Allemand (Allemagne)",
+      "de-AT": "Allemand (Autriche)",
+      "de-CH": "Allemand (Suisse)",
+      "es": "Espagnol",
+      "it": "Italien",
+      "pt-PT": "Portugais (Portugal)",
+      "pt-BR": "Portugais (Brésil)",
+      "nl": "Néerlandais",
+      "ca-ES": "Catalan",
+      "pl-PL": "Polonais",
+      "ru-RU": "Russe"
+    }
   }
 }

@@ -1,0 +1,14 @@
+{
+  "ISBN:9780201134476": {
+    "url": "https://openlibrary.org/books/OL3174285M/The_TeXbook",
+    "key": "/books/OL3174285M",
+    "title": "The TeXbook",
+    "authors": [{ "url": "https://openlibrary.org/authors/OL2701217A/Donald_E._Knuth", "name": "Donald E. Knuth" }],
+    "number_of_pages": 483,
+    "identifiers": { "isbn_13": ["9780201134476"], "isbn_10": ["0201134470"] },
+    "publishers": [{ "name": "Addison-Wesley" }],
+    "publish_places": [{ "name": "Reading, Mass" }],
+    "publish_date": "1984",
+    "subjects": [{ "name": "TeX (Computer file)", "url": "https://openlibrary.org/subjects/tex_(computer_file)" }]
+  }
+}

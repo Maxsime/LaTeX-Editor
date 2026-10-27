@@ -6,6 +6,7 @@ import {
   shellEscapeMode as shellEscapeModes,
 } from '@galley/shared';
 import { Popover } from 'radix-ui';
+import { WritingOptions } from './WritingOptions.js';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -110,6 +111,7 @@ function Options({ project, canEdit }: { project: ProjectDetails; canEdit: boole
         </label>
         <ErrorAlert error={update.error} />
       </fieldset>
+      <WritingOptions project={project} canEdit={canEdit} />
       <fieldset className="space-y-2">
         <legend className="mb-1 text-xs font-semibold text-slate-600 uppercase">
           {t('compile.options.session')}
@@ -377,7 +379,7 @@ export function CompilePane({
             <Popover.Content
               align="end"
               sideOffset={4}
-              className="z-50 rounded-md border border-slate-200 bg-white p-3 shadow-lg"
+              className="z-50 max-h-[var(--radix-popover-content-available-height)] overflow-y-auto rounded-md border border-slate-200 bg-white p-3 shadow-lg"
             >
               <Options project={project} canEdit={canEdit} />
               <Button

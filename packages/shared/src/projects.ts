@@ -1,6 +1,7 @@
 import * as z from 'zod/mini';
 import { bibTool, engine, shellEscapeMode } from './compile-job.js';
 import { fileId, importWarning } from './files.js';
+import { chktexDisabled, citeKeyPattern, spellLanguage } from './writing.js';
 
 export const projectRole = z.enum(['owner', 'editor', 'reviewer', 'reader']);
 export type ProjectRole = z.infer<typeof projectRole>;
@@ -52,6 +53,9 @@ export const projectDetails = z.object({
   shellEscape: shellEscapeMode,
   /** Every editor's changes are recorded as suggestions. */
   trackChanges: z.boolean(),
+  citeKeyPattern: z.string(),
+  spellLanguage,
+  chktexDisabled: z.array(z.number()),
 });
 export type ProjectDetails = z.infer<typeof projectDetails>;
 
@@ -81,6 +85,9 @@ export const updateProjectRequest = z.object({
   bibTool: z.optional(bibTool),
   shellEscape: z.optional(shellEscapeMode),
   trackChanges: z.optional(z.boolean()),
+  citeKeyPattern: z.optional(citeKeyPattern),
+  spellLanguage: z.optional(spellLanguage),
+  chktexDisabled: z.optional(chktexDisabled),
 });
 export type UpdateProjectRequest = z.input<typeof updateProjectRequest>;
 

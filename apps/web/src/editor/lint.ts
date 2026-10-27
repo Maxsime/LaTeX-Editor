@@ -6,7 +6,13 @@ import {
   StateField,
   type Text,
 } from '@codemirror/state';
-import { extractStructure, type LintIssue, lintDocument } from '@galley/latex-index';
+import {
+  type BibIssue,
+  checkBibtex,
+  extractStructure,
+  type LintIssue,
+  lintDocument,
+} from '@galley/latex-index';
 import type { Diagnostic } from '@galley/shared';
 
 const SEVERITY: Record<Diagnostic['level'], LintDiagnostic['severity']> = {
@@ -15,20 +21,51 @@ const SEVERITY: Record<Diagnostic['level'], LintDiagnostic['severity']> = {
   badbox: 'info',
 };
 
+/** Turns off a chktex warning for the project, from its marker. */
+export interface ChktexAction {
+  name: string;
+  disable: (rule: number) => void;
+}
+
 /**
  * Turns compilation diagnostics of one file into editor markers spanning their
  * line. Lines past the end, from a compilation of an older version of the
- * file, are clamped to the last line rather than dropped.
+ * file, are clamped to the last line rather than dropped. chktex warnings are
+ * shown as information, with an action turning their rule off.
  */
 export function toLintDiagnostics(
   doc: Text,
   diagnostics: readonly Diagnostic[],
   source?: string,
+  chktex?: ChktexAction,
 ): LintDiagnostic[] {
   const markers: LintDiagnostic[] = [];
   for (const diagnostic of diagnostics) {
     if (diagnostic.line === null) continue;
     const line = doc.line(Math.min(Math.max(diagnostic.line, 1), doc.lines));
+    if (diagnostic.source === 'chktex') {
+      const rule = Number(diagnostic.context);
+      markers.push({
+        from: line.from,
+        to: line.to,
+        severity: 'info',
+        source: `chktex ${diagnostic.context}`,
+        message: diagnostic.message,
+        ...(chktex === undefined || !Number.isInteger(rule)
+          ? {}
+          : {
+              actions: [
+                {
+                  name: chktex.name,
+                  apply: () => {
+                    chktex.disable(rule);
+                  },
+                },
+              ],
+            }),
+      });
+      continue;
+    }
     markers.push({
       from: line.from,
       to: line.to,
@@ -46,7 +83,12 @@ export interface ProjectLintContext {
   labelCounts: ReadonlyMap<string, number>;
   /** Citation keys of the bibliographies and of the other files' `\bibitem`s. */
   citationKeys: ReadonlySet<string>;
+  /** Keys of the entries of the other `.bib` files, to report keys defined twice. */
+  otherBibKeys: ReadonlySet<string>;
 }
+
+/** Message of a `.bib` issue, in the interface language. */
+export type BibIssueTranslator = (issue: BibIssue) => string;
 
 /** Message of a lint issue, in the interface language. */
 export type IssueTranslator = (issue: LintIssue) => string;
@@ -69,6 +111,29 @@ export function editorIssues(text: string, project: ProjectLintContext | null): 
     citationKeys: keys.size === 0 ? null : keys,
   });
   return project === null ? issues.filter((issue) => issue.code.endsWith('Environment')) : issues;
+}
+
+/**
+ * Markers of the syntax errors and duplicate keys of a `.bib` file. Keys of
+ * the other files are only compared once the project index is known.
+ */
+export function bibtexMarkers(
+  text: string,
+  otherKeys: ReadonlySet<string> | undefined,
+  translate: BibIssueTranslator,
+  source: string,
+): LintDiagnostic[] {
+  return checkBibtex(text, otherKeys).issues.map((issue) => {
+    // An empty range would be invisible: mark at least one character.
+    const from = Math.min(issue.from, Math.max(text.length - 1, 0));
+    return {
+      from,
+      to: Math.min(Math.max(issue.to, from + 1), text.length),
+      severity: 'error',
+      source,
+      message: translate(issue),
+    };
+  });
 }
 
 /** Replaces the compilation markers of an editor. */
@@ -101,10 +166,11 @@ export function compileMarkersOf(state: EditorState): readonly LintDiagnostic[] 
 }
 
 export interface LintOptions {
-  /** Whether the file is LaTeX source, checked as it is typed. */
-  latex: boolean;
+  /** What the file is checked as while it is typed. */
+  check: 'latex' | 'bibtex' | null;
   project: () => ProjectLintContext | null;
   translate: IssueTranslator;
+  translateBib: BibIssueTranslator;
   /** Name shown for the markers of the editor's own checks. */
   source: string;
 }
@@ -119,7 +185,17 @@ export function lintExtension(options: LintOptions): Extension {
     linter(
       (view) => {
         const markers = [...view.state.field(compileMarkers)];
-        if (!options.latex) return markers;
+        if (options.check === 'bibtex') {
+          return markers.concat(
+            bibtexMarkers(
+              view.state.doc.toString(),
+              options.project()?.otherBibKeys,
+              options.translateBib,
+              options.source,
+            ),
+          );
+        }
+        if (options.check !== 'latex') return markers;
         for (const issue of editorIssues(view.state.doc.toString(), options.project())) {
           markers.push({
             from: issue.from,

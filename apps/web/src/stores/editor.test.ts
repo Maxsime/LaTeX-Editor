@@ -30,6 +30,18 @@ describe('editor tabs', () => {
     expect(useEditor.getState().reveal).toMatchObject({ fileId: 'c', line: 3 });
   });
 
+  it('opens the target of an insertion and tells identical requests apart', () => {
+    const { insert } = useEditor.getState();
+    insert({ fileId: 'bib', text: '@book{a,}', at: 'end' });
+    const first = useEditor.getState().insertion;
+    expect(useEditor.getState()).toMatchObject({ tabs: ['bib'], activeId: 'bib' });
+    expect(first).toMatchObject({ fileId: 'bib', text: '@book{a,}', at: 'end' });
+    insert({ fileId: 'bib', text: '@book{a,}', at: 'end' });
+    expect(useEditor.getState().insertion?.nonce).not.toBe(first?.nonce);
+    useEditor.getState().openProject('q');
+    expect(useEditor.getState().insertion).toBeNull();
+  });
+
   it('resets on another project', () => {
     useEditor.getState().openTab('a');
     useEditor.getState().openProject('q');

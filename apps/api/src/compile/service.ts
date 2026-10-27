@@ -60,6 +60,8 @@ export function toCompileRun(row: CompileRunRow): CompileRun {
     outputs: row.result?.outputs ?? [],
     texlive: row.result?.texlive ?? null,
     shellEscapeDowngraded: row.result?.shellEscapeDowngraded ?? false,
+    lint: row.result?.lint ?? [],
+    wordCount: row.result?.wordCount ?? null,
   };
 }
 
@@ -159,6 +161,7 @@ export async function requestCompile(
     mainFile,
     engine: project.engine,
     ...options,
+    chktexDisabled: project.chktexDisabled,
   };
   await context.compileQueue.add('compile', job, {
     jobId: row.id,

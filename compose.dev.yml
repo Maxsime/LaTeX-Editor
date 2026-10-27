@@ -36,6 +36,13 @@ services:
       interval: 5s
       retries: 30
 
+  languagetool:
+    image: erikvl87/languagetool:6.8@sha256:ef8fa12cbd485166c9ceeb7139d76d56d07707a624da6bb1fc1fbb5411750527
+    environment:
+      Java_Xms: 256m
+      Java_Xmx: 1g
+    ports: ['127.0.0.1:8010:8010']
+
 volumes:
   postgres-data: {}
   storage-data: {}

@@ -77,6 +77,10 @@ services:
       COLLAB_INTERNAL_URL: http://collab:3001
       COLLAB_INTERNAL_TOKEN: ${COLLAB_INTERNAL_TOKEN:-galley-dev-internal-token-change-me}
       GIT_MAX_PUSH_MB: ${GIT_MAX_PUSH_MB:-100}
+      # Development value: change it before storing real keys (openssl rand -base64 32).
+      GALLEY_MASTER_KEY: ${GALLEY_MASTER_KEY:-Z2FsbGV5LWRldi1tYXN0ZXIta2V5LWNoYW5nZS1tZSE=}
+      LANGUAGETOOL_URL: http://languagetool:8010
+      CROSSREF_MAILTO: ${CROSSREF_MAILTO:-}
     volumes:
       # One bare repository per project; rebuilt from the project if lost (SPEC §6.7).
       - git-data:/var/lib/galley/git
@@ -164,6 +168,21 @@ services:
       interval: 5s
       timeout: 3s
       start_period: 20s
+      retries: 20
+
+  # Spelling and grammar (SPEC §3.7). Reached by the API only, on the internal network.
+  languagetool:
+    image: erikvl87/languagetool:6.8@sha256:ef8fa12cbd485166c9ceeb7139d76d56d07707a624da6bb1fc1fbb5411750527
+    restart: unless-stopped
+    environment:
+      Java_Xms: 256m
+      Java_Xmx: ${LANGUAGETOOL_MEMORY:-1g}
+    networks: [data]
+    healthcheck:
+      test: ['CMD', 'curl', '-fsS', '-o', '/dev/null', 'http://127.0.0.1:8010/v2/languages']
+      interval: 10s
+      timeout: 5s
+      start_period: 60s
       retries: 20
 
   caddy:

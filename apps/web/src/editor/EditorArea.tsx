@@ -4,6 +4,7 @@ import {
   type ProjectEventMessage,
   type ProjectRole,
   presenceUserOf,
+  type SpellingResponse,
   type TreeNode,
 } from '@galley/shared';
 import { useQueryClient } from '@tanstack/react-query';
@@ -11,11 +12,15 @@ import { useNavigate } from '@tanstack/react-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { FilePreview } from '../components/FilePreview.js';
+import { InsertToolbar } from '../components/InsertToolbar.js';
+import { api } from '../lib/api.js';
 import { compileKey } from '../lib/compile.js';
 import { indexKey, outlineKey, useProjectIndex } from '../lib/editor.js';
 import { projectQuery, useUpdateProject } from '../lib/projects.js';
 import { addMessage, useThreads } from '../lib/review.js';
 import { useSession } from '../lib/session.js';
+import { SpellChecker } from '../lib/spelling.js';
+import { useDictionary, useDictionaryMutations, useWritingFeatures } from '../lib/writing.js';
 import { useCompileStore } from '../stores/compile.js';
 import { FONT_SIZES, useEditor, usePreferences } from '../stores/editor.js';
 import { useNotices } from '../stores/notices.js';
@@ -25,6 +30,8 @@ import { CodeEditor } from './CodeEditor.js';
 import type { CompletionSources } from './completion.js';
 import type { ProjectLintContext } from './lint.js';
 import { ProjectConnection, type SyncStatus } from './connection.js';
+import { katexMacros } from './math.js';
+import type { SpellingOptions } from './spelling.js';
 
 interface EditorAreaProps {
   projectId: string;
@@ -36,7 +43,12 @@ interface EditorAreaProps {
   trackChanges: boolean;
   /** Diagnostics of the last compilation, by project-relative path. */
   diagnostics: ReadonlyMap<string, readonly Diagnostic[]>;
+  /** chktex rules turned off for the project. */
+  chktexDisabled: readonly number[];
+  mainFileId: string | null;
 }
+
+const IMAGE = /\.(pdf|png|jpe?g|eps|svg)$/i;
 
 const NO_DIAGNOSTICS: readonly Diagnostic[] = [];
 
@@ -56,10 +68,11 @@ function dirname(path: string): string {
   return slash === -1 ? '' : path.slice(0, slash);
 }
 
-function Preferences() {
+function Preferences({ spelling }: { spelling: boolean }) {
   const { t } = useTranslation();
   const { theme, fontSize, lineWrapping, setTheme, setFontSize, setLineWrapping } =
     usePreferences();
+  const { spellCheck, setSpellCheck } = usePreferences();
   return (
     <div className="ml-auto flex items-center gap-2 px-2 text-xs">
       <label className="flex items-center gap-1">
@@ -101,6 +114,18 @@ function Preferences() {
         />
         <span>{t('editor.preferences.wrap')}</span>
       </label>
+      {spelling && (
+        <label className="flex items-center gap-1">
+          <input
+            type="checkbox"
+            checked={spellCheck}
+            onChange={(event) => {
+              setSpellCheck(event.currentTarget.checked);
+            }}
+          />
+          <span>{t('editor.preferences.spellCheck')}</span>
+        </label>
+      )}
     </div>
   );
 }
@@ -117,6 +142,8 @@ export default function EditorArea({
   role,
   trackChanges,
   diagnostics,
+  chktexDisabled,
+  mainFileId,
 }: EditorAreaProps) {
   const { t } = useTranslation();
   const client = useQueryClient();
@@ -301,9 +328,84 @@ export default function EditorArea({
         .filter((entry) => entry.type !== 'bibitem' || entry.fileId !== activeId)
         .map((entry) => entry.key),
     );
-    lintRef.current = { labelCounts, citationKeys };
+    const otherBibKeys = new Set(
+      index.data.citations
+        .filter((entry) => entry.type !== 'bibitem' && entry.fileId !== activeId)
+        .map((entry) => entry.key),
+    );
+    lintRef.current = { labelCounts, citationKeys, otherBibKeys };
   }, [index.data, activeId]);
   const lintContext = useCallback(() => lintRef.current, []);
+
+  const macrosRef = useRef<Record<string, string>>({});
+  useEffect(() => {
+    macrosRef.current = katexMacros(index.data?.commands ?? []);
+  }, [index.data]);
+  const macros = useCallback(() => macrosRef.current, []);
+
+  // Spelling and grammar: one checker per project, so its cache survives tab switches.
+  const features = useWritingFeatures();
+  const spellCheck = usePreferences((state) => state.spellCheck);
+  const spellingOn = features.data?.spelling === true && spellCheck;
+  const dictionary = useDictionary(spellingOn);
+  const { add: addWord } = useDictionaryMutations();
+  const [checker] = useState(
+    () =>
+      new SpellChecker((annotation) =>
+        api<SpellingResponse>('POST', `/api/projects/${projectId}/spelling`, {
+          json: { annotation },
+        }),
+      ),
+  );
+  useEffect(() => {
+    checker.setDictionary(dictionary.data ?? []);
+  }, [checker, dictionary.data]);
+  const addWordAsync = addWord.mutateAsync;
+  const spelling = useMemo<SpellingOptions | null>(
+    () =>
+      spellingOn
+        ? {
+            checker,
+            addWord: (word) =>
+              addWordAsync(word).then((body) => {
+                checker.setDictionary(body.words);
+              }),
+            labels: {
+              addWord: t('editor.spelling.addWord'),
+              ignore: t('editor.spelling.ignore'),
+              source: t('editor.spelling.source'),
+            },
+          }
+        : null,
+    [spellingOn, checker, addWordAsync, t],
+  );
+
+  const updateSettings = updateProject.mutate;
+  const disableChktex = useMemo(
+    () =>
+      hasRole(role, 'editor')
+        ? (rule: number) => {
+            if (!chktexDisabled.includes(rule)) {
+              updateSettings({ chktexDisabled: [...chktexDisabled, rule] });
+            }
+          }
+        : null,
+    [role, chktexDisabled, updateSettings],
+  );
+
+  const images = useMemo(
+    () =>
+      nodes
+        .filter((node) => node.kind !== 'folder' && IMAGE.test(node.name))
+        .map((node) => paths.get(node.id) ?? node.name)
+        .sort(),
+    [nodes, paths],
+  );
+  const activeNode = activeId === null ? undefined : byId.get(activeId);
+  const insertTarget =
+    !readOnly && activeNode?.kind === 'text' && /\.(tex|ltx)$/i.test(activeNode.name)
+      ? activeNode.id
+      : null;
 
   if (tabs.length === 0) {
     return (
@@ -400,7 +502,13 @@ export default function EditorArea({
             <span>{t('review.mode.everyone')}</span>
           </label>
         )}
-        <Preferences />
+        <InsertToolbar
+          fileId={insertTarget}
+          images={images}
+          mainPath={mainFileId === null ? null : (paths.get(mainFileId) ?? null)}
+          packages={index.data?.packages ?? []}
+        />
+        <Preferences spelling={features.data?.spelling === true} />
       </div>
       {reloaded && (
         <div
@@ -448,6 +556,9 @@ export default function EditorArea({
               completion={completion}
               lintContext={lintContext}
               diagnostics={diagnostics.get(paths.get(id) ?? '') ?? NO_DIAGNOSTICS}
+              macros={macros}
+              spelling={spelling}
+              disableChktex={disableChktex}
             />
           );
         })}

@@ -110,6 +110,14 @@ describe('extractStructure', () => {
       ['twice', 2, false],
       ['doc', 3, true],
     ]);
+    expect(structure.commands.map((command) => command.definition)).toEqual([
+      '\\mathbb{R}',
+      '(#1,#2)',
+      undefined,
+      '\\operatorname*{arg\\,max}',
+      '#1#1',
+      undefined,
+    ]);
     expect(structure.environments.map(({ name, args }) => [name, args])).toEqual([
       ['boxed', 1],
       ['fancy', 2],

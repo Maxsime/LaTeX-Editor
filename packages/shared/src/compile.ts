@@ -4,6 +4,7 @@ import {
   compileOutput,
   compileStatus,
   diagnostic,
+  wordCount,
   engine,
   shellEscapeMode,
 } from './compile-job.js';
@@ -47,6 +48,8 @@ export const compileRun = z.object({
   outputs: z.array(compileOutput),
   texlive: z.nullable(z.string()),
   shellEscapeDowngraded: z.boolean(),
+  lint: z.array(diagnostic),
+  wordCount: z.nullable(wordCount),
 });
 export type CompileRun = z.infer<typeof compileRun>;
 

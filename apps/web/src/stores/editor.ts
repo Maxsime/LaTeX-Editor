@@ -14,12 +14,23 @@ export interface Reveal {
   nonce: number;
 }
 
+/** Text to insert in a file by a panel or an assistant, through the file's editor. */
+export interface Insertion {
+  fileId: string;
+  text: string;
+  /** At the cursor (replacing the selection), or appended at the end of the file. */
+  at: 'cursor' | 'end';
+  /** Distinguishes two identical requests, so both take effect. */
+  nonce: number;
+}
+
 interface EditorState {
   projectId: string | null;
   tabs: string[];
   activeId: string | null;
   status: Record<string, SyncStatus>;
   reveal: Reveal | null;
+  insertion: Insertion | null;
   /** Line of the cursor in the active tab, for the outline highlight. */
   cursorLine: number;
   /** Bumped on every local edit, to refresh the outline after a pause. */
@@ -32,6 +43,8 @@ interface EditorState {
   keepTabs: (existing: ReadonlySet<string>) => void;
   setStatus: (fileId: string, status: SyncStatus) => void;
   revealAt: (place: Omit<Reveal, 'nonce'>) => void;
+  /** Opens the file and inserts the text once its editor is ready. */
+  insert: (request: Omit<Insertion, 'nonce'>) => void;
   setCursorLine: (line: number) => void;
   noteEdit: () => void;
 }
@@ -49,11 +62,20 @@ export const useEditor = create<EditorState>()((set, get) => ({
   activeId: null,
   status: {},
   reveal: null,
+  insertion: null,
   cursorLine: 1,
   editCount: 0,
   openProject: (projectId) => {
     if (get().projectId === projectId) return;
-    set({ projectId, tabs: [], activeId: null, status: {}, reveal: null, cursorLine: 1 });
+    set({
+      projectId,
+      tabs: [],
+      activeId: null,
+      status: {},
+      reveal: null,
+      insertion: null,
+      cursorLine: 1,
+    });
   },
   openTab: (fileId) => {
     set(({ tabs }) => ({
@@ -84,6 +106,13 @@ export const useEditor = create<EditorState>()((set, get) => ({
       reveal: { ...place, nonce: Date.now() + Math.random() },
     }));
   },
+  insert: (request) => {
+    set(({ tabs }) => ({
+      tabs: tabs.includes(request.fileId) ? tabs : [...tabs, request.fileId],
+      activeId: request.fileId,
+      insertion: { ...request, nonce: Date.now() + Math.random() },
+    }));
+  },
   setCursorLine: (cursorLine) => {
     if (get().cursorLine !== cursorLine) set({ cursorLine });
   },
@@ -98,9 +127,12 @@ interface Preferences {
   theme: EditorTheme;
   fontSize: number;
   lineWrapping: boolean;
+  /** Spelling and grammar checking, when the instance offers it. */
+  spellCheck: boolean;
   setTheme: (theme: EditorTheme) => void;
   setFontSize: (size: number) => void;
   setLineWrapping: (on: boolean) => void;
+  setSpellCheck: (on: boolean) => void;
 }
 
 export const FONT_SIZES = [11, 12, 13, 14, 15, 16, 18, 20] as const;
@@ -112,6 +144,7 @@ export const usePreferences = create<Preferences>()(
       theme: 'light',
       fontSize: 14,
       lineWrapping: true,
+      spellCheck: true,
       setTheme: (theme) => {
         set({ theme });
       },
@@ -120,6 +153,9 @@ export const usePreferences = create<Preferences>()(
       },
       setLineWrapping: (lineWrapping) => {
         set({ lineWrapping });
+      },
+      setSpellCheck: (spellCheck) => {
+        set({ spellCheck });
       },
     }),
     {
