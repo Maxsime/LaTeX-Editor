@@ -640,9 +640,12 @@ describe.skipIf(!dockerAvailable)('accounts, projects and files', () => {
       const body = projectIndexResponse.parse(
         (await alice.send('GET', `/api/projects/${projectId}/index`)).json(),
       );
-      expect(body.commands.map((command) => command.name)).toEqual(['R']);
+      expect(body.commands.map(({ name, definition }) => [name, definition])).toEqual([
+        ['R', '\\mathbb{R}'],
+      ]);
       expect(body.labels.map((label) => label.name)).toEqual(['sec:intro']);
       expect(body.citations).toEqual([]);
+      expect(body.cited).toEqual([]);
     });
 
     it('indexes the entries of bibliographies and bibitems', async () => {
@@ -661,7 +664,7 @@ describe.skipIf(!dockerAvailable)('accounts, projects and files', () => {
             name: 'file',
             filename: 'biblio.tex',
             data: Buffer.from(
-              '\\begin{thebibliography}{9}\n\\bibitem{knuth84} D. Knuth.\n\\end{thebibliography}\n',
+              '\\begin{thebibliography}{9}\n\\bibitem{knuth84} D. Knuth.\n\\end{thebibliography}\n\\cite{lamport94,knuth84}\n',
             ),
           },
         ]),
@@ -681,6 +684,7 @@ describe.skipIf(!dockerAvailable)('accounts, projects and files', () => {
         },
         { key: 'knuth84', type: 'bibitem', title: null, authors: [], year: null, line: 2 },
       ]);
+      expect(body.cited).toEqual(['knuth84', 'lamport94']);
     });
 
     it('searches with literal, whole-word and regular expression queries', async () => {

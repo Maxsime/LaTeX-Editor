@@ -10,6 +10,7 @@ import {
   MAX_DICTIONARY_WORDS,
   spellingRequest,
   type SpellingResponse,
+  type WritingFeatures,
   type ZoteroAccount,
   zoteroImportRequest,
   type ZoteroItemsResponse,
@@ -64,6 +65,11 @@ export function writingRoutes(app: FastifyInstance, context: AppContext): void {
   async function keyOptions(project: ProjectRow, keepKeys = false): Promise<KeyOptions> {
     return { pattern: project.citeKeyPattern, taken: await takenKeys(project.id), keepKeys };
   }
+
+  app.get('/api/writing/features', (request): WritingFeatures => {
+    requireAuth(request);
+    return { spelling: config.LANGUAGETOOL_URL !== undefined, zotero: secrets !== null };
+  });
 
   // Reviewers may import too: the entry reaches the file through their editor, as a suggestion.
   app.post(

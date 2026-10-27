@@ -247,6 +247,11 @@ describe.skipIf(!dockerAvailable)('bibliography and writing quality', () => {
       json: { source, query, keepKeys },
     });
 
+  it('announces the services this instance offers', async () => {
+    const response = await alice.send('GET', '/api/writing/features');
+    expect(response.json()).toEqual({ spelling: true, zotero: true });
+  });
+
   describe('import', () => {
     it('imports a DOI under a key free in the project', async () => {
       const response = await lookup(alice, 'doi', 'https://doi.org/10.1093/comjnl/27.2.97');

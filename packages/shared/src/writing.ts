@@ -70,6 +70,15 @@ export type ImportedEntry = z.infer<typeof importedEntry>;
 export const lookupResponse = z.object({ entries: z.array(importedEntry) });
 export type LookupResponse = z.infer<typeof lookupResponse>;
 
+/** Writing services this instance offers, so the interface hides the others. */
+export const writingFeatures = z.object({
+  /** A LanguageTool server is configured. */
+  spelling: z.boolean(),
+  /** A master key is set, so Zotero keys can be stored. */
+  zotero: z.boolean(),
+});
+export type WritingFeatures = z.infer<typeof writingFeatures>;
+
 /** The Zotero library linked to the current user; the key itself is never returned. */
 export const zoteroAccount = z.object({
   connected: z.boolean(),

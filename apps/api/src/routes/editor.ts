@@ -1,6 +1,7 @@
 import {
   buildOutline,
   buildProjectIndex,
+  extractKeyUses,
   extractStructure,
   type Structure,
 } from '@galley/latex-index';
@@ -82,11 +83,19 @@ export function editorRoutes(app: FastifyInstance, context: AppContext): void {
         line,
       });
     }
+    const cited = new Set<string>();
+    for (const file of texts) {
+      if (file.path.toLowerCase().endsWith('.bib')) continue;
+      for (const use of extractKeyUses(file.text)) {
+        if (use.kind === 'citation') cited.add(use.key);
+      }
+    }
     return {
       commands: index.commands.map(locate),
       environments: index.environments.map(locate),
       labels: index.labels.map(locate),
       citations,
+      cited: [...cited].sort(),
     };
   });
 

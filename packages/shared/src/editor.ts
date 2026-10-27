@@ -23,7 +23,14 @@ const located = { fileId, line: z.number() };
 
 export const projectIndexResponse = z.object({
   commands: z.array(
-    z.object({ name: z.string(), args: z.number(), optional: z.boolean(), ...located }),
+    z.object({
+      name: z.string(),
+      args: z.number(),
+      optional: z.boolean(),
+      /** Replacement text, used to expand the project's macros in formula previews. */
+      definition: z.optional(z.string()),
+      ...located,
+    }),
   ),
   environments: z.array(z.object({ name: z.string(), args: z.number(), ...located })),
   labels: z.array(z.object({ name: z.string(), ...located })),
@@ -38,6 +45,8 @@ export const projectIndexResponse = z.object({
       ...located,
     }),
   ),
+  /** Keys cited somewhere in the project's sources, to tell cited entries apart. */
+  cited: z.array(z.string()),
 });
 export type ProjectIndexResponse = z.infer<typeof projectIndexResponse>;
 
