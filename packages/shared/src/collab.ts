@@ -1,5 +1,6 @@
 import * as z from 'zod/mini';
 import { compileStatus } from './compile-job.js';
+import { projectMessage } from './review.js';
 
 /** Name of the shared text holding a file's content, fixed for the whole application. */
 export const TEXT_KEY = 'content';
@@ -56,6 +57,10 @@ export const projectEvent = z.discriminatedUnion('type', [
    * with their new rights.
    */
   z.object({ type: z.literal('members.changed'), userId: z.nullable(z.uuid()) }),
+  /** A comment thread was created, answered, edited, resolved or deleted. */
+  z.object({ type: z.literal('review.changed'), threadId: z.uuid() }),
+  /** A message was posted in the project's chat. */
+  z.object({ type: z.literal('chat.message'), message: projectMessage }),
   /** A snapshot was added to the history, or a version renamed. */
   z.object({ type: z.literal('history.changed') }),
   /** A compilation of the project changed state; clients fetch it to refresh the PDF. */

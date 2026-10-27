@@ -16,6 +16,7 @@ import { editorRoutes } from './routes/editor.js';
 import { fileRoutes } from './routes/files.js';
 import { healthRoutes } from './routes/health.js';
 import { historyRoutes } from './routes/history.js';
+import { reviewRoutes } from './routes/review.js';
 import { tokenRoutes } from './routes/tokens.js';
 import { gitRoutes } from './routes/git.js';
 import { projectRoutes } from './routes/projects.js';
@@ -99,6 +100,7 @@ export function buildApp({
       compileRoutes(api, context);
       historyRoutes(api, context);
       tokenRoutes(api, context);
+      reviewRoutes(api, context);
     });
     // Git clients authenticate with access tokens, never with the session cookie.
     void app.register((gitApp, _options, done) => {

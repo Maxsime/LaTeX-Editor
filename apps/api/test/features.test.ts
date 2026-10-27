@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import type { S3Client } from '@aws-sdk/client-s3';
 import {
@@ -79,7 +79,7 @@ describe.skipIf(!dockerAvailable)('accounts, projects and files', () => {
         inviteToken: invite.json<{ token: string }>().token,
       },
     });
-    expect(response.statusCode).toBe(201);
+    expect(response.statusCode, response.body).toBe(201);
     return user;
   }
 
@@ -1223,6 +1223,221 @@ describe.skipIf(!dockerAvailable)('accounts, projects and files', () => {
         json: { label: 'non' },
       });
       expect(forbidden.statusCode).toBe(403);
+    });
+  });
+
+  describe('review', () => {
+    let projectId = '';
+    let fileId = '';
+    let rita: Client;
+    let dan: Client;
+
+    async function join(user: Client, role: string): Promise<void> {
+      const link = await alice.send('POST', `/api/projects/${projectId}/links`, { json: { role } });
+      await user.send('POST', `/api/links/${link.json<{ token: string }>().token}/join`);
+    }
+
+    interface Thread {
+      id: string;
+      quote: string;
+      resolvedAt: string | null;
+      comments: { id: string; body: string | null; author: { username: string } | null }[];
+    }
+
+    beforeAll(async () => {
+      const created = await alice.send('POST', '/api/projects', {
+        json: { name: 'Relecture', template: 'article' },
+      });
+      projectId = created.json<{ project: { id: string } }>().project.id;
+      const details = await alice.send('GET', `/api/projects/${projectId}`);
+      fileId = details.json<{ mainFileId: string }>().mainFileId;
+      rita = await register('rita');
+      dan = await register('dan');
+      await join(rita, 'reviewer');
+      await join(dan, 'reader');
+    });
+
+    it('lets reviewers open threads that mention members, and readers only read', async () => {
+      const events = new Redis(redis.options);
+      const received: unknown[] = [];
+      await events.subscribe(projectChannel(projectId));
+      events.on('message', (_channel, message) => received.push(JSON.parse(message)));
+      try {
+        const forbidden = await dan.send('POST', `/api/projects/${projectId}/threads`, {
+          json: { fileId, quote: 'x', body: 'no' },
+        });
+        expect(forbidden.statusCode).toBe(403);
+        const created = await rita.send('POST', `/api/projects/${projectId}/threads`, {
+          json: {
+            fileId,
+            quote: 'Introduction',
+            body: '  À revoir, @Alice et @dan. @nobody @rita ',
+          },
+        });
+        expect(created.statusCode).toBe(201);
+        const thread = created.json<Thread>();
+        expect(thread).toMatchObject({ quote: 'Introduction', resolvedAt: null });
+        expect(thread.comments).toHaveLength(1);
+        expect(thread.comments[0]?.body).toBe('À revoir, @Alice et @dan. @nobody @rita');
+        expect(thread.comments[0]?.author?.username).toBe('rita');
+        await expect
+          .poll(() => received)
+          .toContainEqual({ type: 'review.changed', threadId: thread.id, projectId });
+
+        // Mentions reach members only, never the author, and go once the thread is opened.
+        const mentions = await alice.send('GET', '/api/mentions');
+        expect(mentions.json<{ mentions: unknown[] }>().mentions).toEqual([
+          expect.objectContaining({ threadId: thread.id, projectName: 'Relecture', fileId }),
+        ]);
+        expect((await rita.send('GET', '/api/mentions')).json()).toEqual({ mentions: [] });
+        await alice.send('POST', '/api/mentions/read', { json: { threadId: thread.id } });
+        expect((await alice.send('GET', '/api/mentions')).json()).toEqual({ mentions: [] });
+        const forDan = (await dan.send('GET', '/api/mentions')).json<{ mentions: unknown[] }>();
+        expect(forDan.mentions).toHaveLength(1);
+
+        const listed = await dan.send('GET', `/api/projects/${projectId}/threads`);
+        expect(listed.json<{ threads: Thread[] }>().threads.map((t) => t.id)).toEqual([thread.id]);
+        const outsider = await bob.send('GET', `/api/projects/${projectId}/threads`);
+        expect(outsider.statusCode).toBe(404);
+
+        const otherFile = await rita.send('POST', `/api/projects/${projectId}/threads`, {
+          json: { fileId: randomUUID(), quote: '', body: 'x' },
+        });
+        expect(otherFile.statusCode).toBe(404);
+      } finally {
+        events.disconnect();
+      }
+    });
+
+    it('lets people answer, edit and delete their own comments only', async () => {
+      const [thread] = (await alice.send('GET', `/api/projects/${projectId}/threads`)).json<{
+        threads: Thread[];
+      }>().threads;
+      const base = `/api/projects/${projectId}/threads/${thread?.id ?? ''}`;
+      const answered = await alice.send('POST', `${base}/comments`, { json: { body: 'Fait.' } });
+      expect(answered.statusCode).toBe(201);
+      const [first, reply] = answered.json<Thread>().comments;
+      expect(reply?.body).toBe('Fait.');
+
+      const notMine = await alice.send('PATCH', `${base}/comments/${first?.id ?? ''}`, {
+        json: { body: 'modifié' },
+      });
+      expect(notMine.statusCode).toBe(403);
+      const edited = await rita.send('PATCH', `${base}/comments/${first?.id ?? ''}`, {
+        json: { body: 'Corrigé.' },
+      });
+      expect(edited.json<Thread>().comments[0]).toMatchObject({ body: 'Corrigé.' });
+      const deleted = await alice.send('DELETE', `${base}/comments/${reply?.id ?? ''}`);
+      expect(deleted.json<Thread>().comments[1]).toMatchObject({ body: null });
+      const again = await alice.send('DELETE', `${base}/comments/${reply?.id ?? ''}`);
+      expect(again.statusCode).toBe(404);
+      const empty = await rita.send('POST', `${base}/comments`, { json: { body: '   ' } });
+      expect(empty.statusCode).toBe(400);
+    });
+
+    it('lets the author or an editor resolve, reopen and delete a thread', async () => {
+      const own = (
+        await alice.send('POST', `/api/projects/${projectId}/threads`, {
+          json: { fileId, quote: 'q', body: 'Thread of the owner' },
+        })
+      ).json<Thread>();
+      const base = `/api/projects/${projectId}/threads/${own.id}`;
+      expect((await rita.send('POST', `${base}/resolve`)).statusCode).toBe(403);
+      expect((await rita.send('DELETE', base)).statusCode).toBe(403);
+      const resolved = await alice.send('POST', `${base}/resolve`);
+      expect(resolved.json<Thread>().resolvedAt).not.toBeNull();
+      const reopened = await alice.send('POST', `${base}/reopen`);
+      expect(reopened.json<Thread>().resolvedAt).toBeNull();
+
+      const ritas = (
+        await rita.send('POST', `/api/projects/${projectId}/threads`, {
+          json: { fileId, quote: 'q', body: 'Mine' },
+        })
+      ).json<Thread>();
+      const ritasBase = `/api/projects/${projectId}/threads/${ritas.id}`;
+      expect((await rita.send('POST', `${ritasBase}/resolve`)).statusCode).toBe(200);
+      expect((await rita.send('DELETE', ritasBase)).statusCode).toBe(204);
+      expect((await alice.send('DELETE', base)).statusCode).toBe(204);
+      expect((await alice.send('POST', `${base}/reopen`)).statusCode).toBe(404);
+    });
+
+    it('carries the project chat, live and paginated, for every member', async () => {
+      const events = new Redis(redis.options);
+      const received: unknown[] = [];
+      await events.subscribe(projectChannel(projectId));
+      events.on('message', (_channel, message) => received.push(JSON.parse(message)));
+      try {
+        const posted = await dan.send('POST', `/api/projects/${projectId}/messages`, {
+          json: { body: 'Bonjour' },
+        });
+        expect(posted.statusCode).toBe(201);
+        await expect
+          .poll(() => received)
+          .toContainEqual({
+            type: 'chat.message',
+            projectId,
+            message: posted.json<object>(),
+          });
+        expect(
+          (
+            await bob.send('POST', `/api/projects/${projectId}/messages`, {
+              json: { body: 'intrus' },
+            })
+          ).statusCode,
+        ).toBe(404);
+        const long = await dan.send('POST', `/api/projects/${projectId}/messages`, {
+          json: { body: 'x'.repeat(4001) },
+        });
+        expect(long.statusCode).toBe(400);
+      } finally {
+        events.disconnect();
+      }
+
+      // 30 per minute and per person; with alice's, a page and a little more.
+      for (let index = 0; index < 30; index += 1) {
+        const sent = await rita.send('POST', `/api/projects/${projectId}/messages`, {
+          json: { body: `m${String(index)}` },
+        });
+        expect(sent.statusCode).toBe(201);
+      }
+      const limited = await rita.send('POST', `/api/projects/${projectId}/messages`, {
+        json: { body: 'one too many' },
+      });
+      expect(limited.statusCode).toBe(429);
+      for (let index = 30; index < 60; index += 1) {
+        await alice.send('POST', `/api/projects/${projectId}/messages`, {
+          json: { body: `m${String(index)}` },
+        });
+      }
+
+      const latest = (await rita.send('GET', `/api/projects/${projectId}/messages`)).json<{
+        messages: { body: string }[];
+        nextCursor: string | null;
+      }>();
+      expect(latest.messages).toHaveLength(50);
+      expect(latest.messages.at(-1)?.body).toBe('m59');
+      const older = (
+        await rita.send(
+          'GET',
+          `/api/projects/${projectId}/messages?before=${latest.nextCursor ?? ''}`,
+        )
+      ).json<{ messages: { body: string }[]; nextCursor: string | null }>();
+      expect(older.messages.map((message) => message.body)).toEqual([
+        'Bonjour',
+        ...Array.from({ length: 10 }, (_, index) => `m${String(index)}`),
+      ]);
+      expect(older.nextCursor).toBeNull();
+    });
+
+    it('lets only the owner track everyone’s changes', async () => {
+      const denied = await rita.send('PATCH', `/api/projects/${projectId}`, {
+        json: { trackChanges: true },
+      });
+      expect(denied.statusCode).toBe(403);
+      const updated = await alice.send('PATCH', `/api/projects/${projectId}`, {
+        json: { trackChanges: true },
+      });
+      expect(updated.json<{ trackChanges: boolean }>().trackChanges).toBe(true);
     });
   });
 });

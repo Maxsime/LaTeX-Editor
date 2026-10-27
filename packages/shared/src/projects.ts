@@ -50,6 +50,8 @@ export const projectDetails = z.object({
   engine,
   bibTool,
   shellEscape: shellEscapeMode,
+  /** Every editor's changes are recorded as suggestions. */
+  trackChanges: z.boolean(),
 });
 export type ProjectDetails = z.infer<typeof projectDetails>;
 
@@ -78,6 +80,7 @@ export const updateProjectRequest = z.object({
   engine: z.optional(engine),
   bibTool: z.optional(bibTool),
   shellEscape: z.optional(shellEscapeMode),
+  trackChanges: z.optional(z.boolean()),
 });
 export type UpdateProjectRequest = z.input<typeof updateProjectRequest>;
 
