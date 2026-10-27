@@ -1,6 +1,13 @@
 import { timingSafeEqual } from 'node:crypto';
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { COLLAB_TOKEN_HEADER, MAX_TEXT_BYTES, replaceDocumentRequest } from '@galley/shared';
+import {
+  COLLAB_TOKEN_HEADER,
+  editDocumentRequest,
+  type EditDocumentRequest,
+  type EditDocumentResponse,
+  MAX_TEXT_BYTES,
+  replaceDocumentRequest,
+} from '@galley/shared';
 
 /** Operations the API may request on documents it does not hold. */
 export interface InternalOperations {
@@ -10,12 +17,17 @@ export interface InternalOperations {
   replaceDocument(fileId: string, content: string): Promise<boolean>;
   /** Disconnects everyone from a file's document and drops it without writing. */
   closeDocument(fileId: string): Promise<void>;
+  /**
+   * Applies accepted assistant hunks in one transaction attributed to the
+   * user (SPEC §6.8); `null` if the file is gone.
+   */
+  editDocument(fileId: string, request: EditDocumentRequest): Promise<EditDocumentResponse | null>;
 }
 
 // JSON escaping can grow text several times over (control characters become \uXXXX).
 const MAX_BODY_BYTES = 6 * MAX_TEXT_BYTES;
 
-const ROUTE = /^\/internal\/(projects|documents)\/([0-9a-f-]{36})\/(flush|replace|close)$/;
+const ROUTE = /^\/internal\/(projects|documents)\/([0-9a-f-]{36})\/(flush|replace|close|edit)$/;
 
 class HttpError extends Error {
   constructor(
@@ -91,6 +103,13 @@ export async function handleInternalRequest(
       }
     } else if (scope === 'documents' && action === 'close') {
       await operations.closeDocument(id);
+    } else if (scope === 'documents' && action === 'edit') {
+      const body = editDocumentRequest.safeParse(await readJson(request));
+      if (!body.success) throw new HttpError(400, 'VALIDATION');
+      const result = await operations.editDocument(id, body.data);
+      if (result === null) throw new HttpError(404, 'NOT_FOUND');
+      send(response, 200, result);
+      return true;
     } else {
       throw new HttpError(404, 'NOT_FOUND');
     }

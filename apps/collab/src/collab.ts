@@ -5,6 +5,7 @@ import {
   parseDocumentName,
   type ProjectEventMessage,
   presenceUserOf,
+  realignHunks,
   runHealthChecks,
   TEXT_KEY,
 } from '@galley/shared';
@@ -316,6 +317,40 @@ export function createCollab({
         await connection.disconnect();
       }
       return !dropped.has(name);
+    },
+
+    async editDocument(fileId, { userId, hunks }) {
+      const name = fileDocumentName(fileId);
+      let connection;
+      try {
+        // onChange reads this context: the user becomes an author of the next snapshot.
+        connection = await server.hocuspocus.openDirectConnection(name, {
+          userId,
+          origin: `ai:${userId}`,
+        });
+      } catch (error) {
+        if (error instanceof AccessDenied) return null;
+        throw error;
+      }
+      let results: { id: string; status: 'applied' | 'conflict' }[] = [];
+      try {
+        await connection.transact((document) => {
+          const text = document.getText(TEXT_KEY);
+          // Placed against the text as it is now, inside the transaction: nothing moves in between.
+          const { edits, results: placed } = realignHunks(text.toJSON(), hunks);
+          for (const edit of edits) {
+            if (edit.to > edit.from) text.delete(edit.from, edit.to - edit.from);
+            if (edit.insert !== '') text.insert(edit.from, edit.insert);
+          }
+          results = hunks.map((hunk) => ({
+            id: hunk.id,
+            status: placed.get(hunk.id) ?? 'conflict',
+          }));
+        });
+      } finally {
+        await connection.disconnect();
+      }
+      return dropped.has(name) ? null : { results };
     },
 
     closeDocument(fileId) {

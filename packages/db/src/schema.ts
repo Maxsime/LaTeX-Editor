@@ -4,6 +4,7 @@ import {
   bigint,
   boolean,
   customType,
+  doublePrecision,
   index,
   integer,
   jsonb,
@@ -469,3 +470,64 @@ export const zoteroAccounts = pgTable('zotero_accounts', {
   keyHint: text('key_hint').notNull(),
   ...timestamps,
 });
+
+export const aiProviderEnum = pgEnum('ai_provider', [
+  'anthropic',
+  'openai',
+  'mistral',
+  'openai-compatible',
+]);
+
+/** A user's own AI provider (SPEC §3.8); the key is encrypted with the master key. */
+export const aiProviderConfigs = pgTable('ai_provider_configs', {
+  userId: uuid('user_id')
+    .primaryKey()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  provider: aiProviderEnum('provider').notNull(),
+  model: text('model').notNull(),
+  baseUrl: text('base_url'),
+  /** AES-256-GCM under the context `ai:<userId>`, see apps/api/src/crypto. */
+  keyCiphertext: bytea('key_ciphertext'),
+  keyHint: text('key_hint'),
+  ...timestamps,
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** One request to a model: tokens and estimated cost (SPEC §6.8). */
+export const aiUsage = pgTable(
+  'ai_usage',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    projectId: uuid('project_id').references(() => projects.id, { onDelete: 'set null' }),
+    provider: aiProviderEnum('provider').notNull(),
+    model: text('model').notNull(),
+    mode: text('mode').notNull(),
+    promptVersion: text('prompt_version').notNull(),
+    inputTokens: integer('input_tokens').notNull(),
+    outputTokens: integer('output_tokens').notNull(),
+    cachedInputTokens: integer('cached_input_tokens').notNull(),
+    /** Millionths of `currency`; null when the model had no price. */
+    costMicros: bigint('cost_micros', { mode: 'number' }),
+    currency: text('currency'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index('ai_usage_user_created_idx').on(table.userId, table.createdAt)],
+);
+
+/** Prices per million tokens, set by the administrator. */
+export const aiModelPrices = pgTable(
+  'ai_model_prices',
+  {
+    provider: aiProviderEnum('provider').notNull(),
+    model: text('model').notNull(),
+    inputPerMTok: doublePrecision('input_per_mtok').notNull(),
+    outputPerMTok: doublePrecision('output_per_mtok').notNull(),
+    cachedInputPerMTok: doublePrecision('cached_input_per_mtok'),
+    currency: text('currency').notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [primaryKey({ columns: [table.provider, table.model] })],
+);

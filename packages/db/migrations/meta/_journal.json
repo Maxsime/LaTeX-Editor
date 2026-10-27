@@ -50,6 +50,13 @@
       "when": 1793114830187,
       "tag": "0006_writing",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1793129731211,
+      "tag": "0007_ai",
+      "breakpoints": true
     }
   ]
 }

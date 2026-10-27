@@ -435,6 +435,60 @@ describe.skipIf(!dockerAvailable)('collab server', () => {
     expect((await internal(`documents/${fileId}/replace`, { wrong: true })).status).toBe(400);
   });
 
+  it('applies assistant hunks in one transaction, realigned or in conflict', async () => {
+    const { fileId, projectId, owner } = await projectWithFile('Le chat dort. Le chien court.');
+    const editor = await synced(fileDocumentName(fileId), owner.token);
+    // The user typed at the start after the proposal was computed.
+    editor.document.getText(TEXT_KEY).insert(0, 'Titre. ');
+    await eventually(async () => {
+      expect(await storedText(fileId)).toBe('Titre. Le chat dort. Le chien court.');
+    });
+    const hunk = (id: string, start: number, original: string, replacement: string) => ({
+      id,
+      fileId,
+      path: 'main.tex',
+      start,
+      original,
+      replacement,
+      before: '',
+      after: '',
+    });
+    const response = await internal(`documents/${fileId}/edit`, {
+      userId: owner.id,
+      hunks: [hunk('a', 3, 'chat', 'lion'), hunk('b', 0, 'absent', 'x')],
+    });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      results: [
+        { id: 'a', status: 'applied' },
+        { id: 'b', status: 'conflict' },
+      ],
+    });
+    expect(await storedText(fileId)).toBe('Titre. Le lion dort. Le chien court.');
+    await eventually(() => {
+      expect(editor.document.getText(TEXT_KEY).toJSON()).toBe(
+        'Titre. Le lion dort. Le chien court.',
+      );
+    });
+    const rows = await database.db
+      .select({ userId: projectActivity.userId })
+      .from(projectActivity)
+      .where(eq(projectActivity.projectId, projectId));
+    expect(rows).toContainEqual({ userId: owner.id });
+
+    expect(
+      (
+        await internal(`documents/${randomUUID()}/edit`, {
+          userId: owner.id,
+          hunks: [hunk('c', 0, 'x', 'y')],
+        })
+      ).status,
+    ).toBe(404);
+    expect(
+      (await internal(`documents/${fileId}/edit`, { userId: owner.id, hunks: [] })).status,
+    ).toBe(400);
+  });
+
   it('flushes a project before the debounce elapses', async () => {
     const { fileId, projectId, owner } = await projectWithFile('');
     const editor = await synced(fileDocumentName(fileId), owner.token);
