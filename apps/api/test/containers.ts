@@ -43,11 +43,26 @@ export function startSeaweedfs(): Promise<StartedTestContainer> {
     .start();
 }
 
-export function startLanguageTool(): Promise<StartedTestContainer> {
-  return new GenericContainer(images.languagetool)
+export async function startLanguageTool(): Promise<StartedTestContainer> {
+  const container = await new GenericContainer(images.languagetool)
     .withEnvironment({ Java_Xms: '256m', Java_Xmx: '1g' })
     .withExposedPorts(8010)
     .withWaitStrategy(Wait.forHttp('/v2/languages', 8010).forStatusCode(200))
     .withStartupTimeout(180_000)
     .start();
+  // The server answers before it loads a language's rules: the first check in
+  // each language can outlast the API's 15 s timeout on a busy CI runner.
+  const url = `http://${container.getHost()}:${String(container.getMappedPort(8010))}/v2/check`;
+  for (const [language, text] of [
+    ['fr', 'Je suis allé à la plage.'],
+    ['en-US', 'I went to the beach.'],
+  ] as const) {
+    const response = await fetch(url, {
+      method: 'POST',
+      body: new URLSearchParams({ language, text }),
+      signal: AbortSignal.timeout(120_000),
+    });
+    if (!response.ok) throw new Error(`LanguageTool warm-up failed: ${String(response.status)}`);
+  }
+  return container;
 }
