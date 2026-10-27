@@ -228,11 +228,14 @@ export const SANDBOX_PROBE_ARGS = [
   '--symlink',
   'usr/lib',
   '/lib',
+  '--symlink',
+  'usr/lib64',
+  '/lib64',
   '--proc',
   '/proc',
   '--dev',
   '/dev',
-  'true',
+  '/usr/bin/true',
 ];
 
 /**
