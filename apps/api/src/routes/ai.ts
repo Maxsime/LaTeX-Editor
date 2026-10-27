@@ -142,6 +142,7 @@ export function aiRoutes(app: FastifyInstance, context: AppContext): void {
       .select({
         provider: aiUsage.provider,
         model: aiUsage.model,
+        currency: aiUsage.currency,
         requests: sql<number>`count(*)::int`,
         inputTokens: sql<number>`coalesce(sum(${aiUsage.inputTokens}), 0)::int`,
         outputTokens: sql<number>`coalesce(sum(${aiUsage.outputTokens}), 0)::int`,
@@ -151,7 +152,7 @@ export function aiRoutes(app: FastifyInstance, context: AppContext): void {
       })
       .from(aiUsage)
       .where(and(eq(aiUsage.userId, auth.user.id), gte(aiUsage.createdAt, since)))
-      .groupBy(aiUsage.provider, aiUsage.model);
+      .groupBy(aiUsage.provider, aiUsage.model, aiUsage.currency);
     const total = (pick: (row: (typeof rows)[number]) => number | null) =>
       rows.reduce((sum, row) => sum + (pick(row) ?? 0), 0);
     return {
@@ -160,7 +161,16 @@ export function aiRoutes(app: FastifyInstance, context: AppContext): void {
       inputTokens: total((row) => row.inputTokens),
       outputTokens: total((row) => row.outputTokens),
       cachedInputTokens: total((row) => row.cachedInputTokens),
-      costMicros: Math.round(total((row) => row.costMicros)),
+      costs: [
+        ...rows
+          .reduce((sums, row) => {
+            if (row.currency !== null && row.costMicros !== null) {
+              sums.set(row.currency, (sums.get(row.currency) ?? 0) + row.costMicros);
+            }
+            return sums;
+          }, new Map<string, number>())
+          .entries(),
+      ].map(([currency, micros]) => ({ currency, micros: Math.round(micros) })),
       unpricedRequests: total((row) => row.unpriced),
       byModel: rows.map((row) => ({
         provider: row.provider,
@@ -169,6 +179,7 @@ export function aiRoutes(app: FastifyInstance, context: AppContext): void {
         inputTokens: row.inputTokens,
         outputTokens: row.outputTokens,
         costMicros: row.costMicros === null ? null : Math.round(row.costMicros),
+        currency: row.currency,
       })),
     };
   });

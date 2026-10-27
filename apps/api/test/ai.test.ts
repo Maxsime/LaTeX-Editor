@@ -715,7 +715,7 @@ describe.skipIf(!dockerAvailable)('AI assistant', () => {
       },
     });
     const summary = await send(alice, 'GET', '/api/me/ai/usage');
-    expect(summary.json()).toMatchObject({ costMicros: 1200 });
+    expect(summary.json()).toMatchObject({ costs: [{ currency: 'EUR', micros: 1200 }] });
     expect(summary.json<{ requests: number }>().requests).toBeGreaterThan(1);
   });
 

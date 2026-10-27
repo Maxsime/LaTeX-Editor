@@ -12,13 +12,16 @@ import { ReferencesPanel } from '../components/ReferencesPanel.js';
 import { WordsPanel } from '../components/WordsPanel.js';
 import { SearchPanel } from '../components/SearchPanel.js';
 import { ChatPanel } from '../components/ChatPanel.js';
+import { AiPanel } from '../components/AiPanel.js';
 import { ShareDialog } from '../components/ShareDialog.js';
 import { Button, ErrorAlert, NameDialog } from '../components/ui.js';
+import { useAiStatus } from '../lib/ai.js';
 import { ApiRequestError } from '../lib/api.js';
 import { diagnosticsByFile, isPending, useLatestCompile } from '../lib/compile.js';
 import { useProject, useTree, useTreeMutations, useUpdateProject } from '../lib/projects.js';
 import { buildTree, flatten } from '../lib/tree.js';
 import { fromFileList } from '../lib/upload.js';
+import { useAi } from '../stores/ai.js';
 import { useCompilePreferences, type ViewMode } from '../stores/compile.js';
 import { useEditor } from '../stores/editor.js';
 import { useNotices } from '../stores/notices.js';
@@ -30,7 +33,8 @@ const EditorArea = lazy(() => import('../editor/EditorArea.js'));
 // Needs Yjs as well, for the suggestions of the open file.
 const ReviewPanel = lazy(() => import('../components/ReviewPanel.js'));
 
-type Panel = 'files' | 'outline' | 'search' | 'references' | 'words' | 'review' | 'chat';
+type Panel =
+  'files' | 'outline' | 'search' | 'references' | 'words' | 'review' | 'chat' | 'assistant';
 const PANELS: readonly Panel[] = [
   'files',
   'outline',
@@ -39,6 +43,7 @@ const PANELS: readonly Panel[] = [
   'words',
   'review',
   'chat',
+  'assistant',
 ];
 const VIEW_MODES: readonly ViewMode[] = ['editor', 'both', 'pdf'];
 
@@ -98,12 +103,27 @@ export function ProjectPage() {
   const [sharing, setSharing] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const compiles = useLatestCompile(projectId);
+  const aiStatus = useAiStatus(projectId);
+  // Turned off by the instance or the project: the panel is hidden, not just empty.
+  const aiShown =
+    aiStatus.data !== undefined &&
+    aiStatus.data.reason !== 'instance-disabled' &&
+    aiStatus.data.reason !== 'project-disabled';
   const { viewMode, setViewMode } = useCompilePreferences();
 
   useEffect(() => {
     open(projectId);
     openProject(projectId);
+    useAi.getState().openProject(projectId);
   }, [open, openProject, projectId]);
+  // An inline edit or a request from the log brings the assistant forward.
+  useEffect(
+    () =>
+      useAi.subscribe((state, previous) => {
+        if (state.focus !== previous.focus) setPanel('assistant');
+      }),
+    [],
+  );
 
   const nodes = useMemo(() => tree.data?.nodes ?? [], [tree.data]);
   const roots = useMemo(() => buildTree(nodes), [nodes]);
@@ -260,7 +280,7 @@ export function ProjectPage() {
       <div className={`grid h-[calc(100vh-11rem)] min-h-[28rem] gap-3 ${GRID[viewMode]}`}>
         <aside className="flex min-h-0 flex-col">
           <div role="tablist" aria-label={t('editor.panels')} className="mb-2 flex flex-wrap gap-1">
-            {PANELS.map((name) => (
+            {PANELS.filter((name) => name !== 'assistant' || aiShown).map((name) => (
               <button
                 key={name}
                 type="button"
@@ -350,6 +370,9 @@ export function ProjectPage() {
               </Suspense>
             )}
             {panel === 'chat' && <ChatPanel projectId={projectId} />}
+            {panel === 'assistant' && aiShown && (
+              <AiPanel status={aiStatus.data} canEdit={canEdit} />
+            )}
           </div>
         </aside>
         <section

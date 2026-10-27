@@ -15,6 +15,14 @@ export interface Reveal {
 }
 
 /** Text to insert in a file by a panel or an assistant, through the file's editor. */
+/** Where the cursor and the main selection of a file stand. */
+export interface EditorSelectionState {
+  fileId: string;
+  head: number;
+  from: number;
+  to: number;
+}
+
 export interface Insertion {
   fileId: string;
   text: string;
@@ -33,6 +41,8 @@ interface EditorState {
   insertion: Insertion | null;
   /** Line of the cursor in the active tab, for the outline highlight. */
   cursorLine: number;
+  /** Cursor and main selection of the active tab, as offsets, for the assistant's context. */
+  selection: EditorSelectionState | null;
   /** Bumped on every local edit, to refresh the outline after a pause. */
   editCount: number;
   /** Resets tabs when another project is opened. */
@@ -46,6 +56,7 @@ interface EditorState {
   /** Opens the file and inserts the text once its editor is ready. */
   insert: (request: Omit<Insertion, 'nonce'>) => void;
   setCursorLine: (line: number) => void;
+  setSelection: (selection: EditorSelectionState) => void;
   noteEdit: () => void;
 }
 
@@ -64,6 +75,7 @@ export const useEditor = create<EditorState>()((set, get) => ({
   reveal: null,
   insertion: null,
   cursorLine: 1,
+  selection: null,
   editCount: 0,
   openProject: (projectId) => {
     if (get().projectId === projectId) return;
@@ -75,6 +87,7 @@ export const useEditor = create<EditorState>()((set, get) => ({
       reveal: null,
       insertion: null,
       cursorLine: 1,
+      selection: null,
     });
   },
   openTab: (fileId) => {
@@ -115,6 +128,17 @@ export const useEditor = create<EditorState>()((set, get) => ({
   },
   setCursorLine: (cursorLine) => {
     if (get().cursorLine !== cursorLine) set({ cursorLine });
+  },
+  setSelection: (selection) => {
+    const current = get().selection;
+    if (
+      current?.fileId !== selection.fileId ||
+      current.head !== selection.head ||
+      current.from !== selection.from ||
+      current.to !== selection.to
+    ) {
+      set({ selection });
+    }
   },
   noteEdit: () => {
     set(({ editCount }) => ({ editCount: editCount + 1 }));

@@ -235,8 +235,9 @@ export const aiUsageSummary = z.object({
   inputTokens: z.number(),
   outputTokens: z.number(),
   cachedInputTokens: z.number(),
-  costMicros: z.number(),
-  /** Requests whose model had no price: their cost is missing from `costMicros`. */
+  /** Estimated cost per currency, in millionths; prices may be set in several currencies. */
+  costs: z.array(z.object({ currency: z.string(), micros: z.number() })),
+  /** Requests whose model had no price: their cost is missing from `costs`. */
   unpricedRequests: z.number(),
   byModel: z.array(
     z.object({
@@ -246,6 +247,7 @@ export const aiUsageSummary = z.object({
       inputTokens: z.number(),
       outputTokens: z.number(),
       costMicros: z.nullable(z.number()),
+      currency: z.nullable(z.string()),
     }),
   ),
 });

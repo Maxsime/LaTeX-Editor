@@ -13,6 +13,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { FilePreview } from '../components/FilePreview.js';
 import { InsertToolbar } from '../components/InsertToolbar.js';
+import { useAiStatus } from '../lib/ai.js';
 import { api } from '../lib/api.js';
 import { compileKey } from '../lib/compile.js';
 import { indexKey, outlineKey, useProjectIndex } from '../lib/editor.js';
@@ -151,6 +152,7 @@ export default function EditorArea({
   const { tabs, activeId, status, openTab, closeTab, setStatus, keepTabs } = useEditor();
   const editCount = useEditor((state) => state.editCount);
   const index = useProjectIndex(projectId);
+  const aiStatus = useAiStatus(projectId);
   const { user } = useSession();
   const onEventRef = useRef<(event: ProjectEventMessage) => void>(() => undefined);
   const checkAccessRef = useRef<() => void>(() => undefined);
@@ -507,6 +509,8 @@ export default function EditorArea({
           images={images}
           mainPath={mainFileId === null ? null : (paths.get(mainFileId) ?? null)}
           packages={index.data?.packages ?? []}
+          projectId={projectId}
+          aiStatus={aiStatus.data}
         />
         <Preferences spelling={features.data?.spelling === true} />
       </div>

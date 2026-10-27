@@ -255,7 +255,8 @@
       "review": "Review",
       "chat": "Chat",
       "references": "References",
-      "words": "Words"
+      "words": "Words",
+      "assistant": "Assistant"
     },
     "status": {
       "connecting": "Connecting…",
@@ -521,6 +522,39 @@
       "add": "Add",
       "none": "No word yet.",
       "remove": "Remove {{word}}"
+    },
+    "ai": {
+      "title": "AI assistant",
+      "intro": "Choose the assistant's provider and model. Your API key is encrypted on the server and never shown in full again.",
+      "provider": "Provider",
+      "providers": {
+        "anthropic": "Anthropic",
+        "openai": "OpenAI",
+        "mistral": "Mistral",
+        "openai-compatible": "OpenAI-compatible (Ollama, vLLM…)"
+      },
+      "model": "Model",
+      "modelPlaceholder": "e.g. mistral-large-latest, llama3.1",
+      "baseUrl": "Server address",
+      "baseUrlHint": "Required for an OpenAI-compatible server, e.g. http://host.docker.internal:11434/v1",
+      "baseUrlForbidden": "The administrator does not allow custom addresses.",
+      "key": "API key",
+      "keyHint": "Leave empty to keep the stored key.",
+      "keyStored": "Stored key: …{{hint}}",
+      "noKey": "No key stored.",
+      "save": "Save",
+      "remove": "Remove my configuration",
+      "instanceDefault": "Without a personal configuration, the instance provides {{provider}} / {{model}}.",
+      "noDefault": "The instance provides no default model.",
+      "disabled": "The assistant is turned off on this instance.",
+      "usage": {
+        "title": "This month's usage",
+        "requests": "{{count}} requests",
+        "tokens": "{{input}} input tokens, {{output}} output",
+        "cost": "Estimated cost: {{cost}}",
+        "unpriced": "{{count}} requests on unpriced models are not counted.",
+        "none": "No requests this month."
+      }
     }
   },
   "history": {
@@ -763,6 +797,96 @@
       "ca-ES": "Catalan",
       "pl-PL": "Polish",
       "ru-RU": "Russian"
+    }
+  },
+  "ai": {
+    "model": "Model: {{provider}} / {{model}}",
+    "empty": "Ask about the project, request a fix or a rewording. The assistant reads the files and proposes changes for you to accept or reject.",
+    "message": "Message to the assistant",
+    "send": "Send",
+    "stop": "Stop",
+    "newConversation": "New conversation",
+    "hint": "Ctrl+Alt+K on a selection to rewrite it. Nothing changes without your approval.",
+    "thinking": "The assistant is thinking…",
+    "toolFailed": "failed",
+    "proposal": "Proposed change",
+    "newFile": "new file",
+    "accept": "Accept",
+    "acceptFile": "Accept file",
+    "acceptAll": "Accept all",
+    "reject": "Reject",
+    "rejectFile": "Reject file",
+    "rejectAll": "Reject all",
+    "status": {
+      "pending": "Pending",
+      "applied": "Accepted",
+      "rejected": "Rejected",
+      "conflict": "Conflict: the text changed, the change was not applied."
+    },
+    "configure": "Set up a provider in My account",
+    "unavailable": {
+      "instance-disabled": "The assistant is turned off on this instance.",
+      "project-disabled": "The assistant is turned off for this project.",
+      "not-configured": "No model is configured. Enter your provider and key in My account."
+    },
+    "tools": {
+      "list_files": "Listing files",
+      "read_file": "Reading",
+      "search_project": "Searching",
+      "get_outline": "Reading the outline",
+      "get_compile_log": "Reading the log",
+      "compile_snippet": "Test compilation",
+      "propose_changes": "Proposing a change",
+      "search_literature": "Searching the literature",
+      "fetch_bibtex": "Fetching the reference"
+    },
+    "usage": {
+      "line": "{{input}} input tokens ({{cached}} cached), {{output}} output",
+      "noPrice": "cost unknown"
+    },
+    "inline": {
+      "title": "Rewrite the selection",
+      "instruction": "Instruction (e.g. more concise, in French…)",
+      "submit": "Propose"
+    },
+    "fix": {
+      "button": "Explain and fix",
+      "prompt": "Explain this compilation error and propose a fix."
+    },
+    "generate": {
+      "open": "Generate…",
+      "title": "Generate LaTeX",
+      "kind": "Kind",
+      "kinds": {
+        "auto": "Automatic",
+        "table": "Table",
+        "figure": "TikZ figure",
+        "plot": "pgfplots chart",
+        "formula": "Formula"
+      },
+      "description": "Description",
+      "descriptionPlaceholder": "E.g. results table with three columns, mean and standard deviation",
+      "image": "Image (optional)",
+      "imageHint": "PNG, JPEG or WebP up to 4 MB: a table, formula or diagram to reproduce.",
+      "imageTooLarge": "Image too large (4 MB at most).",
+      "noVision": "The configured model cannot read images.",
+      "imagePrompt": "Reproduce this image in LaTeX.",
+      "submit": "Generate",
+      "preview": "Preview",
+      "code": "Code",
+      "insert": "Insert at cursor",
+      "outcome": {
+        "success": "Compiled without errors.",
+        "failure": "The test compilation failed:",
+        "timeout": "The test compilation ran out of time.",
+        "error": "No compiler is available for the preview.",
+        "skipped": "No preview."
+      },
+      "preamble": "Add to the preamble if missing"
+    },
+    "options": {
+      "enabled": "AI assistant",
+      "enabledHint": "When off, the assistant is offered to no member of the project."
     }
   }
 }

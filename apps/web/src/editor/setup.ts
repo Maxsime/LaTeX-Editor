@@ -147,7 +147,8 @@ export interface EditorOptions {
   settings: EditorSettings;
   live: LiveSettings;
   completion: () => CompletionSources;
-  onCursorLine: (line: number) => void;
+  /** The cursor's line and the main selection, after each move or edit. */
+  onCursor: (line: number, selection: { head: number; from: number; to: number }) => void;
   onLocalEdit: () => void;
 }
 
@@ -196,7 +197,8 @@ export function editorExtensions(options: EditorOptions): Extension {
     options.settings.extensions(options.live),
     EditorView.updateListener.of((update) => {
       if (update.selectionSet || update.docChanged) {
-        options.onCursorLine(update.state.doc.lineAt(update.state.selection.main.head).number);
+        const { head, from, to } = update.state.selection.main;
+        options.onCursor(update.state.doc.lineAt(head).number, { head, from, to });
       }
       // Remote changes applied by the Yjs binding carry no user event.
       const local = update.transactions.some((transaction) =>

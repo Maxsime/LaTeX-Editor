@@ -1,6 +1,7 @@
 import type { AccessToken } from '@galley/shared';
 import { useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { AiSection } from '../components/AccountAi.js';
 import { DictionarySection, ZoteroSection } from '../components/AccountWriting.js';
 import { Button, ConfirmDialog, ErrorAlert, TextField, useFieldError } from '../components/ui.js';
 import { useAccessTokenMutations, useAccessTokens } from '../lib/tokens.js';
@@ -149,6 +150,7 @@ export function AccountPage() {
         )}
       </section>
       <ZoteroSection />
+      <AiSection />
       <DictionarySection />
       <ConfirmDialog
         open={revoking !== null}

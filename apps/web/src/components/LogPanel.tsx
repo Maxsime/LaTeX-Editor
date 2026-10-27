@@ -2,7 +2,9 @@ import type { CompileRun, Diagnostic } from '@galley/shared';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useAiStatus } from '../lib/ai.js';
 import { countLevels, outputUrl } from '../lib/compile.js';
+import { useAi } from '../stores/ai.js';
 import { useEditor } from '../stores/editor.js';
 
 type Tab = 'issues' | 'raw' | 'files';
@@ -68,6 +70,32 @@ export function LogPanel({ projectId, run, fileIds }: LogPanelProps) {
   const message = useDiagnosticMessage();
   const counts = countLevels(run.diagnostics);
   const shown = run.diagnostics.filter((d) => showBadBoxes || d.level !== 'badbox');
+  const aiStatus = useAiStatus(projectId);
+  const busy = useAi((state) => state.busy);
+  const fix =
+    aiStatus.data?.available === true
+      ? (diagnostic: Diagnostic, fileId: string | undefined) => {
+          const ai = useAi.getState();
+          ai.show();
+          void ai.send({
+            mode: 'fix',
+            text: t('ai.fix.prompt'),
+            context: fileId === undefined ? {} : { fileId },
+            diagnostic: {
+              // The TeX context shows the offending line, as the user sees it.
+              message: [
+                message(diagnostic),
+                diagnostic.source === 'compiler' ? '' : diagnostic.context,
+              ]
+                .filter((part) => part !== '')
+                .join('\n')
+                .slice(0, 4000),
+              ...(diagnostic.file === null ? {} : { file: diagnostic.file }),
+              ...(diagnostic.line === null ? {} : { line: diagnostic.line }),
+            },
+          });
+        }
+      : null;
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -165,6 +193,20 @@ export function LogPanel({ projectId, run, fileIds }: LogPanelProps) {
                       </button>
                     ) : (
                       <div className="px-2 py-1">{body}</div>
+                    )}
+                    {fix && diagnostic.level === 'error' && (
+                      <div className="px-2 pb-1">
+                        <button
+                          type="button"
+                          className="text-[11px] text-accent underline disabled:text-slate-400"
+                          disabled={busy}
+                          onClick={() => {
+                            fix(diagnostic, fileId);
+                          }}
+                        >
+                          {t('ai.fix.button')}
+                        </button>
+                      </div>
                     )}
                   </li>
                 );
