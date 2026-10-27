@@ -2,7 +2,12 @@ import { createHash, randomUUID } from 'node:crypto';
 import { createReadStream } from 'node:fs';
 import { access, appendFile, mkdtemp, readdir, readFile } from 'node:fs/promises';
 import { isAbsolute, join, relative, resolve } from 'node:path';
-import type { CompileJob, Diagnostic, Manifest } from '@galley/shared';
+import {
+  type CompileJob,
+  type Diagnostic,
+  type Manifest,
+  synctexInputToProjectPath,
+} from '@galley/shared';
 import * as z from 'zod/mini';
 import { type CompileEnvironment, compileProject, type LocalCompileResult } from './compile.js';
 import { splitMainFile } from './latexmk.js';
@@ -68,6 +73,8 @@ export interface RunReport {
   hotDurationMs?: number;
   /** Median duration of the SyncTeX queries, when the run measures them. */
   synctexMedianMs?: number;
+  /** Share of source lines that a SyncTeX round trip leads back to (SPEC §9 J4, A1). */
+  synctexAccuracy?: number;
   failures: string[];
 }
 
@@ -213,6 +220,9 @@ export async function checkRun(
  * Sends each line of the project's sources to the PDF and the first box found
  * back to the source, as the editor does, and times every query.
  */
+/** Least share of lines a SyncTeX round trip must lead back to (SPEC §9 J4, A1). */
+const SYNCTEX_MIN_ACCURACY = 0.95;
+
 async function checkSynctex(
   local: LocalCompileResult,
   job: CompileJob,
@@ -232,6 +242,7 @@ async function checkSynctex(
   const timings: number[] = [];
   let boxes = 0;
   let found = 0;
+  const missed: string[] = [];
   const timed = async <T>(query: () => Promise<T>): Promise<T> => {
     const started = performance.now();
     const result = await query();
@@ -239,8 +250,13 @@ async function checkSynctex(
     return result;
   };
   for (const file of Object.keys(job.manifest).filter((path) => path.endsWith('.tex'))) {
-    const lines = (await readFile(join(local.dirs.src, file), 'utf8')).split('\n').length;
-    for (let line = 1; line <= lines; line += 1) {
+    const lines = (await readFile(join(local.dirs.src, file), 'utf8')).split('\n');
+    // Only running text counts: the preamble, blank lines and comments typeset nothing.
+    const body =
+      file === job.mainFile ? lines.findIndex((text) => text.includes('\\begin{document}')) + 1 : 0;
+    for (let line = body + 1; line <= lines.length; line += 1) {
+      const text = lines[line - 1]?.trim() ?? '';
+      if (text === '' || text.startsWith('%')) continue;
       const view = await timed(() =>
         runSynctex(env, {
           kind: 'view',
@@ -264,12 +280,28 @@ async function checkSynctex(
           y: box.y + box.height / 2,
         }),
       );
-      if (edit.kind === 'edit' && edit.source !== null) found += 1;
+      // A paragraph often ends on the next line; SyncTeX may report either.
+      const source = edit.kind === 'edit' ? edit.source : null;
+      if (
+        source !== null &&
+        synctexInputToProjectPath(source.input) === file &&
+        Math.abs(source.line - line) <= 1
+      ) {
+        found += 1;
+      } else {
+        const got = source === null ? 'nothing' : `${source.input}:${String(source.line)}`;
+        missed.push(`${file}:${String(line)} -> ${got}`);
+      }
     }
   }
   const failures: string[] = [];
   if (boxes === 0) failures.push('SyncTeX found no box for any source line');
-  if (found < boxes) failures.push(`SyncTeX edit found nothing for ${String(boxes - found)} boxes`);
+  report.synctexAccuracy = boxes === 0 ? 0 : found / boxes;
+  if (found < boxes * SYNCTEX_MIN_ACCURACY) {
+    failures.push(
+      `SyncTeX edit led back to ${String(found)} of ${String(boxes)} lines, below ${String(SYNCTEX_MIN_ACCURACY * 100)} %: ${missed.slice(0, 5).join(', ')}`,
+    );
+  }
   timings.sort((a, b) => a - b);
   const median = timings[Math.floor(timings.length / 2)] ?? 0;
   report.synctexMedianMs = median;
