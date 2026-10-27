@@ -11,6 +11,7 @@ import { createMetrics } from './metrics.js';
 import { adminRoutes } from './routes/admin.js';
 import { archiveRoutes } from './routes/archive.js';
 import { authRoutes } from './routes/auth.js';
+import { compileRoutes } from './routes/compile.js';
 import { editorRoutes } from './routes/editor.js';
 import { fileRoutes } from './routes/files.js';
 import { healthRoutes } from './routes/health.js';
@@ -90,6 +91,7 @@ export function buildApp({
       fileRoutes(api, context);
       editorRoutes(api, context);
       archiveRoutes(api, context, archiveLimits);
+      compileRoutes(api, context);
     });
   }
 

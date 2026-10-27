@@ -55,7 +55,12 @@ const INLINE_TYPES = new Set([
  * page: unknown types are downloaded, and inline ones get a sandbox policy.
  * PDF viewers do not work under `sandbox`, but they do not run page scripts.
  */
-function sendUserFile(reply: FastifyReply, name: string, body: Buffer | Readable): FastifyReply {
+export function sendUserFile(
+  reply: FastifyReply,
+  name: string,
+  body: Buffer | Readable,
+  cacheControl = 'private, no-cache',
+): FastifyReply {
   const mimeType = mimeTypeFor(name);
   const inline = INLINE_TYPES.has(mimeType) || mimeType.startsWith('text/');
   void reply
@@ -71,7 +76,7 @@ function sendUserFile(reply: FastifyReply, name: string, body: Buffer | Readable
       'content-disposition',
       `${inline ? 'inline' : 'attachment'}; filename*=UTF-8''${encodeURIComponent(name)}`,
     )
-    .header('cache-control', 'private, no-cache');
+    .header('cache-control', cacheControl);
   return reply.send(body);
 }
 

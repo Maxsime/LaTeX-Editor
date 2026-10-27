@@ -14,6 +14,8 @@ export interface MaterializedProject {
   manifest: Manifest;
   /** Every folder path, so that empty folders survive an export. */
   folders: string[];
+  /** Project-relative path of every file and folder, by id. */
+  paths: Map<string, string>;
 }
 
 /**
@@ -57,7 +59,7 @@ export async function materializeProject(
     }
   }
   await storeBlobs(db, s3, config.S3_BUCKET, textBlobs);
-  return { manifest, folders: folders.sort() };
+  return { manifest, folders: folders.sort(), paths };
 }
 
 /** A text file of a project, with its current content. */

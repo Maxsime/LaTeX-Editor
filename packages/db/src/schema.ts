@@ -1,9 +1,11 @@
+import type { CompileOptions, CompileResult } from '@galley/shared';
 import { sql } from 'drizzle-orm';
 import {
   bigint,
   boolean,
   customType,
   index,
+  jsonb,
   pgEnum,
   pgTable,
   primaryKey,
@@ -181,3 +183,40 @@ export const blobs = pgTable('blobs', {
   mimeType: text('mime_type').notNull(),
   ...timestamps,
 });
+
+export const compileStatusEnum = pgEnum('compile_status', [
+  'queued',
+  'running',
+  'success',
+  'failure',
+  'timeout',
+  'cancelled',
+  'superseded',
+  'error',
+]);
+
+/** One compilation request and, once a worker finished it, its result (SPEC §6.3). */
+export const compileRuns = pgTable(
+  'compile_runs',
+  {
+    id: uuid('id').primaryKey(),
+    projectId: uuid('project_id')
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id').references(() => users.id, { onDelete: 'set null' }),
+    status: compileStatusEnum('status').notNull().default('queued'),
+    engine: engineEnum('engine').notNull(),
+    mainFile: text('main_file').notNull(),
+    options: jsonb('options').$type<CompileOptions>().notNull(),
+    /** SHA-256 of the manifest, to tell whether two compilations saw the same sources. */
+    manifestDigest: text('manifest_digest').notNull(),
+    /** Worker result with diagnostics and published outputs; null until finished. */
+    result: jsonb('result').$type<Omit<CompileResult, 'outcome'>>(),
+    /** Machine reason of an `error` status, such as INVALID_JOB or LOST. */
+    failureCode: text('failure_code'),
+    startedAt: timestamp('started_at', { withTimezone: true }),
+    finishedAt: timestamp('finished_at', { withTimezone: true }),
+    ...timestamps,
+  },
+  (table) => [index('compile_runs_project_idx').on(table.projectId, table.createdAt)],
+);

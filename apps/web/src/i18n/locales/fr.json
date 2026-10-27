@@ -35,6 +35,7 @@
     "FORBIDDEN": "Accès refusé.",
     "NOT_FOUND": "Ressource introuvable.",
     "CONFLICT": "Conflit avec l'état actuel.",
+    "NO_MAIN_FILE": "Aucun fichier principal n'est défini pour ce projet.",
     "PAYLOAD_TOO_LARGE": "Contenu trop volumineux.",
     "RATE_LIMITED": "Trop de requêtes, réessayez plus tard.",
     "INVALID_PATTERN": "Expression régulière invalide.",

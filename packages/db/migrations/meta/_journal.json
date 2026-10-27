@@ -15,6 +15,13 @@
       "when": 1793043081327,
       "tag": "0001_accounts_projects_files",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793058710623,
+      "tag": "0002_compile_runs",
+      "breakpoints": true
     }
   ]
 }

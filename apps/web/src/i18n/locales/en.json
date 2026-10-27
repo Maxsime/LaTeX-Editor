@@ -35,6 +35,7 @@
     "FORBIDDEN": "Access denied.",
     "NOT_FOUND": "Not found.",
     "CONFLICT": "Conflicts with the current state.",
+    "NO_MAIN_FILE": "This project has no main file.",
     "PAYLOAD_TOO_LARGE": "Content too large.",
     "RATE_LIMITED": "Too many requests, try again later.",
     "INVALID_PATTERN": "Invalid regular expression.",
