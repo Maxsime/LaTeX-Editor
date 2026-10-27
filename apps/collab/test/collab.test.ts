@@ -4,6 +4,7 @@ import {
   createDatabase,
   type Database,
   files,
+  projectActivity,
   projectMembers,
   projects,
   runMigrations,
@@ -336,6 +337,19 @@ describe.skipIf(!dockerAvailable)('collab server', () => {
     });
     const second = await synced(fileDocumentName(fileId), owner.token);
     expect(second.document.getText(TEXT_KEY).toJSON()).toBe(expected);
+  });
+
+  it('records who edited a project, for the authors of its next snapshot', async () => {
+    const { fileId, projectId, owner } = await projectWithFile('text');
+    const provider = await synced(fileDocumentName(fileId), owner.token);
+    provider.document.getText(TEXT_KEY).insert(0, 'more ');
+    await eventually(async () => {
+      const rows = await database.db
+        .select({ userId: projectActivity.userId })
+        .from(projectActivity)
+        .where(eq(projectActivity.projectId, projectId));
+      expect(rows).toEqual([{ userId: owner.id }]);
+    });
   });
 
   it('gives readers and reviewers a read-only connection', async () => {
