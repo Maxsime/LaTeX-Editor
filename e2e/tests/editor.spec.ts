@@ -21,11 +21,35 @@ test.describe('editor', () => {
     await editor(page).click();
     await page.keyboard.press('Control+End');
     const typed = 'Appended at the end of a long document';
-    const started = Date.now();
+    // Event Timing measures each keystroke inside the browser, from the key
+    // press to the next frame painted, without the test runner's round trips,
+    // whose cost depends on the load of the machine rather than on the editor.
+    const observed = await page.evaluate(() => {
+      const durations: number[] = [];
+      Reflect.set(window, '__keyDurations', durations);
+      // `durationThreshold` (the shortest entry reported) is missing from
+      // TypeScript's DOM types; the object widens to the init type as declared.
+      const init: PerformanceObserverInit & { durationThreshold: number } = {
+        type: 'event',
+        buffered: true,
+        durationThreshold: 16,
+      };
+      new PerformanceObserver((list) => {
+        for (const entry of list.getEntries()) {
+          if (entry.name.startsWith('key')) durations.push(entry.duration);
+        }
+      }).observe(init);
+      return PerformanceObserver.supportedEntryTypes.includes('event');
+    });
+    expect(observed).toBe(true);
     await page.keyboard.type(typed, { delay: 0 });
     await expect(editor(page)).toContainText(typed);
-    // Typing must not lag: each keystroke is applied in well under the 50 ms budget.
-    expect(Date.now() - started).toBeLessThan(typed.length * 50);
+    // Typing must not lag: every keystroke is applied within the 50 ms budget.
+    const durations = await page.evaluate(() => {
+      const recorded: unknown = Reflect.get(window, '__keyDurations');
+      return Array.isArray(recorded) ? recorded.filter((value) => typeof value === 'number') : [];
+    });
+    expect(Math.max(0, ...durations)).toBeLessThan(50);
 
     await page.keyboard.press('Control+Home');
     await expect(editor(page)).toContainText('\\section{Part 0}');
