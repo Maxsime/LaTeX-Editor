@@ -53,6 +53,9 @@ jobs:
       OIDC_ISSUER: http://172.17.0.1:9440
       OIDC_CLIENT_ID: galley-ci
       OIDC_CLIENT_SECRET: galley-ci-secret
+      # Likewise a test mail server (e2e/tests/mail.spec.ts).
+      SMTP_URL: smtp://172.17.0.1:2525
+      SMTP_FROM: Galley <galley@localhost>
     steps:
       - uses: actions/checkout@v5
       # Installation time is measured from here, as docs/installation.md steps 3 and 4.
