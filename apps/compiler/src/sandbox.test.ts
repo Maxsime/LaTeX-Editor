@@ -67,6 +67,8 @@ describe('bwrapArgs', () => {
       openout_any: 'p',
       max_print_line: '10000',
       TEXMFHOME: '/texmf',
+      TEXINPUTS: '.:/texmf//:',
+      BIBINPUTS: '.:/texmf//:',
       PATH: '/usr/local/texlive/2026/bin/x86_64-linux:/usr/bin:/bin',
     });
     expect(Object.keys(env)).not.toContain('S3_SECRET_ACCESS_KEY');

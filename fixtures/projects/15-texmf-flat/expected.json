@@ -1,0 +1,12 @@
+{
+  "description": "Paquet et bibliographie déposés à la racine du texmf personnel, hors de l'arborescence TDS : ils restent trouvés (SPEC §3.1).",
+  "runs": [
+    {
+      "main": "main.tex",
+      "expect": {
+        "outcome": "success",
+        "absentWarnings": ["undefined", "not found"]
+      }
+    }
+  ]
+}
