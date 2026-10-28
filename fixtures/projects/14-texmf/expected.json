@@ -1,0 +1,12 @@
+{
+  "description": "Classe et bibliographie partagées depuis le texmf personnel du propriétaire, monté en TEXMFHOME (SPEC §3.1).",
+  "runs": [
+    {
+      "main": "main.tex",
+      "expect": {
+        "outcome": "success",
+        "absentWarnings": ["undefined", "not found"]
+      }
+    }
+  ]
+}

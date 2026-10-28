@@ -24,6 +24,9 @@ export interface ProjectDirs {
   out: string;
   /** Manifest of the last synchronisation, out of the sandbox's reach. */
   manifestFile: string;
+  /** The project owner's personal texmf tree, mounted read-only as `TEXMFHOME`. */
+  texmf: string;
+  texmfManifestFile: string;
 }
 
 /** Lays out the working directory of a project. */
@@ -34,6 +37,8 @@ export function projectDirs(workRoot: string, projectId: string): ProjectDirs {
     src: join(root, 'src'),
     out: join(root, 'out'),
     manifestFile: join(root, 'manifest.json'),
+    texmf: join(root, 'texmf'),
+    texmfManifestFile: join(root, 'texmf-manifest.json'),
   };
 }
 
@@ -114,11 +119,36 @@ export async function syncSources(
   manifest: Manifest,
   fetch: BlobFetcher,
 ): Promise<SyncReport> {
-  await mkdir(dirs.src, { recursive: true });
   await mkdir(dirs.out, { recursive: true });
-  const previous = await readPreviousManifest(dirs.manifestFile);
+  const report = await syncTree(dirs.src, dirs.manifestFile, manifest, fetch);
+  // The root's modification time orders projects for eviction.
+  const now = new Date();
+  await utimes(dirs.root, now, now);
+  return report;
+}
+
+/**
+ * Makes the project's copy of its owner's texmf tree match `manifest`, the
+ * same way as the sources. Each project keeps its own copy, evicted with it.
+ */
+export async function syncTexmf(
+  dirs: ProjectDirs,
+  manifest: Manifest,
+  fetch: BlobFetcher,
+): Promise<SyncReport> {
+  return syncTree(dirs.texmf, dirs.texmfManifestFile, manifest, fetch);
+}
+
+async function syncTree(
+  dir: string,
+  manifestFile: string,
+  manifest: Manifest,
+  fetch: BlobFetcher,
+): Promise<SyncReport> {
+  await mkdir(dir, { recursive: true });
+  const previous = await readPreviousManifest(manifestFile);
   // Forget the old manifest first: an interrupted sync must not be trusted next time.
-  await rm(dirs.manifestFile, { force: true });
+  await rm(manifestFile, { force: true });
 
   const report: SyncReport = { written: 0, removed: 0 };
   const directories = new Set<string>();
@@ -129,28 +159,25 @@ export async function syncSources(
   }
 
   // Remove what the manifest does not list, deepest entries first.
-  for (const entry of await walk(dirs.src)) {
+  for (const entry of await walk(dir)) {
     const keep = entry.directory ? directories.has(entry.path) : entry.path in manifest;
-    const stat = await lstat(join(dirs.src, entry.path)).catch(() => null);
+    const stat = await lstat(join(dir, entry.path)).catch(() => null);
     const sameKind = entry.directory ? stat?.isDirectory() : stat?.isFile();
     if (!keep || !sameKind) {
-      await rm(join(dirs.src, entry.path), { recursive: true, force: true });
+      await rm(join(dir, entry.path), { recursive: true, force: true });
       if (!entry.directory) report.removed += 1;
     }
   }
 
   for (const [path, hash] of Object.entries(manifest)) {
-    const target = join(dirs.src, path);
+    const target = join(dir, path);
     if (previous[path] === hash && (await lstat(target).catch(() => null))?.isFile()) continue;
-    await ensureDirectory(dirs.src, dirname(path) === '.' ? '' : dirname(path));
+    await ensureDirectory(dir, dirname(path) === '.' ? '' : dirname(path));
     await writeAtomically(target, await fetch(hash));
     report.written += 1;
   }
 
-  await writeFile(dirs.manifestFile, JSON.stringify(manifest));
-  // The root's modification time orders projects for eviction.
-  const now = new Date();
-  await utimes(dirs.root, now, now);
+  await writeFile(manifestFile, JSON.stringify(manifest));
   return report;
 }
 

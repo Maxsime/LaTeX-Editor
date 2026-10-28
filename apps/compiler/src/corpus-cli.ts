@@ -50,7 +50,6 @@ async function main(): Promise<void> {
       workRoot,
       texliveDir: texlive.dir,
       assetsDir,
-      texmfDir: join(assetsDir, 'texmf'),
       // The limits of SPEC §6.3; the corpus lowers the time limit per run where it needs to.
       limits: {
         timeoutMs: 180_000,

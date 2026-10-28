@@ -109,7 +109,6 @@ export function createCompilerService(
     workRoot: config.COMPILER_WORK_DIR,
     texliveDir: dependencies.texlive.dir,
     assetsDir: config.COMPILER_ASSETS_DIR,
-    texmfDir: join(config.COMPILER_ASSETS_DIR, 'texmf'),
     limits,
     allowFullShellEscape: config.COMPILER_ALLOW_FULL_SHELL_ESCAPE,
     texlive: dependencies.texlive.release,
