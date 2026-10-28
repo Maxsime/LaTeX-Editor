@@ -1,3 +1,4 @@
+import { explainMessage } from '@galley/latex-log';
 import type { CompileRun, Diagnostic } from '@galley/shared';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
@@ -32,6 +33,19 @@ function useDiagnosticMessage(): (diagnostic: Diagnostic) => string {
           defaultValue: diagnostic.message,
         })
       : diagnostic.message;
+}
+
+/** Plain-language hint under a TeX message, for the common cases (SPEC §3.3). */
+function Explanation({ diagnostic }: { diagnostic: Diagnostic }) {
+  const { t } = useTranslation();
+  if (diagnostic.source !== 'tex' || diagnostic.level === 'badbox') return null;
+  const explanation = explainMessage(diagnostic.message, diagnostic.context);
+  if (explanation === null) return null;
+  return (
+    <span data-testid="explanation" className="mt-1 block text-[11px] text-slate-800">
+      {t(`compile.explain.${explanation.code}`, { name: explanation.name || '…' })}
+    </span>
+  );
 }
 
 function RawLog({ projectId, run }: { projectId: string; run: CompileRun }) {
@@ -167,6 +181,7 @@ export function LogPanel({ projectId, run, fileIds }: LogPanelProps) {
                         {diagnostic.context}
                       </span>
                     )}
+                    <Explanation diagnostic={diagnostic} />
                     {diagnostic.message === 'NO_OUTPUT' && diagnostic.context !== '' && (
                       <span className="mt-0.5 block max-h-40 overflow-auto font-mono text-[11px] whitespace-pre-wrap text-slate-700">
                         {diagnostic.context}
