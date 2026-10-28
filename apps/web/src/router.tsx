@@ -2,7 +2,15 @@ import { type ErrorCode, errorCode } from '@galley/shared';
 import { createRootRoute, createRoute, createRouter } from '@tanstack/react-router';
 import { AccountPage } from './routes/account.js';
 import { AdminPage } from './routes/admin.js';
-import { IndexRedirect, LoginPage, RegisterPage, RequireAuth, SetupPage } from './routes/auth.js';
+import {
+  ForgotPasswordPage,
+  IndexRedirect,
+  LoginPage,
+  RegisterPage,
+  RequireAuth,
+  ResetPasswordPage,
+  SetupPage,
+} from './routes/auth.js';
 import { DashboardPage } from './routes/dashboard.js';
 import { JoinPage } from './routes/join.js';
 import { PdfWindowPage } from './routes/pdf-window.js';
@@ -42,6 +50,15 @@ const registerRoute = createRoute({
   validateSearch: (search: Record<string, unknown>): { invite?: string } =>
     typeof search.invite === 'string' ? { invite: search.invite } : {},
 });
+const forgotPasswordRoute = route('/forgot-password', ForgotPasswordPage);
+const resetPasswordRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/reset-password',
+  component: ResetPasswordPage,
+  // Reset links look like /reset-password?token=<token>.
+  validateSearch: (search: Record<string, unknown>): { token?: string } =>
+    typeof search.token === 'string' ? { token: search.token } : {},
+});
 const projectsRoute = route('/projects', () => (
   <RequireAuth>
     <DashboardPage />
@@ -79,6 +96,8 @@ export const router = createRouter({
     loginRoute,
     setupRoute,
     registerRoute,
+    forgotPasswordRoute,
+    resetPasswordRoute,
     statusRoute,
     projectsRoute,
     projectRoute,

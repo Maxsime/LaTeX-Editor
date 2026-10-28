@@ -95,6 +95,13 @@ export function LoginPage() {
           {t('auth.login.submit')}
         </Button>
       </form>
+      {config.data?.mail === true && (
+        <p className="text-sm">
+          <Link to="/forgot-password" className="underline">
+            {t('auth.login.forgot')}
+          </Link>
+        </p>
+      )}
       {config.data?.registrationMode === 'open' && (
         <p className="text-sm">
           {t('auth.login.noAccount')}{' '}
@@ -237,6 +244,115 @@ export function SetupPage() {
           {t('auth.setup.submit')}
         </Button>
       </form>
+    </AuthCard>
+  );
+}
+
+/** Asks for a reset link; the answer is the same whether an account exists or not. */
+export function ForgotPasswordPage() {
+  const { t } = useTranslation();
+  const config = useAuthConfig();
+  const request = useMutation({
+    mutationFn: (body: Record<string, string>) =>
+      api('POST', '/api/auth/password-reset', { json: body }),
+  });
+  const fieldError = useFieldError(request.error);
+  return (
+    <AuthCard title={t('auth.forgot.title')}>
+      <RedirectWhenSignedIn />
+      {config.data?.mail === false ? (
+        <p className="rounded-md bg-slate-100 px-3 py-2 text-sm">{t('auth.forgot.noMail')}</p>
+      ) : request.isSuccess ? (
+        <p role="status" className="rounded-md bg-slate-100 px-3 py-2 text-sm">
+          {t('auth.forgot.sent')}
+        </p>
+      ) : (
+        <form
+          className="space-y-4"
+          onSubmit={(event) => {
+            request.mutate(formValues(event));
+          }}
+        >
+          <p className="text-sm text-slate-700">{t('auth.forgot.intro')}</p>
+          <TextField
+            label={t('auth.fields.email')}
+            name="email"
+            type="email"
+            autoComplete="email"
+            required
+            error={fieldError('email')}
+          />
+          <FormError error={request.error} />
+          <Button type="submit" variant="primary" className="w-full" disabled={request.isPending}>
+            {t('auth.forgot.submit')}
+          </Button>
+        </form>
+      )}
+      <p className="text-sm">
+        <Link to="/login" className="underline">
+          {t('auth.register.login')}
+        </Link>
+      </p>
+    </AuthCard>
+  );
+}
+
+/** Sets a new password with the token of an e-mailed link. */
+export function ResetPasswordPage() {
+  const { t } = useTranslation();
+  const { token } = useSearch({ from: '/reset-password' });
+  const [mismatch, setMismatch] = useState(false);
+  const reset = useMutation({
+    mutationFn: (password: string) =>
+      api('POST', '/api/auth/password-reset/confirm', { json: { token, password } }),
+  });
+  const fieldError = useFieldError(reset.error);
+  return (
+    <AuthCard title={t('auth.reset.title')}>
+      {token === undefined ? (
+        <p className="rounded-md bg-slate-100 px-3 py-2 text-sm">{t('auth.reset.noToken')}</p>
+      ) : reset.isSuccess ? (
+        <p role="status" className="rounded-md bg-slate-100 px-3 py-2 text-sm">
+          {t('auth.reset.done')}
+        </p>
+      ) : (
+        <form
+          className="space-y-4"
+          onSubmit={(event) => {
+            const { password = '', confirm = '' } = formValues(event);
+            setMismatch(password !== confirm);
+            if (password === confirm) reset.mutate(password);
+          }}
+        >
+          <TextField
+            label={t('auth.reset.password')}
+            name="password"
+            type="password"
+            autoComplete="new-password"
+            minLength={10}
+            required
+            hint={t('auth.fields.passwordHint')}
+            error={fieldError('password')}
+          />
+          <TextField
+            label={t('auth.reset.confirm')}
+            name="confirm"
+            type="password"
+            autoComplete="new-password"
+            required
+            error={mismatch ? t('auth.reset.mismatch') : undefined}
+          />
+          <FormError error={reset.error} />
+          <Button type="submit" variant="primary" className="w-full" disabled={reset.isPending}>
+            {t('auth.reset.submit')}
+          </Button>
+        </form>
+      )}
+      <p className="text-sm">
+        <Link to="/login" className="underline">
+          {t('auth.register.login')}
+        </Link>
+      </p>
     </AuthCard>
   );
 }

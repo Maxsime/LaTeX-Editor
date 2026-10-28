@@ -41,6 +41,8 @@
     "RATE_LIMITED": "Trop de requêtes, réessayez plus tard.",
     "INVALID_PATTERN": "Expression régulière invalide.",
     "SERVICE_UNAVAILABLE": "Service momentanément indisponible.",
+    "MAIL_DISABLED": "Cette instance n'envoie pas d'e-mails. Demandez à son administrateur de réinitialiser votre mot de passe.",
+    "RESET_TOKEN_INVALID": "Ce lien n'est plus valable : il a déjà servi, a expiré ou a été remplacé par un lien plus récent. Demandez-en un nouveau.",
     "INTERNAL_ERROR": "Erreur interne.",
     "USER_NOT_FOUND": "Aucun compte ne correspond. La personne doit d'abord créer un compte ; vous pouvez aussi lui envoyer un lien de partage.",
     "ALREADY_MEMBER": "Cette personne est déjà membre du projet.",
@@ -103,7 +105,8 @@
       "noAccount": "Pas encore de compte ?",
       "register": "Créer un compte",
       "oidc": "Se connecter avec {{name}}",
-      "or": "ou avec un mot de passe"
+      "or": "ou avec un mot de passe",
+      "forgot": "Mot de passe oublié ?"
     },
     "register": {
       "title": "Créer un compte",
@@ -117,6 +120,22 @@
       "title": "Créer le compte administrateur",
       "intro": "Aucun compte n'existe encore. Le code d'installation figure dans les journaux du service API (docker compose logs api).",
       "submit": "Créer le compte administrateur"
+    },
+    "forgot": {
+      "title": "Mot de passe oublié",
+      "intro": "Indiquez l'adresse e-mail de votre compte : vous recevrez un lien pour choisir un nouveau mot de passe.",
+      "submit": "Recevoir un lien",
+      "sent": "Si un compte utilise cette adresse, un e-mail vient de lui être envoyé. Le lien reste valable une heure.",
+      "noMail": "Cette instance n'envoie pas d'e-mails. Demandez à son administrateur de réinitialiser votre mot de passe."
+    },
+    "reset": {
+      "title": "Nouveau mot de passe",
+      "password": "Nouveau mot de passe",
+      "confirm": "Confirmer le mot de passe",
+      "mismatch": "Les deux mots de passe diffèrent.",
+      "submit": "Enregistrer le mot de passe",
+      "done": "Mot de passe modifié. Toutes vos sessions ont été fermées : connectez-vous avec le nouveau mot de passe.",
+      "noToken": "Ce lien est incomplet. Ouvrez le lien reçu par e-mail tel quel, ou demandez-en un nouveau."
     }
   },
   "validation": {
@@ -557,6 +576,11 @@
   },
   "account": {
     "title": "Mon compte",
+    "notifications": {
+      "title": "Notifications",
+      "intro": "Les invitations à un projet sont toujours envoyées par e-mail. Les mentions restent visibles dans l'application même sans e-mail.",
+      "mentions": "M'envoyer un e-mail quand un commentaire me mentionne"
+    },
     "tokens": {
       "title": "Jetons d'accès personnels",
       "intro": "Un jeton sert de mot de passe à Git pour cloner vos projets, récupérer et envoyer des modifications. Il donne les mêmes droits que vous sur vos projets : gardez-le secret, révoquez-le s'il fuit.",
