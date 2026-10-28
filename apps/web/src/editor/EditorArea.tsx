@@ -74,9 +74,24 @@ function Preferences({ spelling }: { spelling: boolean }) {
   const { t } = useTranslation();
   const { theme, fontSize, lineWrapping, setTheme, setFontSize, setLineWrapping } =
     usePreferences();
-  const { spellCheck, setSpellCheck } = usePreferences();
+  const { spellCheck, setSpellCheck, keyBindings, setKeyBindings } = usePreferences();
   return (
     <div className="ml-auto flex items-center gap-2 px-2 text-xs">
+      <label className="flex items-center gap-1">
+        <span>{t('editor.preferences.keyBindings')}</span>
+        <select
+          value={keyBindings}
+          onChange={(event) => {
+            const value = event.currentTarget.value;
+            setKeyBindings(value === 'vim' || value === 'emacs' ? value : 'default');
+          }}
+          className="rounded border border-slate-300 px-1 py-0.5"
+        >
+          <option value="default">{t('editor.preferences.keys.default')}</option>
+          <option value="vim">Vim</option>
+          <option value="emacs">Emacs</option>
+        </select>
+      </label>
       <label className="flex items-center gap-1">
         <span>{t('editor.preferences.theme')}</span>
         <select

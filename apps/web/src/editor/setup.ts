@@ -114,9 +114,11 @@ export class EditorSettings {
   private readonly theme = new Compartment();
   private readonly wrapping = new Compartment();
   private readonly access = new Compartment();
+  private readonly keys = new Compartment();
 
   extensions(settings: LiveSettings): Extension {
     return [
+      this.keys.of([]),
       this.theme.of(themeExtension(settings.theme, settings.fontSize)),
       this.wrapping.of(settings.lineWrapping ? EditorView.lineWrapping : []),
       this.access.of(accessExtension(settings.readOnly)),
@@ -131,6 +133,11 @@ export class EditorSettings {
         this.access.reconfigure(accessExtension(settings.readOnly)),
       ],
     });
+  }
+
+  /** Swaps the key binding family (Vim, Emacs), once its module has loaded. */
+  setKeyBindings(view: EditorView, extension: Extension): void {
+    view.dispatch({ effects: this.keys.reconfigure(extension) });
   }
 }
 

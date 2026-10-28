@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import type { SyncStatus } from '../editor/connection.js';
+import type { KeyBindings } from '../editor/keybindings.js';
 
 /** A place to show in the editor: a search result or an outline entry. */
 export interface Reveal {
@@ -155,10 +156,12 @@ interface Preferences {
   lineWrapping: boolean;
   /** Spelling and grammar checking, when the instance offers it. */
   spellCheck: boolean;
+  keyBindings: KeyBindings;
   setTheme: (theme: EditorTheme) => void;
   setFontSize: (size: number) => void;
   setLineWrapping: (on: boolean) => void;
   setSpellCheck: (on: boolean) => void;
+  setKeyBindings: (mode: KeyBindings) => void;
 }
 
 export const FONT_SIZES = [11, 12, 13, 14, 15, 16, 18, 20] as const;
@@ -171,6 +174,7 @@ export const usePreferences = create<Preferences>()(
       fontSize: 14,
       lineWrapping: true,
       spellCheck: true,
+      keyBindings: 'default',
       setTheme: (theme) => {
         set({ theme });
       },
@@ -182,6 +186,9 @@ export const usePreferences = create<Preferences>()(
       },
       setSpellCheck: (spellCheck) => {
         set({ spellCheck });
+      },
+      setKeyBindings: (keyBindings) => {
+        set({ keyBindings });
       },
     }),
     {

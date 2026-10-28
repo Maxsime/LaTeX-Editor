@@ -22,6 +22,7 @@ import {
 import { katexMacros } from './math.js';
 import { colorPreview, mathPreview } from './preview.js';
 import { redrawReview, type ReviewOptions, reviewExtension, suggestingDispatch } from './review.js';
+import { loadKeyBindings } from './keybindings.js';
 import { EditorSettings, editorExtensions } from './setup.js';
 import { type SpellingOptions, spellingExtension } from './spelling.js';
 
@@ -95,7 +96,7 @@ export function CodeEditor({
   const insertion = useEditor((state) => state.insertion);
   // Status changes re-run the reveal effect; a request must move the cursor only once.
   const revealed = useRef<typeof reveal>(null);
-  const { theme, fontSize, lineWrapping } = usePreferences();
+  const { theme, fontSize, lineWrapping, keyBindings } = usePreferences();
   const reveal = useEditor((state) => state.reveal);
   const status = useEditor((state) => state.status[fileId]);
   const reloads = useReview((state) => state.reloads[fileId] ?? 0);
@@ -235,6 +236,17 @@ export function CodeEditor({
       readOnly: !writable || serverReadOnly,
     });
   }, [theme, fontSize, lineWrapping, writable, serverReadOnly]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void loadKeyBindings(keyBindings).then((extension) => {
+      const editor = view.current;
+      if (!cancelled && editor) settings.current.setKeyBindings(editor, extension);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [keyBindings]);
 
   // Markers follow the text as it is edited, until the next compilation replaces them.
   useEffect(() => {

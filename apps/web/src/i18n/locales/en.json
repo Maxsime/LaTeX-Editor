@@ -290,7 +290,11 @@
       "dark": "Dark",
       "fontSize": "Size",
       "wrap": "Wrap lines",
-      "spellCheck": "Spelling"
+      "spellCheck": "Spelling",
+      "keyBindings": "Key bindings",
+      "keys": {
+        "default": "Standard"
+      }
     },
     "outline": {
       "title": "Document outline",

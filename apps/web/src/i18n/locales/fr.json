@@ -290,7 +290,11 @@
       "dark": "Sombre",
       "fontSize": "Taille",
       "wrap": "Retour à la ligne",
-      "spellCheck": "Orthographe"
+      "spellCheck": "Orthographe",
+      "keyBindings": "Raccourcis",
+      "keys": {
+        "default": "Standard"
+      }
     },
     "outline": {
       "title": "Plan du document",
