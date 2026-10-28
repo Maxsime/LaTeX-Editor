@@ -20,6 +20,7 @@ export type ProjectSettings = Partial<
     | 'citeKeyPattern'
     | 'spellLanguage'
     | 'chktexDisabled'
+    | 'precompilePreamble'
   >
 >;
 
@@ -33,6 +34,7 @@ export function settingsOf(project: ProjectRow): ProjectSettings {
     citeKeyPattern: project.citeKeyPattern,
     spellLanguage: project.spellLanguage,
     chktexDisabled: project.chktexDisabled,
+    precompilePreamble: project.precompilePreamble,
   };
 }
 

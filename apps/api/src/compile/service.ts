@@ -134,7 +134,7 @@ export async function requestCompile(
   if (project.mainFileId === null) throw new ApiError('NO_MAIN_FILE');
   const { quotas } = await instanceSettingsOf(context).get();
   await assertCompileTime(context.database.db, context.redis, quotas, userId);
-  const snapshot = await materializeProject(context, project.id);
+  const snapshot = await materializeProject(context, project.id, { original: request.original });
   const mainFile = snapshot.paths.get(project.mainFileId);
   if (mainFile === undefined || !(mainFile in snapshot.manifest)) {
     throw new ApiError('NO_MAIN_FILE');
@@ -173,6 +173,7 @@ export async function requestCompile(
     engine: project.engine,
     ...options,
     chktexDisabled: project.chktexDisabled,
+    precompilePreamble: project.precompilePreamble,
   };
   await context.compileQueue.add('compile', job, {
     jobId: row.id,

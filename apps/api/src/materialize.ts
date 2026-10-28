@@ -6,7 +6,7 @@ import { sha256 } from './files/classify.js';
 import { mimeTypeFor } from './files/ingest.js';
 import { nodePaths } from './files/tree.js';
 import { type BlobSource, storeBlobs } from './storage/blobs.js';
-import { stateToText, textBytes } from './yjs/text.js';
+import { stateToOriginalText, stateToText, textBytes } from './yjs/text.js';
 
 /** A consistent snapshot of a project's sources (SPEC §6.2). */
 export interface MaterializedProject {
@@ -16,6 +16,11 @@ export interface MaterializedProject {
   folders: string[];
   /** Project-relative path of every file and folder, by id. */
   paths: Map<string, string>;
+}
+
+export interface MaterializeOptions {
+  /** Texts with every suggestion rejected, as they were before the review. */
+  original?: boolean;
 }
 
 /**
@@ -28,7 +33,9 @@ export interface MaterializedProject {
 export async function materializeProject(
   { database, s3, config, documents }: AppContext,
   projectId: string,
+  options: MaterializeOptions = {},
 ): Promise<MaterializedProject> {
+  const read = options.original === true ? stateToOriginalText : stateToText;
   // Open documents are written at most every few seconds; read their current state.
   await documents.flushProject(projectId);
   const { db } = database;
@@ -52,7 +59,7 @@ export async function materializeProject(
       manifest[path] = row.blobHash;
     } else if (row.kind === 'text') {
       const state = stateById.get(row.id);
-      const bytes = textBytes(state ? stateToText(state) : '');
+      const bytes = textBytes(state ? read(state) : '');
       const hash = sha256(bytes);
       textBlobs.push({ hash, size: bytes.length, mimeType: mimeTypeFor(row.name), bytes });
       manifest[path] = hash;

@@ -13,6 +13,7 @@ import {
   type SynctexJob,
   type SynctexResult,
   TEXLIVE_VERSION_KEY,
+  TEXT_KEY,
 } from '@galley/shared';
 import { createLogger } from '@galley/shared/node';
 import {
@@ -21,12 +22,15 @@ import {
   type Database,
   projectMembers,
   runMigrations,
+  yjsStates,
 } from '@galley/db';
+import { RANGES_KEY, suggestChanges } from '@galley/review';
 import type { StartedPostgreSqlContainer } from '@testcontainers/postgresql';
 import { Queue, QueueEvents, UnrecoverableError, Worker } from 'bullmq';
 import { eq } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import { Redis } from 'ioredis';
+import * as Y from 'yjs';
 import type { StartedTestContainer } from 'testcontainers';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { buildApp } from '../src/app.js';
@@ -34,6 +38,7 @@ import { ensureSetupCode } from '../src/auth/setup.js';
 import { createDocumentGateway } from '../src/collab/documents.js';
 import { followCompileEvents } from '../src/compile/service.js';
 import { readConfig } from '../src/config.js';
+import { readBlobBytes } from '../src/storage/blobs.js';
 import { createS3Client, ensureBucket } from '../src/storage/s3.js';
 import { Client } from './client.js';
 import {
@@ -459,6 +464,47 @@ describe.skipIf(!dockerAvailable)('compilation API', () => {
   it('records a job the worker rejects as an error', async () => {
     const run = await compile({ haltOnError: true });
     await waitFor(run.id, 'error');
+  });
+
+  it('compiles the version under review and passes the preamble option on', async () => {
+    const details = await owner.send('GET', `/api/projects/${projectId}`);
+    const mainFileId = details.json<{ mainFileId: string }>().mainFileId;
+    const patched = await owner.send('PATCH', `/api/projects/${projectId}`, {
+      json: { precompilePreamble: true },
+    });
+    expect(patched.json()).toMatchObject({ precompilePreamble: true });
+
+    // The main file holds a suggested insertion.
+    const doc = new Y.Doc();
+    doc.getText(TEXT_KEY).insert(0, 'Hello world.\n');
+    suggestChanges(
+      doc.getText(TEXT_KEY),
+      doc.getMap(RANGES_KEY),
+      { author: 'someone', now: 1, newId: () => 's1' },
+      [{ from: 5, to: 5, insert: ' big' }],
+    );
+    await database.db
+      .update(yjsStates)
+      .set({ state: Y.encodeStateAsUpdate(doc) })
+      .where(eq(yjsStates.fileId, mainFileId));
+
+    const mainText = async (run: CompileRun) => {
+      const job = await queue.getJob(run.id);
+      expect(job?.data.precompilePreamble).toBe(true);
+      const hash = job?.data.manifest['main.tex'] ?? '';
+      return (await readBlobBytes(s3, bucket, hash)).toString('utf8');
+    };
+    const proposed = await compile();
+    await waitFor(proposed.id, 'success');
+    expect(await mainText(proposed)).toBe('Hello big world.\n');
+    const original = await compile({ original: true });
+    expect(original.options.original).toBe(true);
+    await waitFor(original.id, 'success');
+    expect(await mainText(original)).toBe('Hello world.\n');
+
+    await owner.send('PATCH', `/api/projects/${projectId}`, {
+      json: { precompilePreamble: false },
+    });
   });
 
   it('marks a compilation whose job vanished as lost', async () => {

@@ -30,6 +30,7 @@ import { buildApp } from '../src/app.js';
 import { ensureSetupCode } from '../src/auth/setup.js';
 import { createDocumentGateway, type DocumentGateway } from '../src/collab/documents.js';
 import { readConfig } from '../src/config.js';
+import { readBlobBytes } from '../src/storage/blobs.js';
 import { createS3Client, ensureBucket } from '../src/storage/s3.js';
 import { stateToText } from '../src/yjs/text.js';
 import { Client } from './client.js';
@@ -178,21 +179,23 @@ describe.skipIf(!dockerAvailable)('AI assistant', () => {
         // Stands for a compiler worker: publishes a PDF for any document.
         snippets: async (job) => {
           snippetJobs.push(job);
+          // TeX writes the PDF under the document's name, in the output folder.
+          const pdf = `${job.mainFile.slice(job.mainFile.lastIndexOf('/') + 1, -'.tex'.length)}.pdf`;
           await s3.send(
             new PutObjectCommand({
               Bucket: config.S3_BUCKET,
-              Key: compileOutputKey(job.compileId, 'main.pdf'),
+              Key: compileOutputKey(job.compileId, pdf),
               Body: '%PDF-1.5 fake',
             }),
           );
           return {
             outcome: 'success',
             durationMs: 10,
-            pdf: 'main.pdf',
+            pdf,
             pages: 1,
             diagnostics: [],
             truncated: false,
-            outputs: [{ name: 'main.pdf', size: 13 }],
+            outputs: [{ name: pdf, size: 13 }],
             texlive: '2026',
             shellEscapeDowngraded: false,
             lint: [],
@@ -663,6 +666,34 @@ describe.skipIf(!dockerAvailable)('AI assistant', () => {
     expect(pdf.statusCode).toBe(200);
     expect(pdf.headers['content-type']).toBe('application/pdf');
     expect((await send(bob, 'GET', url)).statusCode).toBe(404);
+  });
+
+  it('previews a fragment alone, with the preamble, beside the project files', async () => {
+    const response = await send(alice, 'POST', `/api/projects/${projectId}/preview`, {
+      code: '$\\alpha$',
+    });
+    expect(response.statusCode, response.body).toBe(200);
+    const preview = response.json<{ compileId: string | null; outcome: string }>();
+    expect(preview.outcome).toBe('success');
+    const job = snippetJobs.at(-1);
+    expect(job).toMatchObject({ mainFile: 'galley-preview.tex', shellEscape: 'disabled' });
+    expect(Object.keys(job?.manifest ?? {}).sort()).toEqual([
+      'galley-preview.tex',
+      'main.tex',
+      'refs.bib',
+    ]);
+    const source = await readBlobBytes(s3, 'galley-ai', job?.manifest['galley-preview.tex'] ?? '');
+    expect(source.toString('utf8')).toContain('{standalone}');
+    expect(source.toString('utf8')).toContain('\\begin{document}\n$\\alpha$\n\\end{document}');
+    // The project is unchanged.
+    expect(await textOf(mainId)).toBe(MAIN);
+
+    const url = `/api/projects/${projectId}/preview/${preview.compileId ?? ''}/pdf`;
+    expect((await send(alice, 'GET', url)).statusCode).toBe(200);
+    expect((await send(bob, 'GET', url)).statusCode).toBe(404);
+    expect(
+      (await send(alice, 'POST', `/api/projects/${projectId}/preview`, { code: '' })).statusCode,
+    ).toBe(400);
   });
 
   it('refuses images for a model without vision', async () => {

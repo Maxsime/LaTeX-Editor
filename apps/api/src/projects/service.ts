@@ -163,6 +163,7 @@ export async function projectDetails(
     // Stored as text so that a language can be added without a migration.
     spellLanguage: spellLanguage.safeParse(row.spellLanguage).data ?? 'auto',
     chktexDisabled: row.chktexDisabled,
+    precompilePreamble: row.precompilePreamble,
   };
 }
 
