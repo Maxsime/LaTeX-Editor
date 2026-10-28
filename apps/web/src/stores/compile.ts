@@ -49,10 +49,13 @@ export const useCompilePreferences = create<CompilePreferences>()(
 interface CompileSession {
   draft: boolean;
   haltOnError: boolean;
+  /** Compiles with every suggestion rejected. */
+  original: boolean;
   /** Resolves once the server acknowledged every local edit; set by the open editor. */
   waitForSaved: () => Promise<void>;
   setDraft: (on: boolean) => void;
   setHaltOnError: (on: boolean) => void;
+  setOriginal: (on: boolean) => void;
   setWaitForSaved: (wait: () => Promise<void>) => void;
 }
 
@@ -60,12 +63,16 @@ interface CompileSession {
 export const useCompileStore = create<CompileSession>()((set) => ({
   draft: false,
   haltOnError: false,
+  original: false,
   waitForSaved: () => Promise.resolve(),
   setDraft: (draft) => {
     set({ draft });
   },
   setHaltOnError: (haltOnError) => {
     set({ haltOnError });
+  },
+  setOriginal: (original) => {
+    set({ original });
   },
   setWaitForSaved: (waitForSaved) => {
     set({ waitForSaved });

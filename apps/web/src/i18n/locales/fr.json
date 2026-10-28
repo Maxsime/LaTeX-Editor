@@ -393,7 +393,9 @@
     "codes": {
       "TIMEOUT": "La compilation a dépassé la durée maximale de {{value}} s et a été arrêtée.",
       "OUTPUT_LIMIT": "La compilation a dépassé la taille de sortie maximale de {{value}} Mio et a été arrêtée.",
-      "NO_OUTPUT": "La compilation n'a produit aucun PDF."
+      "NO_OUTPUT": "La compilation n'a produit aucun PDF.",
+      "PREAMBLE_FORMAT_FAILED": "Le préambule n'a pas pu être précompilé : compilation normale.",
+      "PREAMBLE_FORMAT_UNUSABLE": "Ce préambule ne se prête pas à la précompilation : compilation normale. Elle sera retentée quand le préambule changera."
     },
     "view": {
       "label": "Disposition",
@@ -427,7 +429,10 @@
       "seconds_one": "{{count}} s",
       "seconds_other": "{{count}} s",
       "draft": "Mode brouillon (images remplacées par des cadres)",
-      "haltOnError": "S'arrêter à la première erreur"
+      "haltOnError": "S'arrêter à la première erreur",
+      "precompilePreamble": "Précompiler le préambule",
+      "precompilePreambleHint": "pdfLaTeX seulement. Le préambule est préparé une fois puis réutilisé tant qu'il ne change pas.",
+      "original": "Compiler sans les suggestions (version d'origine)"
     },
     "logButtonTitle": "Ouvrir le journal sur la première erreur. F8 et Maj+F8 : erreur suivante et précédente.",
     "errorCount_one": "{{count}} erreur",
@@ -464,7 +469,9 @@
       "missingNumber": "Une longueur ou un nombre est attendu à cet endroit, mais n’a pas été trouvé.",
       "illegalUnit": "Une longueur est donnée sans unité valide : écrivez par exemple 2cm, 10pt ou 0.5\\textwidth.",
       "fontNotFound": "La police {{name}} n’est pas installée sur le serveur de compilation."
-    }
+    },
+    "originalBadge": "Version d'origine",
+    "originalBadgeTitle": "Compilé sans les suggestions en attente"
   },
   "pdf": {
     "zoom": "Zoom",
@@ -1156,5 +1163,17 @@
     "align": "Aligner les signes =",
     "apply": "Appliquer",
     "invalid": "Le fichier contient des erreurs de syntaxe : corrigez-les avant de le formater."
+  },
+  "fragmentPreview": {
+    "open": "Aperçu isolé",
+    "help": "Compile seul la sélection, ou l'environnement ou la formule sous le curseur, avec le préambule du projet.",
+    "title": "Aperçu isolé",
+    "nothing": "Sélectionnez du code, ou placez le curseur dans un environnement ou une formule.",
+    "compiling": "Compilation de l'extrait…",
+    "outcome": {
+      "failure": "L'extrait ne compile pas.",
+      "timeout": "La compilation de l'extrait a pris trop de temps.",
+      "error": "Aucun compilateur n'a répondu à temps."
+    }
   }
 }

@@ -10,6 +10,9 @@ import { useEditor } from '../stores/editor.js';
 
 type Tab = 'issues' | 'raw' | 'files';
 
+/** Compiler codes whose context is console output worth showing. */
+const CONSOLE_CODES = new Set(['NO_OUTPUT', 'PREAMBLE_FORMAT_FAILED']);
+
 const LEVEL_STYLE: Record<Diagnostic['level'], string> = {
   error: 'border-red-600 bg-red-50',
   warning: 'border-amber-500 bg-amber-50',
@@ -182,7 +185,7 @@ export function LogPanel({ projectId, run, fileIds }: LogPanelProps) {
                       </span>
                     )}
                     <Explanation diagnostic={diagnostic} />
-                    {diagnostic.message === 'NO_OUTPUT' && diagnostic.context !== '' && (
+                    {CONSOLE_CODES.has(diagnostic.message) && diagnostic.context !== '' && (
                       <span className="mt-0.5 block max-h-40 overflow-auto font-mono text-[11px] whitespace-pre-wrap text-slate-700">
                         {diagnostic.context}
                       </span>

@@ -52,7 +52,7 @@ function Options({ project, canEdit }: { project: ProjectDetails; canEdit: boole
   const info = useCompilerInfo();
   const { autoCompile, autoCompileDelay, setAutoCompile, setAutoCompileDelay } =
     useCompilePreferences();
-  const { draft, haltOnError, setDraft, setHaltOnError } = useCompileStore();
+  const { draft, haltOnError, original, setDraft, setHaltOnError, setOriginal } = useCompileStore();
   const select = 'rounded border border-slate-300 px-1 py-0.5 disabled:bg-slate-100';
   return (
     <div className="w-72 space-y-3 text-sm">
@@ -111,6 +111,22 @@ function Options({ project, canEdit }: { project: ProjectDetails; canEdit: boole
             ))}
           </select>
         </label>
+        <label className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            disabled={!canEdit || project.engine !== 'pdflatex'}
+            checked={project.precompilePreamble && project.engine === 'pdflatex'}
+            onChange={(event) => {
+              update.mutate({ precompilePreamble: event.currentTarget.checked });
+            }}
+          />
+          <span>
+            {t('compile.options.precompilePreamble')}
+            <span className="block text-xs text-slate-600">
+              {t('compile.options.precompilePreambleHint')}
+            </span>
+          </span>
+        </label>
         <ErrorAlert error={update.error} />
       </fieldset>
       <WritingOptions project={project} canEdit={canEdit} />
@@ -163,6 +179,16 @@ function Options({ project, canEdit }: { project: ProjectDetails; canEdit: boole
             }}
           />
           {t('compile.options.haltOnError')}
+        </label>
+        <label className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={original}
+            onChange={(event) => {
+              setOriginal(event.currentTarget.checked);
+            }}
+          />
+          {t('compile.options.original')}
         </label>
       </fieldset>
       <p className="text-xs text-slate-600">
@@ -236,8 +262,8 @@ export function CompilePane({
   const { mutate } = compile;
   const start = useCallback(
     (clean = false) => {
-      const { draft, haltOnError } = useCompileStore.getState();
-      mutate({ draft, haltOnError, clean });
+      const { draft, haltOnError, original } = useCompileStore.getState();
+      mutate({ draft, haltOnError, clean, original });
     },
     [mutate],
   );
@@ -445,15 +471,26 @@ export function CompilePane({
                 }}
                 highlight={synctex.highlight}
                 actions={
-                  <button
-                    type="button"
-                    className="rounded px-1 py-0.5 hover:bg-slate-200"
-                    onClick={() => {
-                      if (openPdfWindow(project.id) !== null) setDetached(true);
-                    }}
-                  >
-                    {t('pdf.detach')}
-                  </button>
+                  <>
+                    {pdfRun?.options.original === true && (
+                      <span
+                        className="rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-900"
+                        title={t('compile.originalBadgeTitle')}
+                        data-testid="original-badge"
+                      >
+                        {t('compile.originalBadge')}
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      className="rounded px-1 py-0.5 hover:bg-slate-200"
+                      onClick={() => {
+                        if (openPdfWindow(project.id) !== null) setDetached(true);
+                      }}
+                    >
+                      {t('pdf.detach')}
+                    </button>
+                  </>
                 }
               />
             </Suspense>
