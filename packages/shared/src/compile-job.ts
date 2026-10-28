@@ -45,6 +45,8 @@ export const compileJob = z.object({
   clean: z._default(z.boolean(), false),
   /** chktex warnings the project turned off (SPEC §3.7). */
   chktexDisabled: z._default(z.array(z.number().check(z.int(), z.gte(0), z.lte(99))), []),
+  /** Builds the preamble into a format and compiles with it (pdfLaTeX only). */
+  precompilePreamble: z._default(z.boolean(), false),
 });
 export type CompileJob = z.infer<typeof compileJob>;
 

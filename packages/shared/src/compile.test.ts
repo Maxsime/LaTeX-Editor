@@ -4,7 +4,12 @@ import { compileStatus } from './compile-job.js';
 
 describe('compileRequest', () => {
   it('turns every option off by default', () => {
-    expect(compileRequest.parse({})).toEqual({ draft: false, haltOnError: false, clean: false });
+    expect(compileRequest.parse({})).toEqual({
+      draft: false,
+      haltOnError: false,
+      clean: false,
+      original: false,
+    });
   });
 
   it('rejects options of the wrong type', () => {
