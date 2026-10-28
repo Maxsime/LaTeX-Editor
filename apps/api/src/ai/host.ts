@@ -1,18 +1,23 @@
 import { standaloneDocument, ToolError, type ToolHost } from '@galley/ai';
 import { compileRuns, files } from '@galley/db';
 import { buildOutline } from '@galley/latex-index';
-import { type AiChangeset, ApiError } from '@galley/shared';
+import { type AiChangeset, ApiError, type PlanStep } from '@galley/shared';
 import { desc, eq } from 'drizzle-orm';
 import type { FastifyBaseLogger } from 'fastify';
 import { entryFromReference } from '../bibliography/import.js';
 import { lookupArxiv, lookupDoi, lookupIsbn } from '../bibliography/sources.js';
 import type { AppContext } from '../context.js';
 import { nodePaths } from '../files/tree.js';
-import { type ProjectText, readProjectTexts } from '../materialize.js';
+import { materializeProject, type ProjectText, readProjectTexts } from '../materialize.js';
 import type { ProjectRow } from '../projects/access.js';
+import { texmfManifestOf } from '../projects/texmf.js';
 import { searchFiles } from '../search/search.js';
+import { sha256 } from '../files/classify.js';
+import { storeBlobs } from '../storage/blobs.js';
+import { textBytes } from '../yjs/text.js';
 import { buildHunks, citationViolations, knownCitationKeys } from './changes.js';
 import { searchLiterature } from './literature.js';
+import type { Draft } from './draft.js';
 import { compileSnippet } from './snippets.js';
 import { type AiStore, type ConversationState, newId } from './store.js';
 
@@ -21,6 +26,8 @@ const MAX_READ_LINES = 1500;
 const MAX_READ_CHARS = 120_000;
 const MAX_SEARCH_MATCHES = 50;
 const MAX_LOG_ENTRIES = 30;
+/** A whole project takes longer to build than a fragment. */
+const DRAFT_COMPILE_TIMEOUT_MS = 120_000;
 
 export interface HostOptions {
   context: AppContext;
@@ -35,6 +42,10 @@ export interface HostOptions {
   onChangeset(changeset: AiChangeset): void;
   /** Called with each successful snippet compilation, for the preview. */
   onSnippet?(compileId: string): void;
+  /** Agent mode: the draft its reads and edits go through. */
+  draft?: Draft;
+  /** Agent mode: called with each version of the plan. */
+  onPlan?(steps: PlanStep[]): void;
 }
 
 /** Turns an ApiError of a shared helper into a refusal the model can read. */
@@ -62,6 +73,8 @@ export function createToolHost(options: HostOptions): ToolHost {
   let texts: ProjectText[] | null = null;
 
   async function projectTexts(): Promise<ProjectText[]> {
+    // The draft changes with each edit: read it afresh.
+    if (options.draft !== undefined) return options.draft.texts();
     texts ??= await readProjectTexts(context, project.id);
     return texts;
   }
@@ -69,7 +82,26 @@ export function createToolHost(options: HostOptions): ToolHost {
   async function tree() {
     const rows = await db.select().from(files).where(eq(files.projectId, project.id));
     const paths = nodePaths(rows);
-    return rows.map((row) => ({ kind: row.kind, path: paths.get(row.id) ?? row.name }));
+    const nodes = rows.map((row) => ({ kind: row.kind, path: paths.get(row.id) ?? row.name }));
+    // Files the draft created exist for the agent.
+    const known = new Set(nodes.map((node) => node.path));
+    const created = (options.draft?.texts() ?? [])
+      .filter((file) => !known.has(file.path))
+      .map((file) => ({ kind: 'text' as const, path: file.path }));
+    return [...nodes, ...created];
+  }
+
+  function requireDraft(): Draft {
+    if (options.draft === undefined) throw new ToolError('Only available in agent mode.');
+    return options.draft;
+  }
+
+  async function folderAndBinaryPaths() {
+    const nodes = await tree();
+    return {
+      folders: new Set(nodes.filter((node) => node.kind === 'folder').map((node) => node.path)),
+      binaries: new Set(nodes.filter((node) => node.kind === 'binary').map((node) => node.path)),
+    };
   }
 
   async function textAt(path: string): Promise<ProjectText> {
@@ -171,13 +203,8 @@ export function createToolHost(options: HostOptions): ToolHost {
         throw new ToolError('The user can only read this project: changes cannot be proposed.');
       }
       const all = await projectTexts();
-      const nodes = await tree();
-      const hunks = buildHunks(
-        all,
-        new Set(nodes.filter((node) => node.kind === 'folder').map((node) => node.path)),
-        new Set(nodes.filter((node) => node.kind === 'binary').map((node) => node.path)),
-        edits,
-      );
+      const { folders, binaries } = await folderAndBinaryPaths();
+      const hunks = buildHunks(all, folders, binaries, edits);
       const { fetched } = conversation.state;
       const violations = citationViolations(hunks, knownCitationKeys(all, fetched), fetched);
       if (violations.length > 0) {
@@ -235,6 +262,91 @@ export function createToolHost(options: HostOptions): ToolHost {
       conversation.state.fetched.push({ key: entry.key, bibtex: entry.bibtex });
       await store.saveConversation(conversation.id, conversation.state);
       return { key: entry.key, bibtex: entry.bibtex };
+    },
+
+    updatePlan(steps) {
+      requireDraft();
+      options.onPlan?.(steps);
+      return Promise.resolve();
+    },
+
+    async editDraft(edits) {
+      const draft = requireDraft();
+      const { folders, binaries } = await folderAndBinaryPaths();
+      return { files: draft.edit(edits, folders, binaries, conversation.state.fetched) };
+    },
+
+    async compileDraft() {
+      const draft = requireDraft();
+      const all = draft.texts();
+      const main = all.find((file) => file.id === project.mainFileId);
+      if (main === undefined) {
+        throw new ToolError('The project has no main file: it cannot be compiled.');
+      }
+      // The project's files as they stand, with the draft's texts laid over them.
+      const { manifest } = await materializeProject(context, project.id);
+      const changed = draft
+        .changedPaths()
+        .filter((path) => path !== main.path)
+        .flatMap((path) => {
+          const file = all.find((candidate) => candidate.path === path);
+          if (file === undefined) return [];
+          const bytes = textBytes(file.text);
+          return [{ path, hash: sha256(bytes), size: bytes.length, mimeType: 'text/plain', bytes }];
+        });
+      await storeBlobs(db, context.s3, context.config.S3_BUCKET, changed);
+      for (const blob of changed) manifest[blob.path] = blob.hash;
+      const outcome = await asTool(
+        async () =>
+          compileSnippet(context, project.id, userId, main.text, {
+            engine: project.engine,
+            manifest,
+            texmfManifest: await texmfManifestOf(context, project.ownerId),
+            mainFile: main.path,
+            bibTool: project.bibTool,
+            timeoutMs: DRAFT_COMPILE_TIMEOUT_MS,
+          }),
+        {
+          QUOTA_COMPILE_EXCEEDED: 'The monthly compilation time is used up; nothing was compiled.',
+        },
+      );
+      if (outcome.compileId !== null)
+        await store.recordSnippet(outcome.compileId, userId, project.id);
+      if (outcome.outcome === 'error') {
+        throw new ToolError('No compiler is available right now; the draft could not be checked.');
+      }
+      return { outcome: outcome.outcome, errors: outcome.errors };
+    },
+
+    async submitChanges() {
+      const draft = requireDraft();
+      if (draft.submitted) throw new ToolError('The draft was already submitted.');
+      const hunks = draft.hunks();
+      if (hunks.length === 0) throw new ToolError('The draft has no change to submit.');
+      const { fetched } = conversation.state;
+      const violations = citationViolations(
+        hunks,
+        knownCitationKeys(draft.original(), fetched),
+        fetched,
+      );
+      if (violations.length > 0) throw new ToolError(violations.join('\n'));
+      const changeset: AiChangeset = {
+        id: newId(),
+        hunks: hunks.map((hunk) => ({ ...hunk, status: 'pending' as const })),
+      };
+      await store.saveChangeset({
+        userId,
+        projectId: project.id,
+        conversationId: conversation.id,
+        changeset,
+      });
+      draft.submitted = true;
+      options.onChangeset(changeset);
+      return {
+        changesetId: changeset.id,
+        hunks: hunks.length,
+        files: [...new Set(hunks.map((hunk) => hunk.path))],
+      };
     },
 
     onFailure(name, error) {

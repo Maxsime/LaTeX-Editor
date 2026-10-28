@@ -62,7 +62,7 @@ export type AiStatus = z.infer<typeof aiStatus>;
 
 // --- Chat -----------------------------------------------------------------------
 
-export const aiModes = ['chat', 'inline', 'fix', 'generate', 'image'] as const;
+export const aiModes = ['chat', 'inline', 'fix', 'generate', 'image', 'agent'] as const;
 export const aiMode = z.enum(aiModes);
 export type AiMode = z.infer<typeof aiMode>;
 
@@ -182,6 +182,10 @@ export const aiToolNames = [
   'propose_changes',
   'search_literature',
   'fetch_bibtex',
+  'update_plan',
+  'edit_draft',
+  'compile_draft',
+  'submit_changes',
 ] as const;
 export const aiToolName = z.enum(aiToolNames);
 export type AiToolName = z.infer<typeof aiToolName>;
@@ -208,6 +212,21 @@ export const snippetPreview = z.object({
 });
 export type SnippetPreview = z.infer<typeof snippetPreview>;
 
+/** Model calls one request of the agent mode may make (SPEC §3.8). */
+export const AGENT_MAX_STEPS = 30;
+/** Bounds of the administrator's token budget for one agent request. */
+export const MIN_AGENT_TOKEN_BUDGET = 10_000;
+export const MAX_AGENT_TOKEN_BUDGET = 10_000_000;
+/** Most steps of a plan the agent announces. */
+export const MAX_PLAN_STEPS = 20;
+
+export const planStepStatus = z.enum(['pending', 'active', 'done']);
+export const planStep = z.object({
+  title: z.string().check(z.minLength(1), z.maxLength(200)),
+  status: planStepStatus,
+});
+export type PlanStep = z.infer<typeof planStep>;
+
 /** Events of the `text/event-stream` answer of the chat route, one JSON per `data:` line. */
 export const aiStreamEvent = z.discriminatedUnion('type', [
   z.object({ type: z.literal('conversation'), id: z.string() }),
@@ -221,6 +240,8 @@ export const aiStreamEvent = z.discriminatedUnion('type', [
   }),
   z.object({ type: z.literal('changeset'), changeset: aiChangeset }),
   z.object({ type: z.literal('snippet'), snippet: snippetPreview }),
+  /** Agent mode: the plan as it stands, sent whole at each change. */
+  z.object({ type: z.literal('plan'), steps: z.array(planStep) }),
   z.object({ type: z.literal('usage'), usage: aiUsage }),
   z.object({ type: z.literal('error'), code: z.string() }),
   z.object({ type: z.literal('done') }),

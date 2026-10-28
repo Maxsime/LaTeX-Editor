@@ -4,6 +4,8 @@ import {
   type AiProvider,
   aiProvider,
   aiProviders,
+  MAX_AGENT_TOKEN_BUDGET,
+  MIN_AGENT_TOKEN_BUDGET,
   type RegistrationMode,
   registrationMode,
 } from '@galley/shared';
@@ -596,7 +598,7 @@ function AiTab() {
   const [provider, setProvider] = useState<AiProvider | null>(null);
   const [badLine, setBadLine] = useState<number | null>(null);
   if (!settings.data) return <ErrorAlert error={settings.error} />;
-  const { aiEnabled, aiDefault, overridden } = settings.data;
+  const { aiEnabled, aiDefault, aiAgentTokenBudget, overridden } = settings.data;
   const chosen = provider ?? aiDefault?.provider ?? 'anthropic';
   return (
     <div className="max-w-2xl space-y-6">
@@ -611,6 +613,33 @@ function AiTab() {
         />
         {t('admin.ai.enabled')}
       </label>
+      <form
+        key={aiAgentTokenBudget}
+        className="flex flex-wrap items-end gap-2"
+        onSubmit={(event) => {
+          event.preventDefault();
+          const budget = Number(field(new FormData(event.currentTarget), 'budget'));
+          save.mutate({ aiAgentTokenBudget: budget });
+        }}
+      >
+        <div className="min-w-[14rem] flex-1">
+          <TextField
+            label={t('admin.ai.agentBudget')}
+            name="budget"
+            type="number"
+            required
+            min={MIN_AGENT_TOKEN_BUDGET}
+            max={MAX_AGENT_TOKEN_BUDGET}
+            step={1000}
+            defaultValue={String(aiAgentTokenBudget)}
+            hint={t('admin.ai.agentBudgetHint')}
+            error={fieldError('aiAgentTokenBudget')}
+          />
+        </div>
+        <Button type="submit" disabled={save.isPending}>
+          {t('common.save')}
+        </Button>
+      </form>
       <section className="space-y-3" aria-labelledby="ai-default-title">
         <h2 id="ai-default-title" className="text-base font-semibold">
           {t('admin.ai.default')}

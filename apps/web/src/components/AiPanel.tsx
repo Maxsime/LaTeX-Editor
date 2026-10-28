@@ -1,4 +1,4 @@
-import type { AiChangeset, AiStatus, AiUsage } from '@galley/shared';
+import type { AiChangeset, AiStatus, AiUsage, PlanStep } from '@galley/shared';
 import { Link } from '@tanstack/react-router';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -147,12 +147,46 @@ export function ChangesetCard({
   );
 }
 
+const PLAN_MARK = { pending: '○', active: '◐', done: '✓' } as const;
+
+/** The agent's plan, as it last showed it. */
+function PlanList({ steps }: { steps: PlanStep[] }) {
+  const { t } = useTranslation();
+  return (
+    <ol
+      className="space-y-0.5 rounded-md bg-slate-50 px-2 py-1 text-xs"
+      aria-label={t('ai.agent.plan')}
+    >
+      {steps.map((step, index) => (
+        <li
+          // A plan is resent whole; its steps have no identity beyond their place.
+          key={index}
+          data-testid="ai-plan-step"
+          data-status={step.status}
+          className={
+            step.status === 'done'
+              ? 'text-slate-500'
+              : step.status === 'active'
+                ? 'font-medium'
+                : ''
+          }
+        >
+          <span aria-hidden="true">{PLAN_MARK[step.status]} </span>
+          {step.title}
+          <span className="sr-only"> ({t(`ai.planStatus.${step.status}`)})</span>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
 function AssistantMessage({ message, canEdit }: { message: AiMessage; canEdit: boolean }) {
   const { t } = useTranslation();
   const changesets = useAi((state) => state.changesets);
   const errorText = useErrorText();
   return (
     <li className="space-y-1 text-sm" data-testid="ai-answer">
+      {message.plan !== null && message.plan.length > 0 && <PlanList steps={message.plan} />}
       {message.tools.length > 0 && (
         <ul className="space-y-0.5 text-[11px] text-slate-600">
           {message.tools.map((tool, index) => (
@@ -282,12 +316,13 @@ export function AiPanel({ status, canEdit }: { status: AiStatus; canEdit: boolea
   const { t } = useTranslation();
   const { messages, busy, send, stop, clear, decisionError } = useAi();
   const [text, setText] = useState('');
+  const [agent, setAgent] = useState(false);
   const end = useRef<HTMLDivElement>(null);
   const last = messages.at(-1);
 
   useEffect(() => {
     end.current?.scrollIntoView({ block: 'end' });
-  }, [last?.id, last?.text.length, last?.changesetIds.length]);
+  }, [last?.id, last?.text.length, last?.changesetIds.length, last?.plan]);
 
   if (!status.available) return <Unavailable status={status} />;
 
@@ -321,7 +356,7 @@ export function AiPanel({ status, canEdit }: { status: AiStatus; canEdit: boolea
         className="space-y-1"
         onSubmit={(event) => {
           event.preventDefault();
-          void send({ mode: 'chat', text, context: editorContext() });
+          void send({ mode: agent && canEdit ? 'agent' : 'chat', text, context: editorContext() });
           setText('');
         }}
       >
@@ -354,7 +389,22 @@ export function AiPanel({ status, canEdit }: { status: AiStatus; canEdit: boolea
             {t('ai.newConversation')}
           </Button>
         </div>
-        <p className="text-[11px] text-slate-500">{t('ai.hint')}</p>
+        {canEdit && (
+          <label className="flex items-center gap-2 text-xs">
+            <input
+              type="checkbox"
+              checked={agent}
+              disabled={busy}
+              onChange={(event) => {
+                setAgent(event.currentTarget.checked);
+              }}
+            />
+            {t('ai.agent.toggle')}
+          </label>
+        )}
+        <p className="text-[11px] text-slate-500">
+          {agent && canEdit ? t('ai.agent.hint') : t('ai.hint')}
+        </p>
       </form>
     </div>
   );

@@ -4,7 +4,7 @@ import { type AiHunk, MAX_TEXT_BYTES, splitProjectPath } from '@galley/shared';
 import type { ProjectText } from '../materialize.js';
 
 /** Characters of context kept on each side of a hunk, to find it again later. */
-const CONTEXT_CHARS = 40;
+export const CONTEXT_CHARS = 40;
 
 /** Extensions a proposal may create: sources, never binaries. */
 const CREATABLE = /\.(tex|bib|sty|cls|bst|bbx|cbx|dtx|ins|txt|md|cfg|def|lua|tikz)$/i;

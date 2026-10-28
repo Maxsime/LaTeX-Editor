@@ -127,6 +127,10 @@ function memoryHost(files: Record<string, string>, edits: ProposedEdit[]): ToolH
     },
     searchLiterature: refuse,
     fetchBibtex: refuse,
+    updatePlan: refuse,
+    editDraft: refuse,
+    compileDraft: refuse,
+    submitChanges: refuse,
     onFailure: () => undefined,
   };
 }

@@ -93,6 +93,7 @@ services:
       AI_DEFAULT_CONTEXT_TOKENS: ${AI_DEFAULT_CONTEXT_TOKENS:-}
       AI_ALLOW_USER_ENDPOINTS: ${AI_ALLOW_USER_ENDPOINTS:-false}
       AI_RATE_LIMIT_PER_MINUTE: ${AI_RATE_LIMIT_PER_MINUTE:-20}
+      AI_AGENT_TOKEN_BUDGET: ${AI_AGENT_TOKEN_BUDGET:-200000}
       # Public address: the API refuses the development secrets on any host but localhost.
       GALLEY_HOST: ${GALLEY_HOST:-localhost}
       GALLEY_HTTPS_PORT: ${GALLEY_HTTPS_PORT:-443}

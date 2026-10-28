@@ -32,6 +32,8 @@ export const errorCodes = [
   'AI_BAD_RESPONSE',
   'AI_NO_VISION',
   'AI_ENDPOINT_FORBIDDEN',
+  'AI_NO_TOOLS',
+  'AI_AGENT_LIMIT',
   'UNKNOWN_CITATION',
   'QUOTA_STORAGE_EXCEEDED',
   'QUOTA_COMPILE_EXCEEDED',
@@ -99,6 +101,9 @@ const statusByCode: Record<ErrorCode, number> = {
   AI_BAD_RESPONSE: 502,
   AI_NO_VISION: 422,
   AI_ENDPOINT_FORBIDDEN: 403,
+  AI_NO_TOOLS: 422,
+  // Only sent in the stream, once the work done so far has been submitted.
+  AI_AGENT_LIMIT: 409,
   UNKNOWN_CITATION: 422,
   QUOTA_STORAGE_EXCEEDED: 413,
   QUOTA_COMPILE_EXCEEDED: 429,

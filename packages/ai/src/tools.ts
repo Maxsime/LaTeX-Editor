@@ -1,4 +1,4 @@
-import type { AiToolName } from '@galley/shared';
+import { type AiToolName, MAX_PLAN_STEPS, type PlanStep, planStep } from '@galley/shared';
 import { type Tool, tool, zodSchema } from 'ai';
 import * as z from 'zod/mini';
 
@@ -62,12 +62,30 @@ export interface ToolHost {
     arxivId?: string | undefined;
     isbn?: string | undefined;
   }): Promise<{ key: string; bibtex: string }>;
+  /** Agent mode: shows the plan to the user. */
+  updatePlan(steps: PlanStep[]): Promise<void>;
+  /** Agent mode: applies edits to the draft, which later reads see. */
+  editDraft(edits: ProposedEdit[]): Promise<{ files: string[] }>;
+  /** Agent mode: compiles the whole project with the draft applied. */
+  compileDraft(): Promise<{ outcome: string; errors: string[] }>;
+  /** Agent mode: proposes the whole draft to the user, once. */
+  submitChanges(): Promise<{ changesetId: string; hunks: number; files: string[] }>;
   /** Told about a tool that failed for another reason than a {@link ToolError}. */
   onFailure(name: AiToolName, error: unknown): void;
 }
 
 const path = z.string().check(z.minLength(1), z.maxLength(500));
 const line = z.number().check(z.int(), z.positive());
+
+const edits = z
+  .array(
+    z.object({
+      path,
+      search: z.string().check(z.maxLength(50_000)),
+      replace: z.string().check(z.maxLength(100_000)),
+    }),
+  )
+  .check(z.minLength(1), z.maxLength(50));
 
 const schemas = {
   list_files: z.object({}),
@@ -79,23 +97,19 @@ const schemas = {
   get_outline: z.object({}),
   get_compile_log: z.object({}),
   compile_snippet: z.object({ latex: z.string().check(z.minLength(1), z.maxLength(50_000)) }),
-  propose_changes: z.object({
-    edits: z
-      .array(
-        z.object({
-          path,
-          search: z.string().check(z.maxLength(50_000)),
-          replace: z.string().check(z.maxLength(100_000)),
-        }),
-      )
-      .check(z.minLength(1), z.maxLength(50)),
-  }),
+  propose_changes: z.object({ edits }),
   search_literature: z.object({ query: z.string().check(z.minLength(2), z.maxLength(300)) }),
   fetch_bibtex: z.object({
     doi: z.optional(z.string().check(z.maxLength(300))),
     arxivId: z.optional(z.string().check(z.maxLength(100))),
     isbn: z.optional(z.string().check(z.maxLength(40))),
   }),
+  update_plan: z.object({
+    steps: z.array(planStep).check(z.minLength(1), z.maxLength(MAX_PLAN_STEPS)),
+  }),
+  edit_draft: z.object({ edits }),
+  compile_draft: z.object({}),
+  submit_changes: z.object({}),
 } satisfies Record<AiToolName, z.ZodMiniType>;
 
 const descriptions: Record<AiToolName, string> = {
@@ -113,13 +127,31 @@ const descriptions: Record<AiToolName, string> = {
   search_literature:
     'Search scholarly literature (Crossref, arXiv, OpenAlex) for a query. Returns titles, authors, years and identifiers.',
   fetch_bibtex:
-    'Get a verified BibTeX entry for a DOI, an arXiv identifier or an ISBN (give exactly one). The entry may then be added to a .bib file with propose_changes.',
+    'Get a verified BibTeX entry for a DOI, an arXiv identifier or an ISBN (give exactly one). The entry may then be added to a .bib file with propose_changes or edit_draft.',
+  update_plan:
+    'Show the user your plan: the whole list of steps, each pending, active or done. Call it first, then again whenever a step changes.',
+  edit_draft:
+    'Edit the draft: the private copy of the project you work on. Same edits as propose_changes, applied at once to the draft; read_file, search_project and get_outline then see the draft. The project itself is unchanged until the user accepts.',
+  compile_draft:
+    'Compile the whole project with the draft applied, in the sandbox, and return the errors. Use it to check your edits before submitting.',
+  submit_changes:
+    'Submit every change of the draft to the user as one proposal, which they accept or reject. Call it once, at the end.',
 };
 
 /** What the interface shows of a tool call: the file read, the query searched. */
 export function toolDetail(name: AiToolName, input: unknown): string | undefined {
   if (typeof input !== 'object' || input === null) return undefined;
   const record = input as Record<string, unknown>; // Inputs are validated objects of the schemas above.
+  if (name === 'edit_draft' && Array.isArray(record.edits)) {
+    const paths = new Set<string>();
+    const list: unknown[] = record.edits;
+    for (const item of list) {
+      if (typeof item === 'object' && item !== null && 'path' in item) {
+        if (typeof item.path === 'string') paths.add(item.path);
+      }
+    }
+    return [...paths].join(', ').slice(0, 120);
+  }
   const value =
     name === 'read_file'
       ? record.path
@@ -221,6 +253,38 @@ export function buildTools(host: ToolHost, names: readonly AiToolName[]): Record
           }
           return host.fetchBibtex(input);
         }),
+    }),
+    update_plan: tool({
+      description: descriptions.update_plan,
+      inputSchema: zodSchema(schemas.update_plan),
+      execute: (input) =>
+        guarded(host, 'update_plan', async () => {
+          await host.updatePlan(input.steps);
+          return { shown: true };
+        }),
+    }),
+    edit_draft: tool({
+      description: descriptions.edit_draft,
+      inputSchema: zodSchema(schemas.edit_draft),
+      execute: (input) =>
+        guarded(host, 'edit_draft', async () => ({
+          ...(await host.editDraft(input.edits)),
+          note: 'Applied to the draft only. Submit it with submit_changes when done.',
+        })),
+    }),
+    compile_draft: tool({
+      description: descriptions.compile_draft,
+      inputSchema: zodSchema(schemas.compile_draft),
+      execute: () => guarded(host, 'compile_draft', () => host.compileDraft()),
+    }),
+    submit_changes: tool({
+      description: descriptions.submit_changes,
+      inputSchema: zodSchema(schemas.submit_changes),
+      execute: () =>
+        guarded(host, 'submit_changes', async () => ({
+          ...(await host.submitChanges()),
+          note: 'Proposed to the user, who will accept or reject it. Nothing is written yet. Finish with a short summary.',
+        })),
     }),
   };
   return Object.fromEntries(names.map((name) => [name, all[name]]));

@@ -11,7 +11,10 @@ import { storeBlobs } from '../storage/blobs.js';
 import { textBytes } from '../yjs/text.js';
 
 /** Runs a compile job outside any project's history; null when no worker answered in time. */
-export type SnippetCompiler = (job: CompileJob) => Promise<CompileResult | null>;
+export type SnippetCompiler = (
+  job: CompileJob,
+  timeoutMs?: number,
+) => Promise<CompileResult | null>;
 
 /** Longest wait for a preview: a standalone fragment compiles in a second or two. */
 const SNIPPET_TIMEOUT_MS = 30_000;
@@ -29,7 +32,7 @@ export function createSnippetCompiler(
   queue: Queue<CompileJob, unknown>,
   events: QueueEvents,
 ): SnippetCompiler {
-  return async (data) => {
+  return async (data, timeoutMs = SNIPPET_TIMEOUT_MS) => {
     const job = await queue.add(SNIPPET_JOB, data, {
       jobId: data.compileId,
       attempts: 1,
@@ -38,7 +41,7 @@ export function createSnippetCompiler(
     });
     let value: unknown;
     try {
-      value = await job.waitUntilFinished(events, SNIPPET_TIMEOUT_MS);
+      value = await job.waitUntilFinished(events, timeoutMs);
     } catch {
       return null;
     }
@@ -76,6 +79,10 @@ export interface SnippetSetting {
   texmfManifest: Manifest;
   /** Path of the document among them. */
   mainFile: string;
+  /** The project's own, for a document that is the project itself; BibTeX otherwise. */
+  bibTool?: CompileJob['bibTool'];
+  /** Longer than a fragment's for a whole project. */
+  timeoutMs?: number;
 }
 
 /** Compiles a standalone document in the sandbox and keeps its PDF for an hour. */
@@ -102,21 +109,24 @@ export async function compileSnippet(
   ]);
   const compileId = randomUUID();
   const started = performance.now();
-  const result = await snippets({
-    compileId,
-    projectId: snippetProjectId(projectId, userId),
-    manifest: { ...setting.manifest, [setting.mainFile]: hash },
-    texmfManifest: setting.texmfManifest,
-    mainFile: setting.mainFile,
-    engine: setting.engine,
-    bibTool: 'bibtex',
-    shellEscape: 'disabled',
-    draft: false,
-    haltOnError: true,
-    clean: true,
-    chktexDisabled: [],
-    precompilePreamble: false,
-  });
+  const result = await snippets(
+    {
+      compileId,
+      projectId: snippetProjectId(projectId, userId),
+      manifest: { ...setting.manifest, [setting.mainFile]: hash },
+      texmfManifest: setting.texmfManifest,
+      mainFile: setting.mainFile,
+      engine: setting.engine,
+      bibTool: setting.bibTool ?? 'bibtex',
+      shellEscape: 'disabled',
+      draft: false,
+      haltOnError: true,
+      clean: true,
+      chktexDisabled: [],
+      precompilePreamble: false,
+    },
+    setting.timeoutMs,
+  );
   await recordSnippetTime(redis, userId, (performance.now() - started) / 1000);
   if (result === null) return { compileId: null, outcome: 'error', errors: [] };
   await redis.zadd(

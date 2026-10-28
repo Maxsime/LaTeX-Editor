@@ -30,6 +30,10 @@ function recordingHost(): { host: ToolHost; calls: unknown[][]; failures: string
       proposeChanges: () => Promise.reject(new Error('database down')),
       searchLiterature: record('searchLiterature', []),
       fetchBibtex: record('fetchBibtex', { key: 'k', bibtex: '@misc{k,}' }),
+      updatePlan: record('updatePlan', undefined),
+      editDraft: record('editDraft', { files: ['main.tex'] }),
+      compileDraft: record('compileDraft', { outcome: 'success', errors: [] }),
+      submitChanges: record('submitChanges', { changesetId: 'c', hunks: 1, files: ['main.tex'] }),
       onFailure: (name) => failures.push(name),
     },
   };
@@ -48,13 +52,38 @@ async function call(
 }
 
 describe('buildTools', () => {
+  it('runs the agent tools: plan, draft, compilation, submission', async () => {
+    const { host, calls } = recordingHost();
+    const tools = buildTools(host, [
+      'update_plan',
+      'edit_draft',
+      'compile_draft',
+      'submit_changes',
+    ]);
+    const steps = [{ title: 'Lire', status: 'active' }];
+    expect(await call(tools, 'update_plan', { steps })).toEqual({ shown: true });
+    const edits = [{ path: 'main.tex', search: 'a', replace: 'b' }];
+    expect(await call(tools, 'edit_draft', { edits })).toMatchObject({ files: ['main.tex'] });
+    expect(await call(tools, 'compile_draft', {})).toEqual({ outcome: 'success', errors: [] });
+    expect(await call(tools, 'submit_changes', {})).toMatchObject({ changesetId: 'c' });
+    expect(calls).toEqual([
+      ['updatePlan', steps],
+      ['editDraft', edits],
+      ['compileDraft'],
+      ['submitChanges'],
+    ]);
+    expect(toolDetail('edit_draft', { edits: [...edits, { ...edits[0], path: 'b.tex' }] })).toBe(
+      'main.tex, b.tex',
+    );
+  });
+
   it('offers only the tools asked for', () => {
     const { host } = recordingHost();
     expect(Object.keys(buildTools(host, ['read_file', 'get_outline']))).toEqual([
       'read_file',
       'get_outline',
     ]);
-    expect(Object.keys(buildTools(host, aiToolNames))).toHaveLength(9);
+    expect(Object.keys(buildTools(host, aiToolNames))).toHaveLength(13);
   });
 
   it('forwards each tool to the host', async () => {

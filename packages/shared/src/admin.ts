@@ -1,5 +1,11 @@
 import * as z from 'zod/mini';
-import { aiCapabilities, aiProvider, MAX_API_KEY_LENGTH } from './ai.js';
+import {
+  aiCapabilities,
+  aiProvider,
+  MAX_AGENT_TOKEN_BUDGET,
+  MAX_API_KEY_LENGTH,
+  MIN_AGENT_TOKEN_BUDGET,
+} from './ai.js';
 import { displayName, email, registrationMode, username } from './auth.js';
 
 // --- Quotas -----------------------------------------------------------------------
@@ -50,12 +56,18 @@ export const instanceAiDefault = z.object({
 });
 export type InstanceAiDefault = z.infer<typeof instanceAiDefault>;
 
+export const agentTokenBudget = z
+  .number()
+  .check(z.int(), z.gte(MIN_AGENT_TOKEN_BUDGET), z.lte(MAX_AGENT_TOKEN_BUDGET));
+
 /** Response of `GET /api/admin/settings`: effective values and where each one comes from. */
 export const instanceSettingsResponse = z.object({
   registrationMode,
   quotas: instanceQuotas,
   aiEnabled: z.boolean(),
   aiDefault: z.nullable(instanceAiDefault),
+  /** Tokens one request of the agent mode may use. */
+  aiAgentTokenBudget: z.number(),
   /** Settings changed in the console; the others follow the environment. */
   overridden: z.array(z.string()),
 });
@@ -66,6 +78,7 @@ export const updateInstanceSettingsRequest = z.object({
   registrationMode: z.optional(registrationMode),
   quotas: z.optional(instanceQuotas),
   aiEnabled: z.optional(z.boolean()),
+  aiAgentTokenBudget: z.optional(agentTokenBudget),
   /** Null removes the console's default model, falling back on the environment. */
   aiDefault: z.optional(
     z.nullable(

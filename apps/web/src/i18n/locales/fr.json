@@ -66,6 +66,8 @@
     "AI_BAD_RESPONSE": "Réponse inattendue du fournisseur IA.",
     "AI_NO_VISION": "Le modèle configuré ne lit pas les images.",
     "AI_ENDPOINT_FORBIDDEN": "Adresse de fournisseur personnalisée non autorisée sur cette instance.",
+    "AI_NO_TOOLS": "Le mode agent demande un modèle capable d'appeler des outils.",
+    "AI_AGENT_LIMIT": "L'agent a atteint sa limite d'étapes ou de jetons. Le travail fait jusque-là vous est proposé ci-dessus.",
     "UNKNOWN_CITATION": "La proposition cite une clé absente de la bibliographie.",
     "QUOTA_STORAGE_EXCEEDED": "L'espace de stockage du propriétaire du projet est plein.",
     "QUOTA_COMPILE_EXCEEDED": "Votre temps de compilation du mois est épuisé.",
@@ -948,7 +950,11 @@
       "compile_snippet": "Compilation d'essai",
       "propose_changes": "Proposition de modification",
       "search_literature": "Recherche bibliographique",
-      "fetch_bibtex": "Récupération de la référence"
+      "fetch_bibtex": "Récupération de la référence",
+      "update_plan": "Plan",
+      "edit_draft": "Modification du brouillon",
+      "compile_draft": "Compilation du brouillon",
+      "submit_changes": "Soumission des modifications"
     },
     "usage": {
       "line": "{{input}} jetons en entrée ({{cached}} en cache), {{output}} en sortie",
@@ -997,6 +1003,16 @@
     "options": {
       "enabled": "Assistant IA",
       "enabledHint": "Désactivé, l'assistant n'est proposé à aucun membre du projet."
+    },
+    "agent": {
+      "toggle": "Mode agent",
+      "hint": "L'agent enchaîne lectures, modifications et compilations sur un brouillon, puis vous soumet l'ensemble. Rien n'est modifié sans votre accord.",
+      "plan": "Plan"
+    },
+    "planStatus": {
+      "pending": "à faire",
+      "active": "en cours",
+      "done": "fait"
     }
   },
   "admin": {
@@ -1086,7 +1102,9 @@
       "pricesIntro": "Une ligne par modèle : fournisseur, modèle, prix par million de jetons en entrée, en sortie, en entrée mise en cache (vide si aucun), devise. Ils servent à estimer les coûts affichés dans « Mon compte ».",
       "badLine": "La ligne {{line}} n'est pas valide.",
       "savePrices": "Enregistrer les prix",
-      "pricesSaved": "Prix enregistrés."
+      "pricesSaved": "Prix enregistrés.",
+      "agentBudget": "Budget du mode agent (jetons par demande)",
+      "agentBudgetHint": "Jetons en entrée et en sortie de toutes les étapes d'une demande ; l'agent s'arrête à l'étape qui l'atteint."
     },
     "services": {
       "version": "Version de Galley",

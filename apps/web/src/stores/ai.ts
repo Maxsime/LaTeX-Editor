@@ -6,6 +6,7 @@ import {
   type AiToolName,
   type AiUsage,
   MAX_AI_MESSAGES,
+  type PlanStep,
   type SnippetPreview,
 } from '@galley/shared';
 import { create } from 'zustand';
@@ -26,6 +27,8 @@ export interface AiMessage {
   tools: ToolActivity[];
   changesetIds: string[];
   snippet: SnippetPreview | null;
+  /** Agent mode: the plan as the agent last showed it. */
+  plan: PlanStep[] | null;
   usage: AiUsage | null;
   /** Error code, translated by the interface under `errors.`. */
   error: string | null;
@@ -72,6 +75,8 @@ export function applyEvent(message: AiMessage, event: AiStreamEvent): AiMessage 
       return { ...message, changesetIds: [...message.changesetIds, event.changeset.id] };
     case 'snippet':
       return { ...message, snippet: event.snippet };
+    case 'plan':
+      return { ...message, plan: event.steps };
     case 'usage':
       return { ...message, usage: event.usage };
     case 'error':
@@ -84,19 +89,21 @@ export function applyEvent(message: AiMessage, event: AiStreamEvent): AiMessage 
 }
 
 /**
- * The history sent with a chat or fix request: earlier exchanges of those
- * modes, then the new question. Inline edits stand alone.
+ * The history sent with a chat, fix or agent request: earlier exchanges of
+ * those modes, then the new question. Inline edits stand alone.
  */
 export function historyFor(messages: readonly AiMessage[], text: string) {
   const earlier = messages
-    .filter((message) => message.mode === 'chat' || message.mode === 'fix')
+    .filter(
+      (message) => message.mode === 'chat' || message.mode === 'fix' || message.mode === 'agent',
+    )
     .filter((message) => message.role === 'user' || (message.done && message.text !== ''))
     .map((message) => ({ role: message.role, text: message.text }));
   return [...earlier, { role: 'user' as const, text }].slice(-MAX_AI_MESSAGES);
 }
 
 export interface SendInput {
-  mode: 'chat' | 'fix' | 'inline';
+  mode: 'chat' | 'fix' | 'inline' | 'agent';
   text: string;
   context: AiChatRequest['context'];
   diagnostic?: AiChatRequest['diagnostic'];
@@ -141,6 +148,7 @@ function emptyMessage(role: AiMessage['role'], mode: AiMode, text: string): AiMe
     tools: [],
     changesetIds: [],
     snippet: null,
+    plan: null,
     usage: null,
     error: null,
     done: role === 'user',

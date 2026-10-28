@@ -1,5 +1,5 @@
 import * as z from 'zod/mini';
-import { aiProvider } from './ai.js';
+import { aiProvider, MAX_AGENT_TOKEN_BUDGET, MIN_AGENT_TOKEN_BUDGET } from './ai.js';
 import { registrationMode } from './auth.js';
 
 /**
@@ -146,6 +146,13 @@ export const apiEnv = z
     AI_DEFAULT_CONTEXT_TOKENS: blankable(z.coerce.number().check(z.int(), z.gte(2_000))),
     /** Lets users point a provider at an address of their choice (see docs/operations.md). */
     AI_ALLOW_USER_ENDPOINTS: z._default(booleanFlag, false),
+    /** Tokens one request of the agent mode may use, every step included (SPEC §3.8). */
+    AI_AGENT_TOKEN_BUDGET: z._default(
+      z.coerce
+        .number()
+        .check(z.int(), z.gte(MIN_AGENT_TOKEN_BUDGET), z.lte(MAX_AGENT_TOKEN_BUDGET)),
+      200_000,
+    ),
     AI_RATE_LIMIT_PER_MINUTE: z._default(
       z.coerce.number().check(z.int(), z.gte(1), z.lte(1_000)),
       20,
