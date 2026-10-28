@@ -41,6 +41,9 @@ export const compileFailureCodes = {
 
 const PENDING: CompileStatus[] = ['queued', 'running'];
 
+/** Age under which a run without a job is still being queued, not lost. */
+const LOST_GRACE_MS = 30_000;
+
 /** How long a cancellation stays on record for a worker that has not picked the job up yet. */
 const CANCEL_TTL_S = 600;
 
@@ -144,6 +147,9 @@ export async function requestCompile(
     bibTool: project.bibTool,
     shellEscape: project.shellEscape,
   };
+  // Read before the run is recorded: until its job is queued, a status request
+  // would find no job and count the run as lost.
+  const texmfManifest = await texmfManifestOf(context, project.ownerId);
   const [row] = await context.database.db
     .insert(compileRuns)
     .values({
@@ -162,7 +168,7 @@ export async function requestCompile(
     compileId: row.id,
     projectId: project.id,
     manifest: snapshot.manifest,
-    texmfManifest: await texmfManifestOf(context, project.ownerId),
+    texmfManifest,
     mainFile,
     engine: project.engine,
     ...options,
@@ -308,7 +314,8 @@ export async function reconcile(
   // The state first, then the job: a job read before it completes would carry no
   // return value, even if it is completed by the time its state is asked.
   const state = await context.compileQueue.getJobState(row.id);
-  if (state === 'unknown') {
+  // A run recorded a moment ago may not have its job queued yet.
+  if (state === 'unknown' && Date.now() - row.createdAt.getTime() > LOST_GRACE_MS) {
     await fail(context, row.id, compileFailureCodes.lost, logger);
   } else if (state === 'completed') {
     const job: Job<CompileJob, unknown> | undefined = await context.compileQueue.getJob(row.id);

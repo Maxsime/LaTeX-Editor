@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import type { SyncStatus } from '../editor/connection.js';
+import type { KeyBindings } from '../editor/keybindings.js';
 
 /** A place to show in the editor: a search result or an outline entry. */
 export interface Reveal {
@@ -40,8 +41,11 @@ export function currentSelection(): EditorSelectionState | null {
 export interface Insertion {
   fileId: string;
   text: string;
-  /** At the cursor (replacing the selection), or appended at the end of the file. */
-  at: 'cursor' | 'end';
+  /**
+   * At the cursor (replacing the selection), appended at the end of the file, or
+   * the whole new content of the file, applied as line changes (formatting).
+   */
+  at: 'cursor' | 'end' | 'document';
   /** Distinguishes two identical requests, so both take effect. */
   nonce: number;
 }
@@ -152,10 +156,15 @@ interface Preferences {
   lineWrapping: boolean;
   /** Spelling and grammar checking, when the instance offers it. */
   spellCheck: boolean;
+  keyBindings: KeyBindings;
+  /** `.tex` files shown in the visual editor rather than as source. */
+  visualFiles: string[];
   setTheme: (theme: EditorTheme) => void;
   setFontSize: (size: number) => void;
   setLineWrapping: (on: boolean) => void;
   setSpellCheck: (on: boolean) => void;
+  setKeyBindings: (mode: KeyBindings) => void;
+  setVisual: (fileId: string, on: boolean) => void;
 }
 
 export const FONT_SIZES = [11, 12, 13, 14, 15, 16, 18, 20] as const;
@@ -168,6 +177,8 @@ export const usePreferences = create<Preferences>()(
       fontSize: 14,
       lineWrapping: true,
       spellCheck: true,
+      keyBindings: 'default',
+      visualFiles: [],
       setTheme: (theme) => {
         set({ theme });
       },
@@ -179,6 +190,17 @@ export const usePreferences = create<Preferences>()(
       },
       setSpellCheck: (spellCheck) => {
         set({ spellCheck });
+      },
+      setKeyBindings: (keyBindings) => {
+        set({ keyBindings });
+      },
+      setVisual: (fileId, on) => {
+        set(({ visualFiles }) => ({
+          // The most recent files only: the list must not grow without end in storage.
+          visualFiles: on
+            ? [fileId, ...visualFiles.filter((id) => id !== fileId)].slice(0, 200)
+            : visualFiles.filter((id) => id !== fileId),
+        }));
       },
     }),
     {

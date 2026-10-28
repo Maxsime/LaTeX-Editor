@@ -12,6 +12,7 @@ import { useNavigate } from '@tanstack/react-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { FilePreview } from '../components/FilePreview.js';
+import { BibToolbar } from '../components/BibToolbar.js';
 import { InsertToolbar } from '../components/InsertToolbar.js';
 import { useAiStatus } from '../lib/ai.js';
 import { api } from '../lib/api.js';
@@ -69,13 +70,48 @@ function dirname(path: string): string {
   return slash === -1 ? '' : path.slice(0, slash);
 }
 
+/** Switches the open `.tex` file between source and visual editing. */
+function VisualToggle({ fileId }: { fileId: string }) {
+  const { t } = useTranslation();
+  const on = usePreferences((state) => state.visualFiles.includes(fileId));
+  const setVisual = usePreferences((state) => state.setVisual);
+  return (
+    <button
+      type="button"
+      aria-pressed={on}
+      title={t('editor.visual.help')}
+      onClick={() => {
+        setVisual(fileId, !on);
+      }}
+      className="ml-2 rounded px-2 py-0.5 text-xs hover:bg-slate-100 aria-pressed:bg-slate-700 aria-pressed:text-white"
+    >
+      {t('editor.visual.toggle')}
+    </button>
+  );
+}
+
 function Preferences({ spelling }: { spelling: boolean }) {
   const { t } = useTranslation();
   const { theme, fontSize, lineWrapping, setTheme, setFontSize, setLineWrapping } =
     usePreferences();
-  const { spellCheck, setSpellCheck } = usePreferences();
+  const { spellCheck, setSpellCheck, keyBindings, setKeyBindings } = usePreferences();
   return (
     <div className="ml-auto flex items-center gap-2 px-2 text-xs">
+      <label className="flex items-center gap-1">
+        <span>{t('editor.preferences.keyBindings')}</span>
+        <select
+          value={keyBindings}
+          onChange={(event) => {
+            const value = event.currentTarget.value;
+            setKeyBindings(value === 'vim' || value === 'emacs' ? value : 'default');
+          }}
+          className="rounded border border-slate-300 px-1 py-0.5"
+        >
+          <option value="default">{t('editor.preferences.keys.default')}</option>
+          <option value="vim">Vim</option>
+          <option value="emacs">Emacs</option>
+        </select>
+      </label>
       <label className="flex items-center gap-1">
         <span>{t('editor.preferences.theme')}</span>
         <select
@@ -412,6 +448,16 @@ export default function EditorArea({
       ? activeNode.id
       : null;
 
+  const visualTarget =
+    activeNode?.kind === 'text' && /\.(tex|ltx)$/i.test(activeNode.name) ? activeNode.id : null;
+  const bibTarget =
+    !readOnly &&
+    activeNode?.kind === 'text' &&
+    activeNode.link === undefined &&
+    /\.bib$/i.test(activeNode.name)
+      ? activeNode.id
+      : null;
+
   if (tabs.length === 0) {
     return (
       <div className="flex h-full items-center justify-center text-sm text-slate-600">
@@ -506,6 +552,13 @@ export default function EditorArea({
             />
             <span>{t('review.mode.everyone')}</span>
           </label>
+        )}
+        {visualTarget !== null && <VisualToggle fileId={visualTarget} />}
+        {bibTarget !== null && (
+          <BibToolbar
+            fileId={bibTarget}
+            read={() => connection.document(bibTarget)?.text.toJSON() ?? null}
+          />
         )}
         <InsertToolbar
           fileId={insertTarget}

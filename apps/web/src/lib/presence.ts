@@ -1,4 +1,5 @@
 import { type PresenceUser, presenceUser } from '@galley/shared';
+import * as Y from 'yjs';
 
 /** Someone else with the project open, and the file shown in their active tab. */
 export interface Participant {
@@ -45,4 +46,32 @@ export function initials(name: string): string {
 /** User-perceived characters, so that accents and emoji stay whole. */
 function graphemes(text: string): string[] {
   return Array.from(new Intl.Segmenter().segment(text), (part) => part.segment);
+}
+
+/**
+ * Offset of a person's cursor in a shared text, from the awareness states of
+ * the file's document (`y-codemirror.next` stores it as a relative position).
+ * Null when the person has no cursor in this file.
+ */
+export function cursorOf(
+  states: ReadonlyMap<number, Record<string, unknown>>,
+  userId: string,
+  text: Y.Text,
+): number | null {
+  const doc = text.doc;
+  if (doc === null) return null;
+  for (const state of states.values()) {
+    const user = presenceUser.safeParse(state.user);
+    if (!user.success || user.data.id !== userId) continue;
+    const cursor = state.cursor;
+    if (typeof cursor !== 'object' || cursor === null || !('head' in cursor)) continue;
+    try {
+      const relative = Y.createRelativePositionFromJSON(cursor.head);
+      const absolute = Y.createAbsolutePositionFromRelativePosition(relative, doc);
+      if (absolute?.type === text) return absolute.index;
+    } catch {
+      // A malformed position from another client: no cursor to follow.
+    }
+  }
+  return null;
 }

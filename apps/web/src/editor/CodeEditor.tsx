@@ -6,8 +6,11 @@ import { EditorView } from '@codemirror/view';
 import { useEffect, useRef } from 'react';
 import i18n from '../i18n/index.js';
 import { appendedBlock } from '../lib/writing.js';
+import { cursorOf } from '../lib/presence.js';
+import { lineChanges } from '../lib/textdiff.js';
 import { type Insertion, setSelection, useEditor, usePreferences } from '../stores/editor.js';
 import { pendingHunksOf, useAi } from '../stores/ai.js';
+import { usePresence } from '../stores/presence.js';
 import { useReview } from '../stores/review.js';
 import { aiExtension, setProposals } from './ai.js';
 import type { CompletionSources } from './completion.js';
@@ -20,7 +23,15 @@ import {
 } from './lint.js';
 import { katexMacros } from './math.js';
 import { colorPreview, mathPreview } from './preview.js';
-import { redrawReview, type ReviewOptions, reviewExtension, suggestingDispatch } from './review.js';
+import { visualEditor } from './visual-view.js';
+import {
+  redrawReview,
+  type ReviewOptions,
+  reviewExtension,
+  suggestedSpans,
+  suggestingDispatch,
+} from './review.js';
+import { loadKeyBindings } from './keybindings.js';
 import { EditorSettings, editorExtensions } from './setup.js';
 import { type SpellingOptions, spellingExtension } from './spelling.js';
 
@@ -70,6 +81,20 @@ function checkOf(fileName: string): 'latex' | 'bibtex' | null {
  * its tab, hidden when inactive, so scroll position and undo history survive
  * tab switches.
  */
+/** The visual editor over the project's macros, leaving suggestions as source. */
+function visualConfig(
+  macros: () => Record<string, string>,
+  review: { readonly current: ReviewOptions | null },
+) {
+  return visualEditor({
+    macros: (state: EditorState) => ({
+      ...macros(),
+      ...katexMacros(extractStructure(state.doc.toString()).commands),
+    }),
+    protectedSpans: () => (review.current ? suggestedSpans(review.current) : []),
+  });
+}
+
 export function CodeEditor({
   connection,
   fileId,
@@ -89,12 +114,16 @@ export function CodeEditor({
   const view = useRef<EditorView | null>(null);
   const settings = useRef(new EditorSettings());
   const spellCompartment = useRef(new Compartment());
+  const visualCompartment = useRef(new Compartment());
+  const visual = usePreferences(
+    (state) => LIVE_LINT.test(fileName) && state.visualFiles.includes(fileId),
+  );
   const latex = LIVE_LINT.test(fileName);
   const inserted = useRef<Insertion | null>(null);
   const insertion = useEditor((state) => state.insertion);
   // Status changes re-run the reveal effect; a request must move the cursor only once.
   const revealed = useRef<typeof reveal>(null);
-  const { theme, fontSize, lineWrapping } = usePreferences();
+  const { theme, fontSize, lineWrapping, keyBindings } = usePreferences();
   const reveal = useEditor((state) => state.reveal);
   const status = useEditor((state) => state.status[fileId]);
   const reloads = useReview((state) => state.reloads[fileId] ?? 0);
@@ -106,6 +135,12 @@ export function CodeEditor({
   }, [suggesting, userId, readOnly]);
   const changesets = useAi((state) => state.changesets);
   const review = useRef<ReviewOptions | null>(null);
+  // The visual mode a rebuilt editor starts in, and the one the current editor shows.
+  const visualLive = useRef(visual);
+  const visualApplied = useRef(visual);
+  useEffect(() => {
+    visualLive.current = visual;
+  }, [visual]);
 
   useEffect(() => {
     const parent = host.current;
@@ -156,6 +191,7 @@ export function CodeEditor({
           source: i18n.t('editor.lint.sourceEditor'),
         }),
         spellCompartment.current.of([]),
+        visualCompartment.current.of(visualLive.current ? visualConfig(macros, review) : []),
         LIVE_LINT.test(fileName)
           ? [
               mathPreview({
@@ -192,6 +228,7 @@ export function CodeEditor({
       ],
     });
     view.current = editor;
+    visualApplied.current = visualLive.current;
     return () => {
       view.current = null;
       review.current = null;
@@ -235,6 +272,55 @@ export function CodeEditor({
     });
   }, [theme, fontSize, lineWrapping, writable, serverReadOnly]);
 
+  useEffect(() => {
+    const editor = view.current;
+    // The editor is built with the current mode: only a change of mode reconfigures it,
+    // as a reconfiguration closes the tooltips open at that moment.
+    if (!editor || visual === visualApplied.current) return;
+    visualApplied.current = visual;
+    editor.dispatch({
+      effects: visualCompartment.current.reconfigure(visual ? visualConfig(macros, review) : []),
+    });
+  }, [visual, macros]);
+
+  // Following a collaborator: keep their cursor in view until the reader acts here.
+  const following = usePresence((state) => state.following);
+  useEffect(() => {
+    const editor = view.current;
+    const document = connection.document(fileId);
+    if (!editor || !document || !active || following === null) return;
+    const { awareness } = document.provider;
+    if (!awareness) return;
+    const reveal = () => {
+      const position = cursorOf(awareness.getStates(), following, document.text);
+      if (position === null || position > editor.state.doc.length) return;
+      editor.dispatch({ effects: EditorView.scrollIntoView(position, { y: 'center' }) });
+    };
+    const stop = () => {
+      usePresence.getState().setFollowing(null);
+    };
+    reveal();
+    awareness.on('change', reveal);
+    editor.dom.addEventListener('mousedown', stop);
+    editor.dom.addEventListener('keydown', stop);
+    return () => {
+      awareness.off('change', reveal);
+      editor.dom.removeEventListener('mousedown', stop);
+      editor.dom.removeEventListener('keydown', stop);
+    };
+  }, [connection, fileId, active, following, status]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void loadKeyBindings(keyBindings).then((extension) => {
+      const editor = view.current;
+      if (!cancelled && editor) settings.current.setKeyBindings(editor, extension);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [keyBindings]);
+
   // Markers follow the text as it is edited, until the next compilation replaces them.
   useEffect(() => {
     const editor = view.current;
@@ -262,7 +348,10 @@ export function CodeEditor({
     inserted.current = insertion;
     if (!writable || serverReadOnly) return;
     const { state } = editor;
-    if (insertion.at === 'end') {
+    if (insertion.at === 'document') {
+      const changes = lineChanges(state.doc.toString(), insertion.text);
+      if (changes.length > 0) editor.dispatch({ changes, userEvent: 'input.format' });
+    } else if (insertion.at === 'end') {
       const text = appendedBlock(state.doc.toString(), insertion.text);
       const end = state.doc.length + text.length;
       editor.dispatch({

@@ -51,6 +51,11 @@ export function RootLayout() {
   const wide = useRouterState({
     select: (state) => state.location.pathname.startsWith('/projects/'),
   });
+  // The detached PDF window fills its window, without the site's header and footer.
+  const bare = useRouterState({
+    select: (state) => /^\/projects\/[^/]+\/pdf$/.test(state.location.pathname),
+  });
+  if (bare) return <Outlet />;
   return (
     <div className="flex min-h-screen flex-col bg-white text-ink">
       <header className="flex items-center gap-4 border-b border-slate-200 px-6 py-3">

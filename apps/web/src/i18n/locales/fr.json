@@ -290,7 +290,11 @@
       "dark": "Sombre",
       "fontSize": "Taille",
       "wrap": "Retour à la ligne",
-      "spellCheck": "Orthographe"
+      "spellCheck": "Orthographe",
+      "keyBindings": "Raccourcis",
+      "keys": {
+        "default": "Standard"
+      }
     },
     "outline": {
       "title": "Plan du document",
@@ -345,6 +349,10 @@
       "source": "Orthographe et grammaire",
       "addWord": "Ajouter au dictionnaire",
       "ignore": "Ignorer"
+    },
+    "visual": {
+      "toggle": "Visuel",
+      "help": "Masque le balisage des titres, emphases et listes et affiche les formules, sauf sur la ligne en cours. Le fichier reste du LaTeX."
     }
   },
   "compile": {
@@ -433,6 +441,29 @@
       "notFound": "Aucune ligne du source ne correspond à cet endroit.",
       "notInPdf": "Cette ligne n'apparaît pas dans le PDF affiché.",
       "failed": "La correspondance entre le PDF et le source a échoué. Réessayez après une compilation."
+    },
+    "explain": {
+      "undefinedCommand": "La commande {{name}} n’existe pas : faute de frappe, ou paquet qui la définit non chargé dans le préambule.",
+      "undefinedEnvironment": "L’environnement {{name}} n’est défini nulle part : vérifiez son nom ou chargez le paquet qui le fournit.",
+      "missingDollar": "Une commande mathématique (^, _, \\alpha…) est utilisée hors du mode mathématique : entourez-la de $…$, ou un $ ouvert n’a pas été refermé.",
+      "fileNotFound": "Le fichier {{name}} est introuvable : vérifiez son nom et son dossier, ou le paquet n’est pas installé dans TeX Live.",
+      "extraBrace": "Une accolade fermante } n’a pas d’accolade ouvrante correspondante.",
+      "missingBrace": "Une accolade manque : une { ouverte n’a pas été refermée, souvent dans l’argument d’une commande.",
+      "mismatchedEnvironment": "L’environnement {{name}} est refermé par un \\end qui ne lui correspond pas : vérifiez l’ordre des \\begin et \\end.",
+      "missingBeginDocument": "Du texte apparaît avant \\begin{document}, ou cette ligne manque : le préambule ne doit contenir que des réglages.",
+      "undefinedReference": "Le label {{name}} n’existe pas, ou la compilation doit être relancée pour que la référence se mette à jour.",
+      "undefinedCitation": "La clé {{name}} est absente des fichiers .bib chargés, ou la bibliographie n’a pas encore été générée.",
+      "duplicateLabel": "Le label {{name}} est défini plusieurs fois : chaque \\label doit avoir un nom unique.",
+      "runawayArgument": "Le fichier se termine alors que l’argument de {{name}} n’est pas refermé : il manque une accolade }.",
+      "paragraphEnded": "Une ligne vide coupe l’argument de {{name}} : il manque probablement une accolade fermante avant.",
+      "misplacedAlignment": "Le caractère & n’est permis que dans un tableau ou un alignement ; ailleurs, écrivez \\&.",
+      "noLineToEnd": "Un \\\\ arrive là où aucune ligne n’est commencée, par exemple juste après une liste ou en début de paragraphe.",
+      "doubleScript": "Deux exposants ou deux indices se suivent : groupez-les avec des accolades, par exemple x^{ab}.",
+      "unicodeCharacter": "Le caractère {{name}} n’est pas pris en charge par ce moteur : utilisez la commande LaTeX équivalente, ou compilez avec XeLaTeX ou LuaLaTeX.",
+      "optionClash": "Le paquet {{name}} est chargé deux fois avec des options différentes : regroupez les options dans un seul \\usepackage.",
+      "missingNumber": "Une longueur ou un nombre est attendu à cet endroit, mais n’a pas été trouvé.",
+      "illegalUnit": "Une longueur est donnée sans unité valide : écrivez par exemple 2cm, 10pt ou 0.5\\textwidth.",
+      "fontNotFound": "La police {{name}} n’est pas installée sur le serveur de compilation."
     }
   },
   "pdf": {
@@ -445,7 +476,13 @@
     "pages_one": "{{count}} page",
     "pages_other": "{{count}} pages",
     "download": "Télécharger le PDF",
-    "loadFailed": "Le PDF n'a pas pu être affiché."
+    "loadFailed": "Le PDF n'a pas pu être affiché.",
+    "dark": "Mode sombre",
+    "detach": "Détacher",
+    "attach": "Rattacher le PDF",
+    "detached": "Le PDF est ouvert dans une fenêtre séparée. La synchronisation avec le source fonctionne dans les deux sens.",
+    "waiting": "En attente du PDF de la page du projet…",
+    "windowTitle": "PDF — Galley"
   },
   "roles": {
     "owner": "Propriétaire",
@@ -498,7 +535,11 @@
   },
   "presence": {
     "label": "Personnes présentes",
-    "inFile": "{{name}} : {{path}}"
+    "inFile": "{{name}} : {{path}}",
+    "follow": "Suivre : {{where}}",
+    "unfollow": "Ne plus suivre : {{where}}",
+    "following": "Vous suivez {{name}}",
+    "stop": "Arrêter"
   },
   "join": {
     "title": "Rejoindre un projet",
@@ -1102,5 +1143,18 @@
       "delete": "Supprimer le modèle",
       "confirmDelete": "Supprimer le modèle « {{name}} » ? Les projets créés à partir de lui ne changent pas."
     }
+  },
+  "bibFormat": {
+    "open": "Trier et formater",
+    "sort": "Ordre des entrées",
+    "sorts": {
+      "key": "Par clé",
+      "author": "Par premier auteur",
+      "year": "Par année",
+      "none": "Ordre actuel"
+    },
+    "align": "Aligner les signes =",
+    "apply": "Appliquer",
+    "invalid": "Le fichier contient des erreurs de syntaxe : corrigez-les avant de le formater."
   }
 }

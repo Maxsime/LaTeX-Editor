@@ -2,6 +2,7 @@ import {
   bibTool as bibTools,
   type CompileRun,
   engine as engines,
+  type PdfChannelMessage,
   type ProjectDetails,
   shellEscapeMode as shellEscapeModes,
 } from '@galley/shared';
@@ -23,6 +24,7 @@ import {
   useCompilerInfo,
 } from '../lib/compile.js';
 import { useUpdateProject } from '../lib/projects.js';
+import { openPdfWindow, usePdfChannel } from '../lib/pdf-window.js';
 import { type SynctexNotice, useSynctex } from '../lib/synctex.js';
 import { AUTO_COMPILE_DELAYS, useCompilePreferences, useCompileStore } from '../stores/compile.js';
 import { useEditor } from '../stores/editor.js';
@@ -256,6 +258,26 @@ export function CompilePane({
 
   const pdfRun = lastPdf;
   const synctex = useSynctex(project.id, pdfRun?.pdf != null ? pdfRun.id : null);
+  const pdfUrl = pdfRun?.pdf != null ? outputUrl(project.id, pdfRun.id, pdfRun.pdf) : null;
+  const downloadName = `${project.name}.pdf`;
+  // The PDF may live in a window of its own; both sides talk over a BroadcastChannel.
+  const [detached, setDetached] = useState(false);
+  const [greetings, setGreetings] = useState(0);
+  const post = usePdfChannel(project.id, (message: PdfChannelMessage) => {
+    if (message.type === 'hello') {
+      // A window that just opened asks for the PDF, even when this page already counts it.
+      setDetached(true);
+      setGreetings((count) => count + 1);
+    } else if (message.type === 'bye') setDetached(false);
+    else if (message.type === 'synctex') void synctex.toSource(message);
+  });
+  useEffect(() => {
+    if (detached && pdfUrl !== null) post({ type: 'pdf', url: pdfUrl, downloadName });
+  }, [detached, greetings, pdfUrl, downloadName, post]);
+  useEffect(() => {
+    if (detached && synctex.highlight)
+      post({ type: 'highlight', ...synctex.highlight, boxes: [...synctex.highlight.boxes] });
+  }, [detached, synctex.highlight, post]);
   const { toPdf } = synctex;
 
   // F8 walks through the errors and warnings of the compilation shown, in log order.
@@ -399,17 +421,40 @@ export function CompilePane({
       <Notice notice={synctex.notice} />
       <div className="flex min-h-0 flex-1 flex-col">
         <div className={logOpen ? 'min-h-0 flex-[3]' : 'min-h-0 flex-1'}>
-          {pdfRun?.pdf != null ? (
+          {detached ? (
+            <div className="space-y-2 p-4 text-sm text-slate-700">
+              <p>{t('pdf.detached')}</p>
+              <Button
+                onClick={() => {
+                  post({ type: 'close' });
+                  setDetached(false);
+                }}
+              >
+                {t('pdf.attach')}
+              </Button>
+            </div>
+          ) : pdfUrl !== null ? (
             <Suspense
               fallback={<p className="p-4 text-sm text-slate-600">{t('common.loading')}</p>}
             >
               <PdfViewer
-                url={outputUrl(project.id, pdfRun.id, pdfRun.pdf)}
-                downloadName={`${project.name}.pdf`}
+                url={pdfUrl}
+                downloadName={downloadName}
                 onSynctex={(point) => {
                   void synctex.toSource(point);
                 }}
                 highlight={synctex.highlight}
+                actions={
+                  <button
+                    type="button"
+                    className="rounded px-1 py-0.5 hover:bg-slate-200"
+                    onClick={() => {
+                      if (openPdfWindow(project.id) !== null) setDetached(true);
+                    }}
+                  >
+                    {t('pdf.detach')}
+                  </button>
+                }
               />
             </Suspense>
           ) : (

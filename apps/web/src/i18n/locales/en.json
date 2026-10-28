@@ -290,7 +290,11 @@
       "dark": "Dark",
       "fontSize": "Size",
       "wrap": "Wrap lines",
-      "spellCheck": "Spelling"
+      "spellCheck": "Spelling",
+      "keyBindings": "Key bindings",
+      "keys": {
+        "default": "Standard"
+      }
     },
     "outline": {
       "title": "Document outline",
@@ -345,6 +349,10 @@
       "source": "Spelling and grammar",
       "addWord": "Add to dictionary",
       "ignore": "Ignore"
+    },
+    "visual": {
+      "toggle": "Visual",
+      "help": "Hides the markup of titles, emphasis and lists and renders formulas, except on the current line. The file stays LaTeX."
     }
   },
   "compile": {
@@ -433,6 +441,29 @@
       "notFound": "No source line matches this place.",
       "notInPdf": "This line does not appear in the PDF shown.",
       "failed": "Matching the PDF with the source failed. Try again after a compilation."
+    },
+    "explain": {
+      "undefinedCommand": "The command {{name}} does not exist: a typo, or the package defining it is not loaded in the preamble.",
+      "undefinedEnvironment": "The environment {{name}} is not defined anywhere: check its name or load the package that provides it.",
+      "missingDollar": "A math command (^, _, \\alpha…) is used outside math mode: wrap it in $…$, or a $ was opened and never closed.",
+      "fileNotFound": "The file {{name}} cannot be found: check its name and folder, or the package is not installed in TeX Live.",
+      "extraBrace": "A closing brace } has no matching opening brace.",
+      "missingBrace": "A brace is missing: an opening { was never closed, often in a command argument.",
+      "mismatchedEnvironment": "The environment {{name}} is closed by an \\end that does not match it: check the order of \\begin and \\end.",
+      "missingBeginDocument": "Text appears before \\begin{document}, or that line is missing: the preamble may only contain settings.",
+      "undefinedReference": "The label {{name}} does not exist, or the document must be compiled again for the reference to update.",
+      "undefinedCitation": "The key {{name}} is not in the loaded .bib files, or the bibliography has not been generated yet.",
+      "duplicateLabel": "The label {{name}} is defined more than once: each \\label needs a unique name.",
+      "runawayArgument": "The file ends while the argument of {{name}} is still open: a closing brace } is missing.",
+      "paragraphEnded": "A blank line interrupts the argument of {{name}}: a closing brace is probably missing before it.",
+      "misplacedAlignment": "The & character is only allowed in a table or an alignment; elsewhere, write \\&.",
+      "noLineToEnd": "A \\\\ comes where no line has started, for example right after a list or at the start of a paragraph.",
+      "doubleScript": "Two superscripts or two subscripts follow each other: group them with braces, for example x^{ab}.",
+      "unicodeCharacter": "The character {{name}} is not supported by this engine: use the equivalent LaTeX command, or compile with XeLaTeX or LuaLaTeX.",
+      "optionClash": "The package {{name}} is loaded twice with different options: put all the options in a single \\usepackage.",
+      "missingNumber": "A length or a number is expected here but none was found.",
+      "illegalUnit": "A length is given without a valid unit: write for example 2cm, 10pt or 0.5\\textwidth.",
+      "fontNotFound": "The font {{name}} is not installed on the compilation server."
     }
   },
   "pdf": {
@@ -445,7 +476,13 @@
     "pages_one": "{{count}} page",
     "pages_other": "{{count}} pages",
     "download": "Download PDF",
-    "loadFailed": "The PDF could not be shown."
+    "loadFailed": "The PDF could not be shown.",
+    "dark": "Dark mode",
+    "detach": "Detach",
+    "attach": "Bring the PDF back",
+    "detached": "The PDF is open in a separate window. Source synchronisation works both ways.",
+    "waiting": "Waiting for the PDF from the project page…",
+    "windowTitle": "PDF — Galley"
   },
   "roles": {
     "owner": "Owner",
@@ -498,7 +535,11 @@
   },
   "presence": {
     "label": "People here",
-    "inFile": "{{name}}: {{path}}"
+    "inFile": "{{name}}: {{path}}",
+    "follow": "Follow: {{where}}",
+    "unfollow": "Stop following: {{where}}",
+    "following": "Following {{name}}",
+    "stop": "Stop"
   },
   "join": {
     "title": "Join a project",
@@ -1102,5 +1143,18 @@
       "delete": "Delete template",
       "confirmDelete": "Delete the template “{{name}}”? Projects created from it are not affected."
     }
+  },
+  "bibFormat": {
+    "open": "Sort and format",
+    "sort": "Entry order",
+    "sorts": {
+      "key": "By key",
+      "author": "By first author",
+      "year": "By year",
+      "none": "Current order"
+    },
+    "align": "Align the = signs",
+    "apply": "Apply",
+    "invalid": "The file has syntax errors: fix them before formatting it."
   }
 }
