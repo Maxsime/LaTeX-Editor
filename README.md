@@ -2,7 +2,7 @@
 
 Éditeur LaTeX collaboratif, auto-hébergé, avec assistant IA intégré. Le cahier des charges est dans [`SPEC.md`](SPEC.md), les consignes de développement dans [`CLAUDE.md`](CLAUDE.md).
 
-État : jalon J11 en cours (fonctions avancées). Comptes, projets, import Overleaf ou Prism, édition synchronisée à plusieurs, compilation TeX Live 2026 en bac à sable avec SyncTeX, commentaires et suivi des modifications, historique et accès Git, bibliographie et correcteur, assistant IA qui propose sans écrire. L'administrateur dispose d'une console (comptes, invitations, quotas, connexion unique OIDC, modèle d'IA de l'instance) et de scripts de sauvegarde et de restauration. Le jalon J11 ajoute la duplication, les modèles personnels, les fichiers liés, le texmf personnel, l'éditeur visuel, les modes Vim et Emacs, le PDF sombre ou détaché et les explications d'erreurs ; viennent ensuite la précompilation du préambule, l'envoi d'e-mails, la synchronisation GitHub et GitLab et le mode agent.
+État : tous les jalons de `SPEC.md` sont livrés (J0 à J11). Comptes, projets, import Overleaf ou Prism, édition synchronisée à plusieurs, compilation TeX Live 2026 en bac à sable avec SyncTeX et préambule précompilé, commentaires et suivi des modifications, historique, accès Git et synchronisation GitHub ou GitLab, bibliographie et correcteur, e-mails, assistant IA qui propose sans écrire, avec un mode agent. L'administrateur dispose d'une console (comptes, invitations, quotas, connexion unique OIDC, modèle d'IA de l'instance) et de scripts de sauvegarde et de restauration.
 
 ## Démarrer une instance
 
