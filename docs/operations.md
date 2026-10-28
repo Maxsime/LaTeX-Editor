@@ -157,6 +157,10 @@ EVAL_PROVIDER=openai-compatible EVAL_MODEL=llama3.1 EVAL_BASE_URL=http://localho
 
 Puis, dans l'interface : configurer le fournisseur dans « Mon compte », demander dans un projet de corriger une phrase, vérifier que le fichier ne change qu'après « Accepter ».
 
+## Fichiers liés par adresse web
+
+Un fichier peut être lié à une adresse `http` ou `https` et actualisé à la demande. L'API télécharge alors le fichier elle-même, avec ces garde-fous : seules les adresses publiques sont contactées (boucle locale, réseaux privés, liens locaux, plage partagée des opérateurs, multidiffusion et adresses IPv4 encapsulées en IPv6 sont refusés, après résolution DNS et à chaque redirection), 5 redirections au plus, 15 s, 20 Mo, aucun identifiant dans l'adresse. Pour couper cette fonction, `LINKED_URLS_ENABLED=false` : les liens entre projets restent possibles, les liens existants vers le web ne s'actualisent plus.
+
 ## Bac à sable de compilation
 
 Le worker refuse de démarrer si `bwrap` ne peut pas créer son bac à sable, et son journal donne la raison (`sandbox unavailable: ...`). `compose.yaml` fournit déjà ce qu'il faut côté Docker : profil seccomp `infra/compiler/seccomp.json`, `systempaths=unconfined` et `apparmor=unconfined` sur le seul conteneur `compiler` (le profil AppArmor par défaut de Docker interdit les montages dont `bwrap` a besoin ; voir `docs/decisions.md`).

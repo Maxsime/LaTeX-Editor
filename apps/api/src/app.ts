@@ -15,6 +15,7 @@ import { authRoutes } from './routes/auth.js';
 import { compileRoutes } from './routes/compile.js';
 import { editorRoutes } from './routes/editor.js';
 import { fileRoutes } from './routes/files.js';
+import { libraryRoutes } from './routes/library.js';
 import { healthRoutes } from './routes/health.js';
 import { historyRoutes } from './routes/history.js';
 import { reviewRoutes } from './routes/review.js';
@@ -97,6 +98,7 @@ export function buildApp({
       sharingRoutes(api, context);
       tagRoutes(api, context);
       fileRoutes(api, context);
+      libraryRoutes(api, context);
       editorRoutes(api, context);
       archiveRoutes(api, context, archiveLimits);
       compileRoutes(api, context);

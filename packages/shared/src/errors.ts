@@ -40,6 +40,10 @@ export const errorCodes = [
   'OIDC_FAILED',
   'OIDC_EMAIL_UNVERIFIED',
   'OIDC_SIGNUP_CLOSED',
+  'FILE_READ_ONLY',
+  'LINKS_DISABLED',
+  'LINK_ADDRESS_REFUSED',
+  'LINK_FETCH_FAILED',
   'INTERNAL_ERROR',
 ] as const;
 export const errorCode = z.enum(errorCodes);
@@ -94,6 +98,10 @@ const statusByCode: Record<ErrorCode, number> = {
   OIDC_FAILED: 400,
   OIDC_EMAIL_UNVERIFIED: 403,
   OIDC_SIGNUP_CLOSED: 403,
+  FILE_READ_ONLY: 409,
+  LINKS_DISABLED: 403,
+  LINK_ADDRESS_REFUSED: 400,
+  LINK_FETCH_FAILED: 502,
   INTERNAL_ERROR: 500,
 };
 

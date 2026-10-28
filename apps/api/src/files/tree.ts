@@ -7,8 +7,12 @@ import type { IncomingFile } from './ingest.js';
 
 type FileRow = typeof files.$inferSelect;
 
-export function toTreeNode(row: FileRow): TreeNode {
-  return {
+/**
+ * Converts a file row for the client. `linkLabel` names the source of a
+ * linked file (see `linkLabels`); it defaults to the URL or nothing.
+ */
+export function toTreeNode(row: FileRow, linkLabel?: string): TreeNode {
+  const node: TreeNode = {
     id: row.id,
     parentId: row.parentId,
     name: row.name,
@@ -16,6 +20,14 @@ export function toTreeNode(row: FileRow): TreeNode {
     size: row.kind === 'folder' ? null : (row.size ?? 0),
     updatedAt: row.updatedAt.toISOString(),
   };
+  if (row.link !== null) {
+    node.link = {
+      source: row.link,
+      label: linkLabel ?? (row.link.kind === 'url' ? row.link.url : ''),
+      refreshedAt: row.linkRefreshedAt?.toISOString() ?? null,
+    };
+  }
+  return node;
 }
 
 export async function listNodes(db: Executor, projectId: string): Promise<FileRow[]> {
@@ -155,9 +167,10 @@ export async function writeFiles(
     }
     let row: FileRow;
     if (existing) {
+      // Replacing a linked file (upload, Git push, restore) makes it an ordinary file.
       const [updated] = await db
         .update(files)
-        .set({ ...content, updatedAt: new Date() })
+        .set({ ...content, link: null, linkRefreshedAt: null, updatedAt: new Date() })
         .where(eq(files.id, existing.id))
         .returning();
       if (!updated) throw new ApiError('INTERNAL_ERROR');

@@ -15,6 +15,8 @@ export interface TreeActions {
   remove: (id: string) => Promise<unknown>;
   createFolder: (parentId: string | null, name: string) => Promise<unknown>;
   upload: (parentId: string | null, uploads: PendingUpload[]) => void;
+  refreshLink: (id: string) => void;
+  unlink: (id: string) => void;
 }
 
 type Pending =
@@ -27,15 +29,37 @@ const menuItem =
 function ItemMenu({
   item,
   open,
+  actions,
   Menu,
 }: {
   item: TreeItem;
   open: (pending: Pending) => void;
+  actions: TreeActions;
   Menu: typeof DropdownMenu | typeof ContextMenu;
 }) {
   const { t } = useTranslation();
   return (
     <>
+      {item.link !== undefined && (
+        <>
+          <Menu.Item
+            className={menuItem}
+            onSelect={() => {
+              actions.refreshLink(item.id);
+            }}
+          >
+            {t('library.link.refresh')}
+          </Menu.Item>
+          <Menu.Item
+            className={menuItem}
+            onSelect={() => {
+              actions.unlink(item.id);
+            }}
+          >
+            {t('library.link.unlink')}
+          </Menu.Item>
+        </>
+      )}
       {item.kind === 'folder' && (
         <Menu.Item
           className={menuItem}
@@ -239,6 +263,14 @@ export function FileTree({
                   {item.kind === 'folder' ? (expanded.has(item.id) ? '▾' : '▸') : ''}
                 </span>
                 <span className="truncate">{item.name}</span>
+                {item.link !== undefined && (
+                  <span
+                    className="rounded bg-sky-100 px-1 text-xs text-sky-900"
+                    title={t('library.link.from', { source: item.link.label })}
+                  >
+                    {t('library.link.badge')}
+                  </span>
+                )}
                 {item.id === mainFileId && (
                   <span className="rounded bg-accent/10 px-1 text-xs text-accent">
                     {t('project.main')}
@@ -257,7 +289,12 @@ export function FileTree({
                     </DropdownMenu.Trigger>
                     <DropdownMenu.Portal>
                       <DropdownMenu.Content className="min-w-36 rounded-md border border-slate-200 bg-white p-1 shadow-md">
-                        <ItemMenu item={item} open={setPending} Menu={DropdownMenu} />
+                        <ItemMenu
+                          item={item}
+                          open={setPending}
+                          actions={actions}
+                          Menu={DropdownMenu}
+                        />
                       </DropdownMenu.Content>
                     </DropdownMenu.Portal>
                   </DropdownMenu.Root>
@@ -270,7 +307,7 @@ export function FileTree({
                 <ContextMenu.Trigger asChild>{row}</ContextMenu.Trigger>
                 <ContextMenu.Portal>
                   <ContextMenu.Content className="min-w-36 rounded-md border border-slate-200 bg-white p-1 shadow-md">
-                    <ItemMenu item={item} open={setPending} Menu={ContextMenu} />
+                    <ItemMenu item={item} open={setPending} actions={actions} Menu={ContextMenu} />
                   </ContextMenu.Content>
                 </ContextMenu.Portal>
               </ContextMenu.Root>

@@ -11,6 +11,7 @@ export * from './errors.js';
 export * from './files.js';
 export * from './health.js';
 export * from './history.js';
+export * from './library.js';
 export * from './names.js';
 export * from './projects.js';
 export * from './review.js';

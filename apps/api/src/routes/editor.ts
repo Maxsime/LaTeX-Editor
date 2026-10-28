@@ -7,6 +7,7 @@ import {
   type Structure,
 } from '@galley/latex-index';
 import {
+  ApiError,
   type OutlineResponse,
   type ProjectIndexResponse,
   replaceRequest,
@@ -14,6 +15,8 @@ import {
   searchQuery,
   type SearchResponse,
 } from '@galley/shared';
+import { files } from '@galley/db';
+import { and, eq, isNotNull } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import { requireAuth } from '../auth/plugin.js';
 import { parseBibliography } from '../bibliography/parse.js';
@@ -118,10 +121,22 @@ export function editorRoutes(app: FastifyInstance, context: AppContext): void {
     await loadProject(db, id, auth.user.id, 'editor');
     const pattern = compileQuery(body);
     const only = body.fileIds === undefined ? null : new Set(body.fileIds);
+    // Linked files mirror their source: a project-wide replacement leaves them alone.
+    const linked = new Set(
+      (
+        await db
+          .select({ id: files.id })
+          .from(files)
+          .where(and(eq(files.projectId, id), isNotNull(files.link)))
+      ).map((row) => row.id),
+    );
+    if (only !== null && [...only].some((fileId) => linked.has(fileId))) {
+      throw new ApiError('FILE_READ_ONLY');
+    }
     const replaced: { fileId: string; content: string }[] = [];
     let replacements = 0;
     for (const file of await readProjectTexts(context, id)) {
-      if (only !== null && !only.has(file.id)) continue;
+      if ((only !== null && !only.has(file.id)) || linked.has(file.id)) continue;
       const result = replaceInText(file.text, pattern, body.replacement, body.regex);
       if (result.count === 0) continue;
       replaced.push({ fileId: file.id, content: result.text });

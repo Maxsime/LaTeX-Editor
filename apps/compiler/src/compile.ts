@@ -25,6 +25,7 @@ import {
   type ProjectDirs,
   readSandboxFile,
   syncSources,
+  syncTexmf,
 } from './workdir.js';
 
 /** Everything a compilation needs besides the job. */
@@ -32,7 +33,6 @@ export interface CompileEnvironment {
   workRoot: string;
   texliveDir: string;
   assetsDir: string;
-  texmfDir: string;
   limits: SandboxLimits;
   allowFullShellEscape: boolean;
   /** TeX Live release, e.g. `TeX Live 2026`, reported with each result. */
@@ -161,6 +161,7 @@ export async function compileProject(
   const dirs = projectDirs(env.workRoot, job.projectId);
   if (job.clean) await cleanOutputs(dirs);
   await syncSources(dirs, job.manifest, env.fetchBlob);
+  await syncTexmf(dirs, job.texmfManifest, env.fetchBlob);
 
   const { cwd, jobname, base } = splitMainFile(job.mainFile);
   const shellEscape = effectiveShellEscape(job.shellEscape, env.allowFullShellEscape);
@@ -169,7 +170,7 @@ export async function compileProject(
     assetsDir: env.assetsDir,
     srcDir: dirs.src,
     outDir: dirs.out,
-    texmfDir: env.texmfDir,
+    texmfDir: dirs.texmf,
   };
   // chktex and texcount only read the sources: they run beside latexmk, in their own sandboxes.
   const toolLimits = {

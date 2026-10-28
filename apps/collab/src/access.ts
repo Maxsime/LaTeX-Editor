@@ -62,7 +62,8 @@ export function originAllowed(origin: string | undefined, host: string | undefin
  * document, a document of another project and a project the user is not a
  * member of are indistinguishable to the client. Readers get a read-only
  * connection, enforced by Hocuspocus on every update they send; reviewers may
- * write suggestions, each update checked by `checkReviewerUpdate`.
+ * write suggestions, each update checked by `checkReviewerUpdate`. Linked
+ * files are read-only for everyone.
  */
 export async function authorize(
   db: Executor,
@@ -79,15 +80,17 @@ export async function authorize(
 
   let projectId = target.id;
   let fileId: string | null = null;
+  let linked = false;
   if (target.kind === 'file') {
     const [file] = await db
-      .select({ projectId: files.projectId })
+      .select({ projectId: files.projectId, link: files.link })
       .from(files)
       .where(and(eq(files.id, target.id), eq(files.kind, 'text')))
       .limit(1);
     if (!file) throw new AccessDenied('forbidden');
     projectId = file.projectId;
     fileId = target.id;
+    linked = file.link !== null;
   }
 
   const [member] = await db
@@ -112,6 +115,7 @@ export async function authorize(
       role: member.role,
       fileId,
     },
-    readOnly: !hasRole(member.role, 'reviewer'),
+    // A linked file changes only when refreshed from its source, through the API.
+    readOnly: linked || !hasRole(member.role, 'reviewer'),
   };
 }

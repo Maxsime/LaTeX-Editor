@@ -102,6 +102,7 @@ services:
       OIDC_DISPLAY_NAME: ${OIDC_DISPLAY_NAME:-SSO}
       OIDC_SCOPES: ${OIDC_SCOPES:-openid email profile}
       OIDC_ALLOW_SIGNUP: ${OIDC_ALLOW_SIGNUP:-false}
+      LINKED_URLS_ENABLED: ${LINKED_URLS_ENABLED:-true}
     # A model served on the host (Ollama, LM Studio) is reached at host.docker.internal.
     extra_hosts:
       - host.docker.internal:host-gateway

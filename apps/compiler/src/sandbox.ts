@@ -89,6 +89,11 @@ export function bwrapArgs(
     ...['--setenv', 'TMPDIR', '/tmp'],
     ...['--setenv', 'LANG', 'C.UTF-8'],
     ...['--setenv', 'TEXMFHOME', '/texmf'],
+    // Files of the texmf tree are found wherever they sit in it, not only in the TDS
+    // layout; the project directory still comes first, the trailing colon keeps the defaults.
+    ...['--setenv', 'TEXINPUTS', '.:/texmf//:'],
+    ...['--setenv', 'BIBINPUTS', '.:/texmf//:'],
+    ...['--setenv', 'BSTINPUTS', '.:/texmf//:'],
     ...['--setenv', 'TEXMFVAR', '/tmp/texmf-var'],
     ...['--setenv', 'PAR_GLOBAL_TEMP', '/tmp/par'],
     // Writes only below the working and output directories.

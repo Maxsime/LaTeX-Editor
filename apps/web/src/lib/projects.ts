@@ -3,7 +3,6 @@ import type {
   ProjectDetails,
   ProjectState,
   ProjectSummary,
-  ProjectTemplate,
   ProjectTree,
   Tag,
   TreeNode,
@@ -12,6 +11,7 @@ import type {
 } from '@galley/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useDashboard } from '../stores/dashboard.js';
+import type { TemplateChoice } from './library.js';
 import { api } from './api.js';
 import { batches, type PendingUpload, UPLOAD_BATCH, uploadForm } from './upload.js';
 
@@ -69,7 +69,7 @@ function useInvalidate() {
 export function useCreateProject() {
   const invalidate = useInvalidate();
   return useMutation({
-    mutationFn: (input: { name: string; template: ProjectTemplate }) =>
+    mutationFn: (input: { name: string } & TemplateChoice) =>
       api<{ project: ProjectSummary }>('POST', '/api/projects', { json: input }),
     onSuccess: () => invalidate(projectsKey),
   });

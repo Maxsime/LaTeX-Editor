@@ -37,7 +37,8 @@ export async function listProjects(
   userId: string,
   query: ListProjectsQuery,
 ): Promise<ProjectSummary[]> {
-  const filters: SQL[] = [];
+  // The personal texmf tree is reached from the account page, not listed.
+  const filters: SQL[] = [eq(projects.type, 'document')];
   if (query.state === 'trashed') {
     filters.push(isNotNull(projects.deletedAt));
   } else {
@@ -157,6 +158,7 @@ export async function projectDetails(
     shellEscape: row.shellEscape,
     trackChanges: row.trackChanges,
     aiEnabled: row.aiEnabled,
+    type: row.type,
     citeKeyPattern: row.citeKeyPattern,
     // Stored as text so that a language can be added without a migration.
     spellLanguage: spellLanguage.safeParse(row.spellLanguage).data ?? 'auto',

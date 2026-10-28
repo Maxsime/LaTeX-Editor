@@ -96,20 +96,28 @@ async function listFiles(dir: string, prefix = ''): Promise<string[]> {
   return files;
 }
 
-/** Builds a manifest of a folder, and a blob fetcher serving its files by digest. */
-async function snapshot(dir: string): Promise<{ manifest: Manifest; fetch: BlobFetcher }> {
+/**
+ * Builds a manifest of a folder, and a blob fetcher serving its files by
+ * digest. A `texmf/` folder stands for the owner's personal texmf tree.
+ */
+async function snapshot(
+  dir: string,
+): Promise<{ manifest: Manifest; texmf: Manifest; fetch: BlobFetcher }> {
   const manifest: Manifest = {};
+  const texmf: Manifest = {};
   const byHash = new Map<string, string>();
   for (const path of await listFiles(dir)) {
     if (path === 'expected.json') continue;
     const hash = createHash('sha256')
       .update(await readFile(join(dir, path)))
       .digest('hex');
-    manifest[path] = hash;
+    if (path.startsWith('texmf/')) texmf[path.slice('texmf/'.length)] = hash;
+    else manifest[path] = hash;
     byHash.set(hash, join(dir, path));
   }
   return {
     manifest,
+    texmf,
     fetch: (hash) => {
       const path = byHash.get(hash);
       if (path === undefined) return Promise.reject(new Error(`unknown blob ${hash}`));
@@ -368,7 +376,7 @@ export async function runCorpus(root: string, options: CorpusOptions): Promise<R
         compileId: randomUUID(),
         projectId: randomUUID(),
         manifest: source.manifest,
-        texmfManifest: {},
+        texmfManifest: source.texmf,
         mainFile: run.main,
         engine: run.engine ?? 'pdflatex',
         chktexDisabled: DEFAULT_CHKTEX_DISABLED,

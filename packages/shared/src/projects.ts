@@ -57,6 +57,8 @@ export const projectDetails = z.object({
   spellLanguage,
   chktexDisabled: z.array(z.number()),
   aiEnabled: z.boolean(),
+  /** `texmf` for a personal texmf tree: no compilation, sharing or assistant. */
+  type: z.enum(['document', 'texmf']),
 });
 export type ProjectDetails = z.infer<typeof projectDetails>;
 
@@ -71,12 +73,14 @@ export const listProjectsQuery = z.object({
 });
 export type ListProjectsQuery = z.infer<typeof listProjectsQuery>;
 
-export const projectTemplate = z.enum(['blank', 'article']);
+export const projectTemplate = z.enum(['blank', 'article', 'report', 'beamer', 'letter']);
 export type ProjectTemplate = z.infer<typeof projectTemplate>;
 
 export const createProjectRequest = z.object({
   name: projectName,
   template: z._default(projectTemplate, 'blank'),
+  /** A saved template (personal or of the instance); takes precedence over `template`. */
+  templateId: z.optional(z.uuid()),
 });
 
 export const updateProjectRequest = z.object({
