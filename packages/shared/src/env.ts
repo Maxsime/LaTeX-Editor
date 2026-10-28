@@ -167,6 +167,18 @@ export const apiEnv = z
     OIDC_ALLOW_SIGNUP: z._default(booleanFlag, false),
     /** Lets people link files to public web addresses (SPEC §3.1). */
     LINKED_URLS_ENABLED: z._default(booleanFlag, true),
+    /** Hosts projects may be synchronised with, comma-separated (SPEC §3.5). */
+    GIT_SYNC_HOSTS: z.pipe(
+      z._default(z.string(), 'github.com,gitlab.com'),
+      z.transform((value) =>
+        value
+          .split(',')
+          .map((host) => host.trim().toLowerCase())
+          .filter((host) => host !== ''),
+      ),
+    ),
+    /** Allows plain HTTP remotes: tests and mirrors on a trusted network only. */
+    GIT_SYNC_ALLOW_HTTP: z._default(booleanFlag, false),
     /**
      * Outgoing mail server, e.g. `smtps://user:password@mail.example.org`;
      * password reset by e-mail and notifications are off while it is empty.
