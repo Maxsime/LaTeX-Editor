@@ -43,6 +43,13 @@
     "SERVICE_UNAVAILABLE": "Service momentanément indisponible.",
     "MAIL_DISABLED": "Cette instance n'envoie pas d'e-mails. Demandez à son administrateur de réinitialiser votre mot de passe.",
     "RESET_TOKEN_INVALID": "Ce lien n'est plus valable : il a déjà servi, a expiré ou a été remplacé par un lien plus récent. Demandez-en un nouveau.",
+    "REMOTE_NOT_CONFIGURED": "Aucun dépôt GitHub ou GitLab n'est relié à ce projet.",
+    "REMOTE_URL_REFUSED": "Adresse refusée : indiquez l'adresse HTTPS d'un dépôt sur un des hôtes autorisés, sans identifiants.",
+    "REMOTE_AUTH_FAILED": "Le dépôt refuse le jeton, ou n'existe pas. Vérifiez l'adresse et que le jeton donne accès en lecture et en écriture au contenu.",
+    "REMOTE_UNREACHABLE": "Le dépôt distant ne répond pas, ou il est trop volumineux. Réessayez plus tard.",
+    "REMOTE_BRANCH_NOT_FOUND": "Cette branche n'existe pas sur le dépôt distant. Poussez d'abord le projet pour la créer.",
+    "REMOTE_AHEAD": "Le dépôt distant a des modifications que le projet n'a pas : tirez-les d'abord, puis poussez.",
+    "REMOTE_REJECTED": "Le dépôt distant a refusé la poussée (branche protégée ou droits insuffisants).",
     "INTERNAL_ERROR": "Erreur interne.",
     "USER_NOT_FOUND": "Aucun compte ne correspond. La personne doit d'abord créer un compte ; vous pouvez aussi lui envoyer un lien de partage.",
     "ALREADY_MEMBER": "Cette personne est déjà membre du projet.",
@@ -1198,6 +1205,44 @@
       "failure": "L'extrait ne compile pas.",
       "timeout": "La compilation de l'extrait a pris trop de temps.",
       "error": "Aucun compilateur n'a répondu à temps."
+    }
+  },
+  "remote": {
+    "title": "Synchronisation GitHub ou GitLab",
+    "intro": "Reliez un dépôt pour y pousser le projet ou en tirer les modifications, à la demande. Créez un jeton d'accès sur GitHub ou GitLab avec le droit d'écrire le contenu du dépôt.",
+    "none": "Le propriétaire du projet n'a relié aucun dépôt.",
+    "unavailable": "Indisponible : l'instance n'a pas de clé maître pour chiffrer les jetons.",
+    "url": "Adresse du dépôt",
+    "hosts": "Hôtes autorisés : {{hosts}}.",
+    "branch": "Branche",
+    "token": "Jeton d'accès",
+    "tokenHint": "Chiffré sur le serveur ; seuls ses quatre derniers caractères seront affichés.",
+    "tokenKeep": "Laissez vide pour garder le jeton actuel (…{{hint}}).",
+    "onBranch": "branche {{branch}}",
+    "never": "Jamais synchronisé.",
+    "last": "Dernière synchronisation : {{date}}.",
+    "pull": "Tirer",
+    "push": "Pousser",
+    "edit": "Modifier",
+    "unlink": "Délier",
+    "unlinkTitle": "Délier le dépôt",
+    "unlinkConfirm": "Le jeton est effacé. Le dépôt distant et le projet restent tels quels.",
+    "working": "Échange avec le dépôt distant…",
+    "outcome": {
+      "upToDate": "Déjà à jour.",
+      "updated": "Modifications du dépôt distant appliquées.",
+      "merged": "Modifications du dépôt distant fusionnées avec celles du projet.",
+      "pushed": "Projet poussé sur le dépôt distant.",
+      "conflict": "Les mêmes passages ont changé des deux côtés ; rien n'a été appliqué. Accordez ces fichiers dans le projet ou sur le dépôt, puis tirez à nouveau :"
+    },
+    "refused": {
+      "symlink": "Le dépôt contient un lien symbolique, refusé : {{path}}",
+      "submodule": "Le dépôt contient un sous-module, refusé : {{path}}",
+      "invalidPath": "Chemin refusé dans le dépôt : {{path}}",
+      "fileTooLarge": "Fichier trop volumineux dans le dépôt : {{path}}",
+      "tooLarge": "Le dépôt est trop volumineux pour le projet.",
+      "tooManyFiles": "Le dépôt contient trop de fichiers.",
+      "quota": "L'espace de stockage du propriétaire du projet est plein."
     }
   }
 }
