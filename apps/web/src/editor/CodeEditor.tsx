@@ -6,6 +6,7 @@ import { EditorView } from '@codemirror/view';
 import { useEffect, useRef } from 'react';
 import i18n from '../i18n/index.js';
 import { appendedBlock } from '../lib/writing.js';
+import { lineChanges } from '../lib/textdiff.js';
 import { type Insertion, setSelection, useEditor, usePreferences } from '../stores/editor.js';
 import { pendingHunksOf, useAi } from '../stores/ai.js';
 import { useReview } from '../stores/review.js';
@@ -262,7 +263,10 @@ export function CodeEditor({
     inserted.current = insertion;
     if (!writable || serverReadOnly) return;
     const { state } = editor;
-    if (insertion.at === 'end') {
+    if (insertion.at === 'document') {
+      const changes = lineChanges(state.doc.toString(), insertion.text);
+      if (changes.length > 0) editor.dispatch({ changes, userEvent: 'input.format' });
+    } else if (insertion.at === 'end') {
       const text = appendedBlock(state.doc.toString(), insertion.text);
       const end = state.doc.length + text.length;
       editor.dispatch({

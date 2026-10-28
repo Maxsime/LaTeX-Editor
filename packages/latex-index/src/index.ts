@@ -5,4 +5,5 @@ export * from './structure.js';
 export * from './lint.js';
 export * from './annotation.js';
 export * from './bibtex.js';
+export * from './bibformat.js';
 export { detectLanguage, loadedPackages } from './language.js';

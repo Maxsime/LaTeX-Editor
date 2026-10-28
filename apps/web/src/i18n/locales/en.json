@@ -1125,5 +1125,18 @@
       "delete": "Delete template",
       "confirmDelete": "Delete the template “{{name}}”? Projects created from it are not affected."
     }
+  },
+  "bibFormat": {
+    "open": "Sort and format",
+    "sort": "Entry order",
+    "sorts": {
+      "key": "By key",
+      "author": "By first author",
+      "year": "By year",
+      "none": "Current order"
+    },
+    "align": "Align the = signs",
+    "apply": "Apply",
+    "invalid": "The file has syntax errors: fix them before formatting it."
   }
 }

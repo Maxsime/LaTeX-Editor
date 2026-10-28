@@ -12,6 +12,7 @@ import { useNavigate } from '@tanstack/react-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { FilePreview } from '../components/FilePreview.js';
+import { BibToolbar } from '../components/BibToolbar.js';
 import { InsertToolbar } from '../components/InsertToolbar.js';
 import { useAiStatus } from '../lib/ai.js';
 import { api } from '../lib/api.js';
@@ -412,6 +413,14 @@ export default function EditorArea({
       ? activeNode.id
       : null;
 
+  const bibTarget =
+    !readOnly &&
+    activeNode?.kind === 'text' &&
+    activeNode.link === undefined &&
+    /\.bib$/i.test(activeNode.name)
+      ? activeNode.id
+      : null;
+
   if (tabs.length === 0) {
     return (
       <div className="flex h-full items-center justify-center text-sm text-slate-600">
@@ -506,6 +515,12 @@ export default function EditorArea({
             />
             <span>{t('review.mode.everyone')}</span>
           </label>
+        )}
+        {bibTarget !== null && (
+          <BibToolbar
+            fileId={bibTarget}
+            read={() => connection.document(bibTarget)?.text.toJSON() ?? null}
+          />
         )}
         <InsertToolbar
           fileId={insertTarget}

@@ -1125,5 +1125,18 @@
       "delete": "Supprimer le modèle",
       "confirmDelete": "Supprimer le modèle « {{name}} » ? Les projets créés à partir de lui ne changent pas."
     }
+  },
+  "bibFormat": {
+    "open": "Trier et formater",
+    "sort": "Ordre des entrées",
+    "sorts": {
+      "key": "Par clé",
+      "author": "Par premier auteur",
+      "year": "Par année",
+      "none": "Ordre actuel"
+    },
+    "align": "Aligner les signes =",
+    "apply": "Appliquer",
+    "invalid": "Le fichier contient des erreurs de syntaxe : corrigez-les avant de le formater."
   }
 }

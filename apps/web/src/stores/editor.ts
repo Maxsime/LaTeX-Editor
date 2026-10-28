@@ -40,8 +40,11 @@ export function currentSelection(): EditorSelectionState | null {
 export interface Insertion {
   fileId: string;
   text: string;
-  /** At the cursor (replacing the selection), or appended at the end of the file. */
-  at: 'cursor' | 'end';
+  /**
+   * At the cursor (replacing the selection), appended at the end of the file, or
+   * the whole new content of the file, applied as line changes (formatting).
+   */
+  at: 'cursor' | 'end' | 'document';
   /** Distinguishes two identical requests, so both take effect. */
   nonce: number;
 }
