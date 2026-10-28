@@ -7,7 +7,7 @@ test.describe('editor', () => {
     await signIn(page, createAccount('writer'));
   });
 
-  test('A1: edits a 5 000-line file smoothly', async ({ page }) => {
+  test('A1: edits a 5 000-line file smoothly', { tag: '@perf' }, async ({ page }) => {
     await createProject(page, 'Long document');
     const lines = Array.from({ length: 5000 }, (_, index) =>
       index % 50 === 0
@@ -38,7 +38,7 @@ test.describe('editor', () => {
       };
       new PerformanceObserver((list) => {
         for (const entry of list.getEntries()) {
-          if (entry instanceof PerformanceEventTiming && entry.name.startsWith('key')) {
+          if (entry instanceof PerformanceEventTiming && entry.name === 'keydown') {
             durations.push(entry.processingEnd - entry.startTime);
           }
         }
@@ -51,7 +51,8 @@ test.describe('editor', () => {
     // Typing must not lag: 95 % of keystrokes are handled within the 50 ms
     // budget, and none stalls. A percentile rather than the maximum, because
     // one event in a run can wait behind the machine's other work (the stack
-    // and a second browser share the CI runner), which says nothing of the editor.
+    // shares the CI runner), which says nothing of the editor. The test runs in
+    // the `perf` project, alone, after every other test.
     const durations = await page.evaluate(() => {
       const recorded: unknown = Reflect.get(window, '__keyDurations');
       return Array.isArray(recorded) ? recorded.filter((value) => typeof value === 'number') : [];
