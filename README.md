@@ -2,7 +2,7 @@
 
 Éditeur LaTeX collaboratif, auto-hébergé, avec assistant IA intégré. Le cahier des charges est dans [`SPEC.md`](SPEC.md), les consignes de développement dans [`CLAUDE.md`](CLAUDE.md).
 
-État : jalon J10 (administration et exploitation). Comptes, projets, import Overleaf ou Prism, édition synchronisée à plusieurs, compilation TeX Live 2026 en bac à sable avec SyncTeX, commentaires et suivi des modifications, historique et accès Git, bibliographie et correcteur, assistant IA qui propose sans écrire. L'administrateur dispose d'une console (comptes, invitations, quotas, connexion unique OIDC, modèle d'IA de l'instance) et de scripts de sauvegarde et de restauration. Reste le jalon J11 (finitions, `SPEC.md` §9).
+État : jalon J11 en cours (fonctions avancées). Comptes, projets, import Overleaf ou Prism, édition synchronisée à plusieurs, compilation TeX Live 2026 en bac à sable avec SyncTeX, commentaires et suivi des modifications, historique et accès Git, bibliographie et correcteur, assistant IA qui propose sans écrire. L'administrateur dispose d'une console (comptes, invitations, quotas, connexion unique OIDC, modèle d'IA de l'instance) et de scripts de sauvegarde et de restauration. Le jalon J11 ajoute la duplication, les modèles personnels, les fichiers liés et le texmf personnel ; viennent ensuite l'éditeur visuel et les modes clavier, la précompilation du préambule, l'envoi d'e-mails, la synchronisation GitHub et GitLab et le mode agent.
 
 ## Démarrer une instance
 
@@ -64,6 +64,14 @@ Le lien d'invitation affiché est relatif : le préfixer par l'adresse de l'inst
 Le bouton « Importer un zip » du tableau de bord accepte l'export d'un projet Overleaf ou Prism, ou n'importe quel dossier compressé. Aucune organisation n'est imposée : le document principal est le fichier `.tex` racine qui déclare `\documentclass`, et il se change depuis la page du projet. Les fichiers texte en UTF-8 sont stockés comme documents texte, éditables dans l'éditeur ; les autres (images, PDF, fichiers texte dans un autre encodage) sont conservés octet pour octet. L'export redonne exactement les mêmes fichiers.
 
 Limites d'une archive : 5 000 entrées, 500 Mio décompressés, 100 Mio par fichier, 32 niveaux de dossiers. Les archives contenant des chemins sortant du projet, des liens symboliques ou un taux de compression anormal sont refusées en entier.
+
+### Dupliquer, modèles, fichiers partagés
+
+Le menu « ⋯ » d'une ligne du tableau de bord duplique un projet (fichiers, dossiers et réglages, sans l'historique ni les membres) ou l'enregistre comme modèle. Les modèles enregistrés apparaissent dans « Nouveau projet », à côté des modèles fournis (vide, article, rapport, présentation Beamer, lettre) ; un administrateur peut en proposer à toute l'instance. Ils se gèrent depuis « Mon compte ».
+
+Depuis la page d'un projet, « Copier depuis un projet… » copie des fichiers ou des dossiers d'un autre projet, sans jamais écraser un nom existant. « Fichier lié… » ajoute la copie d'un fichier d'un autre projet ou d'une adresse web publique : elle est en lecture seule, s'actualise à la demande (clic droit, « Actualiser depuis la source ») et redevient un fichier ordinaire après « Rompre le lien ».
+
+« Mon texmf », dans « Mon compte », ouvre une arborescence personnelle : les classes, paquets et bibliographies qu'on y dépose sont trouvés par la compilation de tous ses projets, où qu'ils soient rangés dans cette arborescence. Elle ne se compile pas et ne se partage pas.
 
 ### Éditer
 
