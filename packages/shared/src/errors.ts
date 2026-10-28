@@ -44,6 +44,8 @@ export const errorCodes = [
   'LINKS_DISABLED',
   'LINK_ADDRESS_REFUSED',
   'LINK_FETCH_FAILED',
+  'MAIL_DISABLED',
+  'RESET_TOKEN_INVALID',
   'INTERNAL_ERROR',
 ] as const;
 export const errorCode = z.enum(errorCodes);
@@ -102,6 +104,8 @@ const statusByCode: Record<ErrorCode, number> = {
   LINKS_DISABLED: 403,
   LINK_ADDRESS_REFUSED: 400,
   LINK_FETCH_FAILED: 502,
+  MAIL_DISABLED: 404,
+  RESET_TOKEN_INVALID: 400,
   INTERNAL_ERROR: 500,
 };
 

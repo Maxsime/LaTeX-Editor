@@ -27,9 +27,11 @@ import { and, asc, desc, eq, gt, isNull, or, sql } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import * as z from 'zod/mini';
 import { requireAuth } from '../auth/plugin.js';
+import { publicOrigin } from '../auth/oidc.js';
 import { randomToken, tokenDigest } from '../auth/tokens.js';
 import type { AppContext } from '../context.js';
 import { parse } from '../http/validate.js';
+import { projectInviteMail } from '../mail/messages.js';
 import { requireDocument } from '../projects/texmf.js';
 import { loadProject } from '../projects/access.js';
 import { publishProjectEvent } from '../projects/events.js';
@@ -229,10 +231,11 @@ export function sharingRoutes(app: FastifyInstance, context: AppContext): void {
     const auth = requireAuth(request);
     const { id } = parse(projectParams, request.params);
     const body = parse(createProjectInviteRequest, request.body);
-    requireDocument((await loadProject(db, id, auth.user.id, 'owner')).project);
+    const { project } = await loadProject(db, id, auth.user.id, 'owner');
+    requireDocument(project);
     const identifier = body.identifier.trim();
     const [user] = await db
-      .select({ id: users.id })
+      .select({ id: users.id, email: users.email })
       .from(users)
       .where(
         and(
@@ -263,6 +266,22 @@ export function sharingRoutes(app: FastifyInstance, context: AppContext): void {
     });
     if (!invite) throw new ApiError('INTERNAL_ERROR');
     await publishProjectEvent(redis, id, { type: 'members.changed', userId: null });
+    if (context.mailer) {
+      // The invitation stands even if the message cannot be queued: it shows on the dashboard.
+      await context.mailer
+        .send(
+          projectInviteMail({
+            to: user.email,
+            inviter: auth.user.displayName,
+            project: project.name,
+            role: body.role,
+            link: `${publicOrigin(context.config)}/projects`,
+          }),
+        )
+        .catch((error: unknown) => {
+          request.log.warn({ err: error, inviteId: invite.id }, 'invitation e-mail not queued');
+        });
+    }
     return reply.status(201).send({ id: invite.id });
   });
 

@@ -41,6 +41,8 @@
     "RATE_LIMITED": "Too many requests, try again later.",
     "INVALID_PATTERN": "Invalid regular expression.",
     "SERVICE_UNAVAILABLE": "Service temporarily unavailable.",
+    "MAIL_DISABLED": "This instance sends no e-mail. Ask its administrator to reset your password.",
+    "RESET_TOKEN_INVALID": "This link no longer works: it was used, has expired or was replaced by a newer one. Ask for a new link.",
     "INTERNAL_ERROR": "Internal error.",
     "USER_NOT_FOUND": "No account matches. The person must sign up first; you can also send them a share link.",
     "ALREADY_MEMBER": "This person is already a member of the project.",
@@ -103,7 +105,8 @@
       "noAccount": "No account yet?",
       "register": "Create an account",
       "oidc": "Sign in with {{name}}",
-      "or": "or with a password"
+      "or": "or with a password",
+      "forgot": "Forgot your password?"
     },
     "register": {
       "title": "Create an account",
@@ -117,6 +120,22 @@
       "title": "Create the administrator account",
       "intro": "No account exists yet. The setup code is printed in the API service logs (docker compose logs api).",
       "submit": "Create administrator account"
+    },
+    "forgot": {
+      "title": "Forgot your password",
+      "intro": "Enter the e-mail address of your account: you will receive a link to choose a new password.",
+      "submit": "Send me a link",
+      "sent": "If an account uses this address, an e-mail has just been sent to it. The link is valid for one hour.",
+      "noMail": "This instance sends no e-mail. Ask its administrator to reset your password."
+    },
+    "reset": {
+      "title": "New password",
+      "password": "New password",
+      "confirm": "Confirm the password",
+      "mismatch": "The two passwords differ.",
+      "submit": "Save the password",
+      "done": "Password changed. All your sessions were closed: sign in with the new password.",
+      "noToken": "This link is incomplete. Open the link from the e-mail as it is, or ask for a new one."
     }
   },
   "validation": {
@@ -557,6 +576,11 @@
   },
   "account": {
     "title": "My account",
+    "notifications": {
+      "title": "Notifications",
+      "intro": "Project invitations are always sent by e-mail. Mentions stay visible in the application even without e-mail.",
+      "mentions": "E-mail me when a comment mentions me"
+    },
     "tokens": {
       "title": "Personal access tokens",
       "intro": "A token is Git's password for cloning your projects, pulling and pushing changes. It has the same rights as you on your projects: keep it secret, revoke it if it leaks.",

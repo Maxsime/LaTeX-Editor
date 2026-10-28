@@ -66,8 +66,26 @@ export const authConfigResponse = z.object({
   setupRequired: z.boolean(),
   /** Sign-in through the instance's identity provider, when one is configured. */
   oidc: z.nullable(z.object({ displayName: z.string() })),
+  /** Whether the instance sends e-mail: password reset and notifications depend on it. */
+  mail: z.boolean(),
 });
 export type AuthConfigResponse = z.infer<typeof authConfigResponse>;
+
+export const passwordResetRequest = z.object({ email });
+export type PasswordResetRequest = z.infer<typeof passwordResetRequest>;
+
+/** Lifetime of a password reset link. */
+export const PASSWORD_RESET_TTL_MINUTES = 60;
+
+export const passwordResetConfirm = z.object({
+  token: z.string().check(z.minLength(1), z.maxLength(200)),
+  password,
+});
+export type PasswordResetConfirm = z.infer<typeof passwordResetConfirm>;
+
+/** E-mail notifications a user receives (SPEC §3.4). */
+export const notificationSettings = z.object({ emailMentions: z.boolean() });
+export type NotificationSettings = z.infer<typeof notificationSettings>;
 
 export const createInviteRequest = z.object({
   expiresInDays: z._default(z.number().check(z.int(), z.gte(1), z.lte(90)), 7),

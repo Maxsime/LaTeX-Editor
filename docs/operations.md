@@ -60,6 +60,19 @@ Le flux utilise PKCE, `state` et `nonce` ; l'état est lié au navigateur par un
 
 Un fournisseur qui ne garantit pas l'adresse e-mail ne peut ni rattacher ni créer de compte : c'est volontaire, sinon n'importe qui pourrait prendre un compte en déclarant son adresse. GitHub n'est pas un fournisseur OpenID Connect pour la connexion des personnes : passer par un courtier comme Keycloak ou Authentik, qui proposent GitHub comme source d'identité. Un fournisseur en HTTP simple n'est accepté que parce que l'administrateur l'a configuré ainsi (réseau interne, tests) ; en production, HTTPS.
 
+## E-mail
+
+Galley envoie trois messages, en texte brut, en français puis en anglais : le lien de réinitialisation du mot de passe, l'invitation à un projet, la mention dans un commentaire. Tant que `SMTP_URL` est vide, aucun message ne part et la page « Mot de passe oublié » n'est pas proposée.
+
+```sh
+SMTP_URL=smtps://galley%40example.org:mot-de-passe-d-application@mail.example.org:465
+SMTP_FROM=Galley <galley@example.org>
+```
+
+`smtps://` chiffre dès la connexion (port 465) ; `smtp://` (port 587 ou 25) passe en STARTTLS quand le serveur le propose. L'identifiant et le mot de passe figurent dans l'URL, encodés (`@` devient `%40`). Les messages passent par une file BullMQ : une requête n'attend jamais le serveur d'envoi, et un échec est retenté six fois avec un délai doublé à chaque essai (de 30 secondes à 16 minutes). Les journaux de l'API signalent chaque échec (`e-mail delivery failed`) sans le destinataire ni le texte.
+
+Le lien de réinitialisation contient un jeton aléatoire de 256 bits dont seule l'empreinte est stockée. Il expire au bout d'une heure, ne sert qu'une fois, et toute nouvelle demande annule le précédent. La réponse est la même, et aussi rapide, que l'adresse corresponde à un compte ou non. Changer le mot de passe ferme toutes les sessions du compte. Un compte créé par l'OIDC, sans mot de passe propre, ne reçoit pas de lien.
+
 ## Sauvegarde et restauration
 
 `scripts/backup.sh [dossier]` (défaut `./backups`) sauvegarde une instance en marche dans `galley-<date UTC>/` :

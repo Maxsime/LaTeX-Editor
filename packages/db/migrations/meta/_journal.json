@@ -78,6 +78,13 @@
       "when": 1793154717634,
       "tag": "0010_precompile_preamble",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1793166126328,
+      "tag": "0011_password_resets",
+      "breakpoints": true
     }
   ]
 }

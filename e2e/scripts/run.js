@@ -22,10 +22,28 @@ if (!process.env.GALLEY_CA_DIR) {
   }
 }
 
-const result = spawnSync('playwright', ['test', ...process.argv.slice(2)], {
-  cwd: root,
-  stdio: 'inherit',
-  shell: process.platform === 'win32',
-  env: { ...process.env, GALLEY_CA_DIR: caDir, NODE_EXTRA_CA_CERTS: join(caDir, 'root.crt') },
-});
-process.exit(result.status ?? 1);
+const env = { ...process.env, GALLEY_CA_DIR: caDir, NODE_EXTRA_CA_CERTS: join(caDir, 'root.crt') };
+const playwright = (args, extraEnv = {}) =>
+  spawnSync('playwright', ['test', ...args], {
+    cwd: root,
+    stdio: 'inherit',
+    shell: process.platform === 'win32',
+    env: { ...env, ...extraEnv },
+  }).status ?? 1;
+
+const args = process.argv.slice(2);
+// The whole suite runs the timing tests (project `perf`) last and on their own,
+// so that no other browser competes with them for the CPU. Explicit arguments
+// are passed through as they are.
+let status;
+if (args.length > 0) {
+  status = playwright(args);
+} else {
+  const main = playwright(['--project=chromium']);
+  // Its own output folders: each run empties those it writes to.
+  const perf = playwright(['--project=perf', '--output=test-results/perf'], {
+    PLAYWRIGHT_HTML_OUTPUT_DIR: 'playwright-report/perf',
+  });
+  status = perf || main;
+}
+process.exit(status);

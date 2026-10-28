@@ -112,8 +112,15 @@ test.describe('writing tools', () => {
     await compileStatus(page, 'success');
     const marker = page.locator('.cm-editor:visible .cm-lint-marker-info');
     await expect(marker).toHaveCount(1);
-    await editor(page).getByText('Voir la section').hover();
-    await expect(page.getByText('chktex 2')).toBeVisible();
+    // Hovers the underlined range itself, and again if the tooltip missed the
+    // first pass: on a loaded machine the editor can still be laying out the
+    // line when the pointer arrives.
+    const range = page.locator('.cm-editor:visible .cm-lintRange-info');
+    await expect(async () => {
+      await page.mouse.move(0, 0);
+      await range.hover();
+      await expect(page.getByText('chktex 2')).toBeVisible({ timeout: 2_000 });
+    }).toPass({ timeout: 20_000 });
     const saved = page.waitForResponse(
       (response) => response.request().method() === 'PATCH' && response.ok(),
     );

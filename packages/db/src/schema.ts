@@ -36,6 +36,8 @@ export const users = pgTable('users', {
   passwordHash: text('password_hash'),
   isAdmin: boolean('is_admin').notNull().default(false),
   disabledAt: timestamp('disabled_at', { withTimezone: true }),
+  /** Whether a mention in a comment is also sent by e-mail (SPEC §3.4). */
+  emailMentions: boolean('email_mentions').notNull().default(true),
   ...timestamps,
 });
 
@@ -64,6 +66,18 @@ export const registrationInvites = pgTable('registration_invites', {
   expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
   usedAt: timestamp('used_at', { withTimezone: true }),
   usedBy: uuid('used_by').references(() => users.id, { onDelete: 'set null' }),
+  ...timestamps,
+});
+
+/** Password reset links sent by e-mail: single use, short-lived, stored as a digest. */
+export const passwordResets = pgTable('password_resets', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  tokenHash: text('token_hash').notNull().unique(),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  usedAt: timestamp('used_at', { withTimezone: true }),
   ...timestamps,
 });
 

@@ -153,6 +153,7 @@ describe.skipIf(!dockerAvailable)('accounts, projects and files', () => {
         registrationMode: 'invite',
         setupRequired: true,
         oidc: null,
+        mail: false,
       });
 
       const { code } = await ensureSetupCode(redis);

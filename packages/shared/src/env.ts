@@ -167,11 +167,22 @@ export const apiEnv = z
     OIDC_ALLOW_SIGNUP: z._default(booleanFlag, false),
     /** Lets people link files to public web addresses (SPEC §3.1). */
     LINKED_URLS_ENABLED: z._default(booleanFlag, true),
+    /**
+     * Outgoing mail server, e.g. `smtps://user:password@mail.example.org`;
+     * password reset by e-mail and notifications are off while it is empty.
+     */
+    SMTP_URL: blankable(z.url({ protocol: /^smtps?$/ })),
+    /** Sender of every message, e.g. `Galley <galley@example.org>`. */
+    SMTP_FROM: blankable(z.string().check(z.maxLength(320))),
   })
   .check(
     z.refine((env) => !env.OIDC_ISSUER || Boolean(env.OIDC_CLIENT_ID), {
       message: 'OIDC_CLIENT_ID is required when OIDC_ISSUER is set',
       path: ['OIDC_CLIENT_ID'],
+    }),
+    z.refine((env) => !env.SMTP_URL || Boolean(env.SMTP_FROM), {
+      message: 'SMTP_FROM is required when SMTP_URL is set',
+      path: ['SMTP_FROM'],
     }),
     z.refine(
       (env) => env.COLLAB_INTERNAL_URL === undefined || env.COLLAB_INTERNAL_TOKEN !== undefined,
