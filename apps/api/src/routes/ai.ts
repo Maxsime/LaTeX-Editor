@@ -1,4 +1,4 @@
-import { aiModelPrices, aiProviderConfigs, aiUsage } from '@galley/db';
+import { aiModelPrices, aiProviderConfigs, aiUsage, files } from '@galley/db';
 import {
   type AiChangeset,
   aiChatRequest,
@@ -13,7 +13,7 @@ import {
   putAiProviderRequest,
   splitProjectPath,
 } from '@galley/shared';
-import { and, eq, gte, sql } from 'drizzle-orm';
+import { and, eq, gte, isNotNull, sql } from 'drizzle-orm';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import * as z from 'zod/mini';
 import { runChat } from '../ai/chat.js';
@@ -316,6 +316,15 @@ export function aiRoutes(app: FastifyInstance, context: AppContext): void {
     for (const hunk of selected) {
       if (hunk.fileId === null) continue;
       byFile.set(hunk.fileId, [...(byFile.get(hunk.fileId) ?? []), hunk]);
+    }
+    // Linked files are read-only: they change only when refreshed from their source.
+    const linked = await db
+      .select({ id: files.id })
+      .from(files)
+      .where(and(eq(files.projectId, id), isNotNull(files.link)));
+    for (const { id: fileId } of linked) {
+      for (const hunk of byFile.get(fileId) ?? []) statuses.set(hunk.id, 'conflict');
+      byFile.delete(fileId);
     }
     for (const [fileId, hunks] of byFile) {
       const result = await context.documents.edit(fileId, {

@@ -20,6 +20,7 @@ import { assertCompileTime } from '../admin/quotas.js';
 import { instanceSettingsOf } from '../admin/settings.js';
 import type { AppContext } from '../context.js';
 import { takeSnapshot } from '../history/snapshots.js';
+import { requireDocument, texmfManifestOf } from '../projects/texmf.js';
 import { materializeProject } from '../materialize.js';
 import type { ProjectRow } from '../projects/access.js';
 import { publishProjectEvent } from '../projects/events.js';
@@ -126,6 +127,7 @@ export async function requestCompile(
   request: CompileRequest,
   logger: FastifyBaseLogger,
 ): Promise<CompileRunRow> {
+  requireDocument(project);
   if (project.mainFileId === null) throw new ApiError('NO_MAIN_FILE');
   const { quotas } = await instanceSettingsOf(context).get();
   await assertCompileTime(context.database.db, context.redis, quotas, userId);
@@ -160,8 +162,7 @@ export async function requestCompile(
     compileId: row.id,
     projectId: project.id,
     manifest: snapshot.manifest,
-    // Personal texmf trees arrive with texmf projects.
-    texmfManifest: {},
+    texmfManifest: await texmfManifestOf(context, project.ownerId),
     mainFile,
     engine: project.engine,
     ...options,

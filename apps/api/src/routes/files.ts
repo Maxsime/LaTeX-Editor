@@ -37,6 +37,7 @@ import { recordActivity } from '../history/snapshots.js';
 import { publishProjectEvent } from '../projects/events.js';
 import { readBlob, storeBlobs } from '../storage/blobs.js';
 import { stateToText, textBytes } from '../yjs/text.js';
+import { linkLabels } from '../links/service.js';
 import { projectParams } from './projects.js';
 
 const fileParams = z.object({ id: z.uuid(), fileId: z.uuid() });
@@ -99,7 +100,11 @@ export function fileRoutes(app: FastifyInstance, context: AppContext): void {
     const { id } = parse(projectParams, request.params);
     const { project } = await loadProject(db, id, auth.user.id, 'reader');
     const rows = await listNodes(db, id);
-    return { mainFileId: project.mainFileId, nodes: rows.map(toTreeNode) };
+    const labels = await linkLabels(db, auth.user.id, rows);
+    return {
+      mainFileId: project.mainFileId,
+      nodes: rows.map((row) => toTreeNode(row, labels.get(row.id))),
+    };
   });
 
   app.post('/api/projects/:id/folders', async (request, reply) => {
@@ -188,7 +193,7 @@ export function fileRoutes(app: FastifyInstance, context: AppContext): void {
       });
       await documents.apply(changes);
       await treeChanged(id, auth.user.id);
-      const response: UploadResponse = { nodes: nodes.map(toTreeNode), warnings };
+      const response: UploadResponse = { nodes: nodes.map((row) => toTreeNode(row)), warnings };
       void reply.status(201);
       return response;
     } finally {

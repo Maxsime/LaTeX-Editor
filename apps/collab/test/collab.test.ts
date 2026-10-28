@@ -376,6 +376,26 @@ describe.skipIf(!dockerAvailable)('collab server', () => {
     expect(await storedText(fileId)).toBe('original');
   });
 
+  it('keeps linked files read-only, even for their owner', async () => {
+    const { fileId, owner } = await projectWithFile('linked');
+    await database.db
+      .update(files)
+      .set({ link: { kind: 'url', url: 'https://example.org/refs.bib' } })
+      .where(eq(files.id, fileId));
+    const scope = await new Promise<string>((resolve) => {
+      connect(fileDocumentName(fileId), owner.token, {
+        onAuthenticated: ({ scope: granted }) => {
+          resolve(granted);
+        },
+      });
+    });
+    expect(scope).toBe('readonly');
+    const editor = await synced(fileDocumentName(fileId), owner.token);
+    editor.document.getText(TEXT_KEY).insert(0, 'edited ');
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    expect(await storedText(fileId)).toBe('linked');
+  });
+
   it('lets reviewers suggest, and refuses their direct edits', async () => {
     const { fileId, others } = await projectWithFile('Le chat dort.', ['reviewer']);
     const member = others[0];

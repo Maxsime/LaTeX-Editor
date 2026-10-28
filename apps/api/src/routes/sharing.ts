@@ -30,6 +30,7 @@ import { requireAuth } from '../auth/plugin.js';
 import { randomToken, tokenDigest } from '../auth/tokens.js';
 import type { AppContext } from '../context.js';
 import { parse } from '../http/validate.js';
+import { requireDocument } from '../projects/texmf.js';
 import { loadProject } from '../projects/access.js';
 import { publishProjectEvent } from '../projects/events.js';
 import { projectParams } from './projects.js';
@@ -183,7 +184,7 @@ export function sharingRoutes(app: FastifyInstance, context: AppContext): void {
     const auth = requireAuth(request);
     const { id } = parse(projectParams, request.params);
     const { userId } = parse(transferOwnershipRequest, request.body);
-    await loadProject(db, id, auth.user.id, 'owner');
+    requireDocument((await loadProject(db, id, auth.user.id, 'owner')).project);
     if (userId === auth.user.id) throw new ApiError('BAD_REQUEST', 'already the owner');
     await db.transaction(async (tx) => {
       const promoted = await tx
@@ -228,7 +229,7 @@ export function sharingRoutes(app: FastifyInstance, context: AppContext): void {
     const auth = requireAuth(request);
     const { id } = parse(projectParams, request.params);
     const body = parse(createProjectInviteRequest, request.body);
-    await loadProject(db, id, auth.user.id, 'owner');
+    requireDocument((await loadProject(db, id, auth.user.id, 'owner')).project);
     const identifier = body.identifier.trim();
     const [user] = await db
       .select({ id: users.id })
@@ -377,7 +378,7 @@ export function sharingRoutes(app: FastifyInstance, context: AppContext): void {
     const auth = requireAuth(request);
     const { id } = parse(projectParams, request.params);
     const body = parse(createShareLinkRequest, request.body);
-    await loadProject(db, id, auth.user.id, 'owner');
+    requireDocument((await loadProject(db, id, auth.user.id, 'owner')).project);
     const token = randomToken();
     const [row] = await db
       .insert(projectLinks)

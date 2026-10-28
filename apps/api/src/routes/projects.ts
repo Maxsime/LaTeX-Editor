@@ -7,20 +7,21 @@ import {
   splitProjectPath,
   updateProjectRequest,
 } from '@galley/shared';
-import { eq } from 'drizzle-orm';
+import { and, eq, or } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import * as z from 'zod/mini';
 import { requireAuth } from '../auth/plugin.js';
 import { assertOwnerRoom } from '../admin/quotas.js';
 import { instanceSettingsOf } from '../admin/settings.js';
 import type { AppContext } from '../context.js';
-import { projects } from '@galley/db';
+import { projects, templates } from '@galley/db';
 import { getNode, writeFiles } from '../files/tree.js';
 import { parse } from '../http/validate.js';
 import { loadProject } from '../projects/access.js';
 import { publishProjectEvent } from '../projects/events.js';
 import { insertProject, listProjects, projectDetails, toSummary } from '../projects/service.js';
-import { templates } from '../projects/templates.js';
+import { templates as builtinTemplates } from '../projects/templates.js';
+import { createProjectFromState } from '../projects/copy.js';
 import { textBytes } from '../yjs/text.js';
 import { unknownKeyTokens } from '../bibliography/keys.js';
 
@@ -39,10 +40,31 @@ export function projectRoutes(app: FastifyInstance, context: AppContext): void {
   app.post('/api/projects', async (request, reply) => {
     const auth = requireAuth(request);
     const body = parse(createProjectRequest, request.body);
+    if (body.templateId !== undefined) {
+      const [template] = await db
+        .select()
+        .from(templates)
+        .where(
+          and(
+            eq(templates.id, body.templateId),
+            or(eq(templates.ownerId, auth.user.id), eq(templates.visibility, 'instance')),
+          ),
+        );
+      if (!template) throw new ApiError('NOT_FOUND');
+      const created = await createProjectFromState(context, auth.user.id, {
+        name: body.name,
+        state: { manifest: template.manifest, folders: template.folders },
+        mainPath: template.mainPath,
+        settings: { engine: template.engine, bibTool: template.bibTool },
+      });
+      return reply.status(201).send({
+        project: toSummary(created, 'owner', auth.user.displayName, []),
+      });
+    }
     const { quotas } = await instanceSettingsOf(context).get();
     const project = await db.transaction(async (tx) => {
       const row = await insertProject(tx, auth.user.id, body.name);
-      const files = templates[body.template].map((file) => {
+      const files = builtinTemplates[body.template].map((file) => {
         const segments = splitProjectPath(file.path);
         if (!segments) throw new ApiError('INTERNAL_ERROR');
         return {

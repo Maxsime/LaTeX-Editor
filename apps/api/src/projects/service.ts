@@ -37,7 +37,8 @@ export async function listProjects(
   userId: string,
   query: ListProjectsQuery,
 ): Promise<ProjectSummary[]> {
-  const filters: SQL[] = [];
+  // The personal texmf tree is reached from the account page, not listed.
+  const filters: SQL[] = [eq(projects.type, 'document')];
   if (query.state === 'trashed') {
     filters.push(isNotNull(projects.deletedAt));
   } else {
