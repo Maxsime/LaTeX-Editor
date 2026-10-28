@@ -18,6 +18,7 @@ import { fileRoutes } from './routes/files.js';
 import { libraryRoutes } from './routes/library.js';
 import { healthRoutes } from './routes/health.js';
 import { historyRoutes } from './routes/history.js';
+import { remoteRoutes } from './routes/remote.js';
 import { reviewRoutes } from './routes/review.js';
 import { tokenRoutes } from './routes/tokens.js';
 import { gitRoutes } from './routes/git.js';
@@ -107,6 +108,9 @@ export function buildApp({
       reviewRoutes(api, context);
       writingRoutes(api, context);
       aiRoutes(api, context);
+      remoteRoutes(api, context, {
+        maxEntries: (archiveLimits ?? DEFAULT_ARCHIVE_LIMITS).maxEntries,
+      });
     });
     // Git clients authenticate with access tokens, never with the session cookie.
     void app.register((gitApp, _options, done) => {

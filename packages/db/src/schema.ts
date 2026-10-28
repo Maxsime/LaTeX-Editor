@@ -395,6 +395,26 @@ export const gitRepositories = pgTable('git_repositories', {
 });
 
 /**
+ * A GitHub or GitLab repository a project is synchronised with on demand
+ * (SPEC §3.5). The access token is encrypted with the master key, bound to
+ * the project; only its last four characters are ever shown again.
+ */
+export const projectRemotes = pgTable('project_remotes', {
+  projectId: uuid('project_id')
+    .primaryKey()
+    .references(() => projects.id, { onDelete: 'cascade' }),
+  url: text('url').notNull(),
+  branch: text('branch').notNull(),
+  tokenCiphertext: bytea('token_ciphertext').notNull(),
+  tokenHint: text('token_hint').notNull(),
+  /** Remote commit seen at the last pull or push. */
+  lastCommit: text('last_commit'),
+  lastSyncedAt: timestamp('last_synced_at', { withTimezone: true }),
+  updatedBy: uuid('updated_by').references(() => users.id, { onDelete: 'set null' }),
+  ...timestamps,
+});
+
+/**
  * A comment thread on a file (SPEC §3.4). Its anchor lives in the file's Yjs
  * document, under the thread's id; `quote` is the text it was attached to,
  * shown when the anchor is lost.

@@ -77,6 +77,8 @@ services:
       COLLAB_INTERNAL_URL: http://collab:3001
       COLLAB_INTERNAL_TOKEN: ${COLLAB_INTERNAL_TOKEN:-galley-dev-internal-token-change-me}
       GIT_MAX_PUSH_MB: ${GIT_MAX_PUSH_MB:-100}
+      GIT_SYNC_HOSTS: ${GIT_SYNC_HOSTS:-github.com,gitlab.com}
+      GIT_SYNC_ALLOW_HTTP: ${GIT_SYNC_ALLOW_HTTP:-false}
       # Development value: change it before storing real keys (openssl rand -base64 32).
       GALLEY_MASTER_KEY: ${GALLEY_MASTER_KEY:-Z2FsbGV5LWRldi1tYXN0ZXIta2V5LWNoYW5nZS1tZSE=}
       LANGUAGETOOL_URL: http://languagetool:8010
