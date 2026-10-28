@@ -97,6 +97,7 @@ function settingsResponse(
     quotas: settings.quotas,
     aiEnabled: settings.aiEnabled,
     aiDefault,
+    aiAgentTokenBudget: settings.aiAgentTokenBudget,
     overridden: settings.overridden,
   };
 }
@@ -162,6 +163,9 @@ export function adminRoutes(app: FastifyInstance, context: AppContext, version: 
     }
     if (body.quotas !== undefined) await settings.set('quotas', body.quotas, by);
     if (body.aiEnabled !== undefined) await settings.set('aiEnabled', body.aiEnabled, by);
+    if (body.aiAgentTokenBudget !== undefined) {
+      await settings.set('aiAgentTokenBudget', body.aiAgentTokenBudget, by);
+    }
     if (body.aiDefault === null) {
       await settings.reset('aiDefault');
     } else if (body.aiDefault !== undefined) {

@@ -77,6 +77,9 @@ importers:
       bullmq:
         specifier: 6.4.2
         version: 6.4.2(ioredis@5.11.1)
+      diff:
+        specifier: 9.0.0
+        version: 9.0.0
       drizzle-orm:
         specifier: 0.45.4
         version: 0.45.4(@opentelemetry/api@1.10.0)(postgres@3.4.9)

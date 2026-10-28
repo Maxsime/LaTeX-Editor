@@ -750,6 +750,145 @@ describe.skipIf(!dockerAvailable)('AI assistant', () => {
     expect(summary.json<{ requests: number }>().requests).toBeGreaterThan(1);
   });
 
+  describe('agent mode', () => {
+    it('plans, edits a draft its reads see, compiles it, then submits one proposal', async () => {
+      await documents.apply({ replaced: [{ fileId: mainId, content: MAIN }], closed: [] });
+      const before = openai.requests.length;
+      const plan = [
+        { title: 'Lire le document', status: 'done' },
+        { title: 'Réécrire la phrase', status: 'active' },
+      ];
+      script = (_request, index) => {
+        const turns = [
+          { toolCalls: [{ name: 'update_plan', input: { steps: plan } }] },
+          {
+            toolCalls: [
+              {
+                name: 'edit_draft',
+                input: {
+                  edits: [
+                    { path: 'main.tex', search: 'Le chat dort.', replace: 'Le chat ronfle.' },
+                  ],
+                },
+              },
+            ],
+          },
+          { toolCalls: [{ name: 'read_file', input: { path: 'main.tex' } }] },
+          {
+            toolCalls: [
+              {
+                name: 'edit_draft',
+                input: {
+                  edits: [
+                    {
+                      path: 'main.tex',
+                      search: 'ronfle.',
+                      replace: 'ronfle fort.\n\\input{annexe}',
+                    },
+                    { path: 'annexe.tex', search: '', replace: 'Annexe.\n' },
+                  ],
+                },
+              },
+            ],
+          },
+          { toolCalls: [{ name: 'compile_draft', input: {} }] },
+          { toolCalls: [{ name: 'submit_changes', input: {} }] },
+          { text: 'Terminé : une phrase réécrite et une annexe.' },
+        ];
+        return turns[index - before] ?? { text: 'Trop.' };
+      };
+      const response = await chat(alice, {
+        mode: 'agent',
+        messages: [{ role: 'user', text: 'Fais ronfler le chat et ajoute une annexe.' }],
+      });
+      expect(response.statusCode, response.body).toBe(200);
+      const events = eventsOf(response);
+      expect(events).toContainEqual({ type: 'plan', steps: plan });
+      expect(events.filter((event) => event.type === 'error')).toEqual([]);
+      // The read after the first edit saw the draft, not the project.
+      expect(lastToolResult(openai.requests[before + 3])).toContain('Le chat ronfle.');
+
+      // The compilation built the whole project with the draft laid over it.
+      const job = snippetJobs.at(-1);
+      expect(job).toMatchObject({ mainFile: 'main.tex', engine: 'pdflatex', bibTool: 'biber' });
+      expect(job?.manifest['refs.bib']).toBeDefined();
+      const compiled = await readBlobBytes(s3, 'galley-ai', job?.manifest['main.tex'] ?? '');
+      expect(compiled.toString('utf8')).toContain('Le chat ronfle fort.\n\\input{annexe}');
+      const annex = await readBlobBytes(s3, 'galley-ai', job?.manifest['annexe.tex'] ?? '');
+      expect(annex.toString('utf8')).toBe('Annexe.\n');
+
+      const proposals = events.flatMap((event) =>
+        event.type === 'changeset' ? [event.changeset] : [],
+      );
+      expect(proposals).toHaveLength(1);
+      const [proposal] = proposals;
+      if (proposal === undefined) throw new Error('no changeset');
+      expect(proposal.hunks.map((hunk) => hunk.path).sort()).toEqual(['annexe.tex', 'main.tex']);
+      // Nothing is written before the user accepts.
+      expect(await textOf(mainId)).toBe(MAIN);
+
+      const applied = await send(
+        alice,
+        'POST',
+        `/api/projects/${projectId}/ai/changesets/${proposal.id}/apply`,
+        { hunkIds: proposal.hunks.map((hunk) => hunk.id) },
+      );
+      expect(applied.statusCode, applied.body).toBe(200);
+      expect(await textOf(mainId)).toBe(
+        MAIN.replace('Le chat dort.', 'Le chat ronfle fort.\n\\input{annexe}'),
+      );
+      const tree = await send(alice, 'GET', `/api/projects/${projectId}/tree`);
+      expect(tree.body).toContain('annexe.tex');
+    });
+
+    it('stops at the token budget and submits the draft it has', async () => {
+      await documents.apply({ replaced: [{ fileId: mainId, content: MAIN }], closed: [] });
+      const budget = await send(alice, 'PATCH', '/api/admin/settings', {
+        aiAgentTokenBudget: 10_000,
+      });
+      expect(budget.json()).toMatchObject({ aiAgentTokenBudget: 10_000 });
+      const before = openai.requests.length;
+      script = (_request, index) =>
+        index === before
+          ? {
+              toolCalls: [
+                {
+                  name: 'edit_draft',
+                  input: {
+                    edits: [{ path: 'main.tex', search: 'Le chat dort.', replace: 'Le chat lit.' }],
+                  },
+                },
+              ],
+              usage: { input: 6_000, output: 10 },
+            }
+          : {
+              toolCalls: [{ name: 'read_file', input: { path: 'main.tex' } }],
+              usage: { input: 6_000, output: 10 },
+            };
+      const events = eventsOf(
+        await chat(alice, { mode: 'agent', messages: [{ role: 'user', text: 'Le chat lit.' }] }),
+      );
+      expect(openai.requests.length - before).toBe(2);
+      const proposal = events.find((event) => event.type === 'changeset');
+      if (proposal?.type !== 'changeset') throw new Error('no changeset');
+      expect(proposal.changeset.hunks).toMatchObject([
+        { path: 'main.tex', original: 'Le chat dort.\n', replacement: 'Le chat lit.\n' },
+      ]);
+      expect(events).toContainEqual({ type: 'error', code: 'AI_AGENT_LIMIT' });
+      expect(await textOf(mainId)).toBe(MAIN);
+      await send(alice, 'PATCH', '/api/admin/settings', { aiAgentTokenBudget: 200_000 });
+    });
+
+    it('is for editors only', async () => {
+      const session = await bob.send('GET', '/api/auth/session');
+      const bobId = session.json<{ user: { id: string } }>().user.id;
+      await send(alice, 'PATCH', `/api/projects/${projectId}/members/${bobId}`, { role: 'reader' });
+      const refused = await chat(bob, { mode: 'agent', messages: [{ role: 'user', text: 'x' }] });
+      expect(refused.statusCode).toBe(403);
+      await send(alice, 'PATCH', `/api/projects/${projectId}/members/${bobId}`, { role: 'editor' });
+    });
+  });
+
   it('is off for a project whose owner disabled it', async () => {
     const off = await send(alice, 'PATCH', `/api/projects/${projectId}`, { aiEnabled: false });
     expect(off.json()).toMatchObject({ aiEnabled: false });

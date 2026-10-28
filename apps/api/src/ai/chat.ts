@@ -15,6 +15,7 @@ import {
 import { aiModelPrices, aiUsage, compileRuns, files } from '@galley/db';
 import { buildOutline, buildProjectIndex, loadedPackages } from '@galley/latex-index';
 import {
+  AGENT_MAX_STEPS,
   type AiChangeset,
   type AiChatRequest,
   type AiStreamEvent,
@@ -31,6 +32,8 @@ import { nodePaths } from '../files/tree.js';
 import { type ProjectText, readProjectTexts } from '../materialize.js';
 import type { ProjectRow } from '../projects/access.js';
 import { citationViolations, knownCitationKeys } from './changes.js';
+import { instanceSettingsOf } from '../admin/settings.js';
+import { Draft } from './draft.js';
 import { createToolHost } from './host.js';
 import type { ResolvedModel } from './settings.js';
 import { compileSnippet } from './snippets.js';
@@ -38,6 +41,8 @@ import { type AiStore, newId } from './store.js';
 
 /** Longest a request may run, model calls and tools included. */
 const REQUEST_TIMEOUT_MS = 120_000;
+/** An agent reads, edits and compiles over many steps. */
+const AGENT_TIMEOUT_MS = 600_000;
 
 const READ_TOOLS: AiToolName[] = ['list_files', 'read_file', 'search_project', 'get_outline'];
 const CHAT_TOOLS: AiToolName[] = [
@@ -48,6 +53,16 @@ const CHAT_TOOLS: AiToolName[] = [
   'fetch_bibtex',
 ];
 const GENERATE_TOOLS: AiToolName[] = [...READ_TOOLS, 'compile_snippet'];
+const AGENT_TOOLS: AiToolName[] = [
+  ...READ_TOOLS,
+  'get_compile_log',
+  'search_literature',
+  'fetch_bibtex',
+  'update_plan',
+  'edit_draft',
+  'compile_draft',
+  'submit_changes',
+];
 
 export interface ChatOptions {
   context: AppContext;
@@ -196,6 +211,9 @@ export async function runChat(options: ChatOptions): Promise<void> {
   if (body.mode === 'image' && body.image === undefined) {
     throw new ApiError('VALIDATION_FAILED', 'image mode needs an image');
   }
+  const agent = body.mode === 'agent';
+  if (agent && !options.canEdit) throw new ApiError('FORBIDDEN');
+  if (agent && !model.capabilities.tools) throw new ApiError('AI_NO_TOOLS');
   const conversation = await store.conversation(body.conversationId, userId, project.id);
   send({ type: 'conversation', id: conversation.id });
 
@@ -228,6 +246,7 @@ export async function runChat(options: ChatOptions): Promise<void> {
   });
 
   const changesets: AiChangeset[] = [];
+  const draft = agent ? new Draft(texts) : undefined;
   const host = createToolHost({
     context,
     project,
@@ -240,17 +259,30 @@ export async function runChat(options: ChatOptions): Promise<void> {
       changesets.push(changeset);
       send({ type: 'changeset', changeset });
     },
+    ...(draft === undefined
+      ? {}
+      : {
+          draft,
+          onPlan: (steps) => {
+            send({ type: 'plan', steps });
+          },
+        }),
   });
   const names =
     body.mode === 'inline'
       ? []
-      : body.mode === 'generate' || body.mode === 'image'
-        ? GENERATE_TOOLS
-        : options.canEdit
-          ? [...CHAT_TOOLS, 'propose_changes' as const]
-          : CHAT_TOOLS;
+      : agent
+        ? AGENT_TOOLS
+        : body.mode === 'generate' || body.mode === 'image'
+          ? GENERATE_TOOLS
+          : options.canEdit
+            ? [...CHAT_TOOLS, 'propose_changes' as const]
+            : CHAT_TOOLS;
 
-  const signal = AbortSignal.any([options.signal, AbortSignal.timeout(REQUEST_TIMEOUT_MS)]);
+  const signal = AbortSignal.any([
+    options.signal,
+    AbortSignal.timeout(agent ? AGENT_TIMEOUT_MS : REQUEST_TIMEOUT_MS),
+  ]);
   let result;
   try {
     result = await runAssistant({
@@ -264,6 +296,12 @@ export async function runChat(options: ChatOptions): Promise<void> {
       tools: names.length === 0 ? undefined : { host, names },
       abortSignal: signal,
       maxOutputTokens: body.mode === 'chat' || body.mode === 'fix' ? 4096 : 8192,
+      ...(agent
+        ? {
+            maxSteps: AGENT_MAX_STEPS,
+            maxTotalTokens: (await instanceSettingsOf(context).get()).aiAgentTokenBudget,
+          }
+        : {}),
       onEvent: (event) => {
         send(event);
       },
@@ -277,6 +315,20 @@ export async function runChat(options: ChatOptions): Promise<void> {
     );
     send({ type: 'error', code });
     return;
+  }
+
+  if (draft !== undefined && result.limit !== null) {
+    // Out of steps or tokens: the work done so far is not lost, the user still decides.
+    if (!draft.submitted && draft.changedPaths().length > 0) {
+      await host.submitChanges().catch((error: unknown) => {
+        logger.info(
+          { projectId: project.id, error: error instanceof Error ? error.name : typeof error },
+          'agent draft not submitted at its limit',
+        );
+      });
+    }
+    logger.info({ projectId: project.id, limit: result.limit }, 'agent stopped at its limit');
+    send({ type: 'error', code: 'AI_AGENT_LIMIT' });
   }
 
   if (body.mode === 'inline' && current !== undefined && selection !== undefined) {

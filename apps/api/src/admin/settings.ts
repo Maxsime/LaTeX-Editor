@@ -1,5 +1,6 @@
 import { instanceSettings } from '@galley/db';
 import {
+  agentTokenBudget,
   aiProvider,
   type InstanceQuotas,
   instanceQuotas,
@@ -33,6 +34,7 @@ const schemas = {
   quotas: instanceQuotas,
   aiEnabled: z.boolean(),
   aiDefault: storedAiDefault,
+  aiAgentTokenBudget: agentTokenBudget,
 } as const;
 export type SettingKey = keyof typeof schemas;
 type SettingValue<K extends SettingKey> = z.infer<(typeof schemas)[K]>;
@@ -44,6 +46,8 @@ export interface EffectiveSettings {
   aiEnabled: boolean;
   /** The console's default model; null falls back on the environment's. */
   aiDefault: StoredAiDefault | null;
+  /** Tokens one request of the agent mode may use. */
+  aiAgentTokenBudget: number;
   /** Keys set in the console. */
   overridden: SettingKey[];
 }
@@ -63,6 +67,7 @@ export function environmentSettings(config: ApiConfig): EffectiveSettings {
     },
     aiEnabled: config.AI_ENABLED,
     aiDefault: null,
+    aiAgentTokenBudget: config.AI_AGENT_TOKEN_BUDGET,
     overridden: [],
   };
 }
