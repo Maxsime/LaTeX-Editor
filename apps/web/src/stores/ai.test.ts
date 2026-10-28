@@ -10,6 +10,7 @@ const answer = (patch: Partial<AiMessage> = {}): AiMessage => ({
   tools: [],
   changesetIds: [],
   snippet: null,
+  plan: null,
   usage: null,
   error: null,
   done: false,
@@ -30,6 +31,25 @@ describe('applyEvent', () => {
     message = applyEvent(message, { type: 'text', delta: 'lis.' });
     expect(message.text).toBe('Je lis.');
     expect(message.tools).toEqual([{ name: 'read_file', status: 'done', detail: 'main.tex' }]);
+  });
+
+  it('keeps the latest plan of the agent', () => {
+    let message = answer({ mode: 'agent' });
+    message = applyEvent(message, {
+      type: 'plan',
+      steps: [{ title: 'Lire', status: 'active' }],
+    });
+    message = applyEvent(message, {
+      type: 'plan',
+      steps: [
+        { title: 'Lire', status: 'done' },
+        { title: 'Modifier', status: 'active' },
+      ],
+    });
+    expect(message.plan).toEqual([
+      { title: 'Lire', status: 'done' },
+      { title: 'Modifier', status: 'active' },
+    ]);
   });
 
   it('records changesets, errors, usage and the end', () => {
@@ -57,7 +77,7 @@ describe('applyEvent', () => {
 });
 
 describe('historyFor', () => {
-  it('sends chat and fix exchanges, not inline edits nor unfinished answers', () => {
+  it('sends chat, fix and agent exchanges, not inline edits nor unfinished answers', () => {
     const messages: AiMessage[] = [
       answer({ id: '1', role: 'user', text: 'Q1', done: true }),
       answer({ id: '2', text: 'R1', done: true }),
@@ -65,11 +85,15 @@ describe('historyFor', () => {
       answer({ id: '4', mode: 'inline', text: '```latex\nx\n```', done: true }),
       answer({ id: '5', role: 'user', mode: 'fix', text: 'Fix', done: true }),
       answer({ id: '6', mode: 'fix', text: '', done: true, error: 'AI_UNAVAILABLE' }),
+      answer({ id: '7', role: 'user', mode: 'agent', text: 'Tâche', done: true }),
+      answer({ id: '8', mode: 'agent', text: 'Fait.', done: true }),
     ];
     expect(historyFor(messages, 'Q2')).toEqual([
       { role: 'user', text: 'Q1' },
       { role: 'assistant', text: 'R1' },
       { role: 'user', text: 'Fix' },
+      { role: 'user', text: 'Tâche' },
+      { role: 'assistant', text: 'Fait.' },
       { role: 'user', text: 'Q2' },
     ]);
   });

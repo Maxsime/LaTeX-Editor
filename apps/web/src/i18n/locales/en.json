@@ -66,6 +66,8 @@
     "AI_BAD_RESPONSE": "Unexpected answer from the AI provider.",
     "AI_NO_VISION": "The configured model cannot read images.",
     "AI_ENDPOINT_FORBIDDEN": "Custom provider addresses are not allowed on this instance.",
+    "AI_NO_TOOLS": "Agent mode needs a model that can call tools.",
+    "AI_AGENT_LIMIT": "The agent reached its step or token limit. The work done so far is proposed above.",
     "UNKNOWN_CITATION": "The proposal cites a key missing from the bibliography.",
     "QUOTA_STORAGE_EXCEEDED": "The project owner's storage space is full.",
     "QUOTA_COMPILE_EXCEEDED": "Your compilation time for this month is used up.",
@@ -948,7 +950,11 @@
       "compile_snippet": "Test compilation",
       "propose_changes": "Proposing a change",
       "search_literature": "Searching the literature",
-      "fetch_bibtex": "Fetching the reference"
+      "fetch_bibtex": "Fetching the reference",
+      "update_plan": "Plan",
+      "edit_draft": "Draft edit",
+      "compile_draft": "Draft compilation",
+      "submit_changes": "Changes submitted"
     },
     "usage": {
       "line": "{{input}} input tokens ({{cached}} cached), {{output}} output",
@@ -997,6 +1003,16 @@
     "options": {
       "enabled": "AI assistant",
       "enabledHint": "When off, the assistant is offered to no member of the project."
+    },
+    "agent": {
+      "toggle": "Agent mode",
+      "hint": "The agent reads, edits and compiles a draft over several steps, then submits the whole for your review. Nothing changes without your consent.",
+      "plan": "Plan"
+    },
+    "planStatus": {
+      "pending": "to do",
+      "active": "in progress",
+      "done": "done"
     }
   },
   "admin": {
@@ -1086,7 +1102,9 @@
       "pricesIntro": "One line per model: provider, model, price per million input tokens, output tokens, cached input tokens (empty if none), currency. They estimate the costs shown in My account.",
       "badLine": "Line {{line}} is not valid.",
       "savePrices": "Save prices",
-      "pricesSaved": "Prices saved."
+      "pricesSaved": "Prices saved.",
+      "agentBudget": "Agent mode budget (tokens per request)",
+      "agentBudgetHint": "Input and output tokens of every step of a request; the agent stops at the step that reaches it."
     },
     "services": {
       "version": "Galley version",
