@@ -157,11 +157,14 @@ interface Preferences {
   /** Spelling and grammar checking, when the instance offers it. */
   spellCheck: boolean;
   keyBindings: KeyBindings;
+  /** `.tex` files shown in the visual editor rather than as source. */
+  visualFiles: string[];
   setTheme: (theme: EditorTheme) => void;
   setFontSize: (size: number) => void;
   setLineWrapping: (on: boolean) => void;
   setSpellCheck: (on: boolean) => void;
   setKeyBindings: (mode: KeyBindings) => void;
+  setVisual: (fileId: string, on: boolean) => void;
 }
 
 export const FONT_SIZES = [11, 12, 13, 14, 15, 16, 18, 20] as const;
@@ -175,6 +178,7 @@ export const usePreferences = create<Preferences>()(
       lineWrapping: true,
       spellCheck: true,
       keyBindings: 'default',
+      visualFiles: [],
       setTheme: (theme) => {
         set({ theme });
       },
@@ -189,6 +193,14 @@ export const usePreferences = create<Preferences>()(
       },
       setKeyBindings: (keyBindings) => {
         set({ keyBindings });
+      },
+      setVisual: (fileId, on) => {
+        set(({ visualFiles }) => ({
+          // The most recent files only: the list must not grow without end in storage.
+          visualFiles: on
+            ? [fileId, ...visualFiles.filter((id) => id !== fileId)].slice(0, 200)
+            : visualFiles.filter((id) => id !== fileId),
+        }));
       },
     }),
     {

@@ -349,6 +349,10 @@
       "source": "Orthographe et grammaire",
       "addWord": "Ajouter au dictionnaire",
       "ignore": "Ignorer"
+    },
+    "visual": {
+      "toggle": "Visuel",
+      "help": "Masque le balisage des titres, emphases et listes et affiche les formules, sauf sur la ligne en cours. Le fichier reste du LaTeX."
     }
   },
   "compile": {

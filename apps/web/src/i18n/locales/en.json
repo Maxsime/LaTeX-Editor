@@ -349,6 +349,10 @@
       "source": "Spelling and grammar",
       "addWord": "Add to dictionary",
       "ignore": "Ignore"
+    },
+    "visual": {
+      "toggle": "Visual",
+      "help": "Hides the markup of titles, emphasis and lists and renders formulas, except on the current line. The file stays LaTeX."
     }
   },
   "compile": {

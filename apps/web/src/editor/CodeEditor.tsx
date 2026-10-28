@@ -23,7 +23,14 @@ import {
 } from './lint.js';
 import { katexMacros } from './math.js';
 import { colorPreview, mathPreview } from './preview.js';
-import { redrawReview, type ReviewOptions, reviewExtension, suggestingDispatch } from './review.js';
+import { visualEditor } from './visual-view.js';
+import {
+  redrawReview,
+  type ReviewOptions,
+  reviewExtension,
+  suggestedSpans,
+  suggestingDispatch,
+} from './review.js';
 import { loadKeyBindings } from './keybindings.js';
 import { EditorSettings, editorExtensions } from './setup.js';
 import { type SpellingOptions, spellingExtension } from './spelling.js';
@@ -93,6 +100,10 @@ export function CodeEditor({
   const view = useRef<EditorView | null>(null);
   const settings = useRef(new EditorSettings());
   const spellCompartment = useRef(new Compartment());
+  const visualCompartment = useRef(new Compartment());
+  const visual = usePreferences(
+    (state) => LIVE_LINT.test(fileName) && state.visualFiles.includes(fileId),
+  );
   const latex = LIVE_LINT.test(fileName);
   const inserted = useRef<Insertion | null>(null);
   const insertion = useEditor((state) => state.insertion);
@@ -160,6 +171,7 @@ export function CodeEditor({
           source: i18n.t('editor.lint.sourceEditor'),
         }),
         spellCompartment.current.of([]),
+        visualCompartment.current.of([]),
         LIVE_LINT.test(fileName)
           ? [
               mathPreview({
@@ -238,6 +250,25 @@ export function CodeEditor({
       readOnly: !writable || serverReadOnly,
     });
   }, [theme, fontSize, lineWrapping, writable, serverReadOnly]);
+
+  useEffect(() => {
+    const editor = view.current;
+    if (!editor) return;
+    editor.dispatch({
+      effects: visualCompartment.current.reconfigure(
+        visual
+          ? visualEditor({
+              macros: (state: EditorState) => ({
+                ...macros(),
+                ...katexMacros(extractStructure(state.doc.toString()).commands),
+              }),
+              protectedSpans: () => (review.current ? suggestedSpans(review.current) : []),
+            })
+          : [],
+      ),
+    });
+    // Also after the editor is rebuilt, which resets the compartment.
+  }, [visual, connection, fileId, fileName, completion, lintContext, macros, reloads]);
 
   // Following a collaborator: keep their cursor in view until the reader acts here.
   const following = usePresence((state) => state.following);

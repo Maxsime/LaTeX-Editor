@@ -15,8 +15,8 @@ import { mathAt } from './math.js';
 type Renderer = typeof KatexRender;
 let renderer: Promise<Renderer> | null = null;
 
-/** KaTeX, loaded once on the first formula hovered. */
-function loadRenderer(): Promise<Renderer> {
+/** KaTeX, loaded once on the first formula shown. */
+export function loadRenderer(): Promise<Renderer> {
   renderer ??= import('./katex-render.js');
   return renderer;
 }

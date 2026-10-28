@@ -70,6 +70,26 @@ function dirname(path: string): string {
   return slash === -1 ? '' : path.slice(0, slash);
 }
 
+/** Switches the open `.tex` file between source and visual editing. */
+function VisualToggle({ fileId }: { fileId: string }) {
+  const { t } = useTranslation();
+  const on = usePreferences((state) => state.visualFiles.includes(fileId));
+  const setVisual = usePreferences((state) => state.setVisual);
+  return (
+    <button
+      type="button"
+      aria-pressed={on}
+      title={t('editor.visual.help')}
+      onClick={() => {
+        setVisual(fileId, !on);
+      }}
+      className="ml-2 rounded px-2 py-0.5 text-xs hover:bg-slate-100 aria-pressed:bg-slate-700 aria-pressed:text-white"
+    >
+      {t('editor.visual.toggle')}
+    </button>
+  );
+}
+
 function Preferences({ spelling }: { spelling: boolean }) {
   const { t } = useTranslation();
   const { theme, fontSize, lineWrapping, setTheme, setFontSize, setLineWrapping } =
@@ -428,6 +448,8 @@ export default function EditorArea({
       ? activeNode.id
       : null;
 
+  const visualTarget =
+    activeNode?.kind === 'text' && /\.(tex|ltx)$/i.test(activeNode.name) ? activeNode.id : null;
   const bibTarget =
     !readOnly &&
     activeNode?.kind === 'text' &&
@@ -531,6 +553,7 @@ export default function EditorArea({
             <span>{t('review.mode.everyone')}</span>
           </label>
         )}
+        {visualTarget !== null && <VisualToggle fileId={visualTarget} />}
         {bibTarget !== null && (
           <BibToolbar
             fileId={bibTarget}

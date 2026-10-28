@@ -309,3 +309,16 @@ export function redrawReview(view: EditorView, options: ReviewOptions): void {
   if (options.text.length !== view.state.doc.length) return;
   view.dispatch({ effects: refresh.of(decorationsFor(options, view.state.doc.length)) });
 }
+
+/**
+ * Spans of the text that carry a suggestion: inserted segments, and the place
+ * of each deletion. The visual editor shows their markup as written.
+ */
+export function suggestedSpans(options: ReviewOptions): { from: number; to: number }[] {
+  const spans: { from: number; to: number }[] = [];
+  for (const range of resolveRanges(options.text, options.ranges)) {
+    if (range.kind === 'insert') for (const [from, to] of range.segments) spans.push({ from, to });
+    else if (range.kind === 'delete') spans.push({ from: range.pos, to: range.pos });
+  }
+  return spans;
+}
