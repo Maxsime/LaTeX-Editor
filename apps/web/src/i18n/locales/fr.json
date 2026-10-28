@@ -205,8 +205,13 @@
       "template": "Modèle",
       "templates": {
         "blank": "Projet vide",
-        "article": "Article avec bibliographie"
-      }
+        "article": "Article avec bibliographie",
+        "report": "Rapport avec chapitres",
+        "beamer": "Présentation Beamer",
+        "letter": "Lettre"
+      },
+      "builtin": "Modèles fournis",
+      "saved": "Mes modèles et ceux de l’instance"
     },
     "invites": {
       "title": "Invitations",
@@ -1028,6 +1033,74 @@
       "sso": "Connexion unique (OIDC)",
       "ssoOff": "non configurée",
       "health": "État détaillé des services"
+    }
+  },
+  "library": {
+    "actions": "Actions sur {{name}}",
+    "duplicate": {
+      "action": "Dupliquer",
+      "title": "Dupliquer « {{name}} »",
+      "name": "Nom de la copie",
+      "suffix": "copie",
+      "submit": "Dupliquer"
+    },
+    "template": {
+      "action": "Enregistrer comme modèle",
+      "title": "Enregistrer comme modèle",
+      "help": "Le modèle reprend les fichiers et les réglages du projet tels qu’ils sont maintenant. Les modifications ultérieures du projet ne le changent pas.",
+      "name": "Nom du modèle",
+      "description": "Description (facultative)",
+      "instance": "Proposer ce modèle à tous les utilisateurs de l’instance",
+      "saved": "Modèle enregistré. Il apparaît maintenant dans « Nouveau projet »."
+    },
+    "sourceProject": "Projet source",
+    "chooseProject": "Choisir un projet…",
+    "link": {
+      "open": "Fichier lié…",
+      "title": "Ajouter un fichier lié",
+      "kind": "Source du fichier",
+      "kinds": {
+        "url": "Adresse web",
+        "project": "Fichier d’un autre projet"
+      },
+      "url": "Adresse (http ou https)",
+      "urlHint": "Le fichier est téléchargé maintenant, puis à chaque actualisation. Les adresses du réseau local sont refusées.",
+      "file": "Fichier",
+      "chooseFile": "Choisir un fichier…",
+      "name": "Nom dans ce projet",
+      "submit": "Ajouter",
+      "fetching": "Récupération…",
+      "badge": "lié",
+      "from": "Copie de {{source}}",
+      "refresh": "Actualiser depuis la source",
+      "unlink": "Rompre le lien",
+      "readOnly": "Fichier lié à {{source}}, en lecture seule. Actualisez-le depuis l’arborescence, ou rompez le lien pour le modifier ici."
+    },
+    "copy": {
+      "open": "Copier depuis un projet…",
+      "title": "Copier des fichiers d’un autre projet",
+      "items": "Fichiers et dossiers à copier",
+      "help": "Les copies arrivent dans le dossier sélectionné. Un nom déjà pris n’est jamais écrasé.",
+      "submit_one": "Copier {{count}} élément",
+      "submit_other": "Copier {{count}} éléments"
+    },
+    "texmf": {
+      "title": "Mon texmf",
+      "help": "Classes, styles et bibliographies déposés ici sont disponibles dans la compilation de tous vos projets, sans les copier.",
+      "open": "Ouvrir mon texmf",
+      "banner": "Ceci est votre arborescence texmf personnelle. Les fichiers déposés ici (.cls, .sty, .bib, …) sont visibles par la compilation de tous vos projets. Elle ne se compile pas et ne se partage pas."
+    },
+    "templates": {
+      "title": "Mes modèles",
+      "help": "Modèles enregistrés depuis vos projets, proposés dans « Nouveau projet ».",
+      "empty": "Aucun modèle enregistré.",
+      "details_one": "{{count}} fichier · {{owner}}",
+      "details_other": "{{count}} fichiers · {{owner}}",
+      "instance": "proposé à toute l’instance",
+      "publish": "Proposer à tous",
+      "unpublish": "Retirer de l’instance",
+      "delete": "Supprimer le modèle",
+      "confirmDelete": "Supprimer le modèle « {{name}} » ? Les projets créés à partir de lui ne changent pas."
     }
   }
 }

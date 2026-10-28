@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { CompilePane } from '../components/CompilePane.js';
 import { FileTree, type TreeActions } from '../components/FileTree.js';
 import { HistoryDialog } from '../components/HistoryDialog.js';
+import { CopyFilesDialog, LinkFileDialog } from '../components/LibraryDialogs.js';
 import { OutlinePanel } from '../components/OutlinePanel.js';
 import { PresenceBadges } from '../components/PresenceBadges.js';
 import { ReferencesPanel } from '../components/ReferencesPanel.js';
@@ -18,6 +19,7 @@ import { Button, ErrorAlert, NameDialog } from '../components/ui.js';
 import { useAiStatus } from '../lib/ai.js';
 import { ApiRequestError } from '../lib/api.js';
 import { diagnosticsByFile, isPending, useLatestCompile } from '../lib/compile.js';
+import { useLibraryFiles } from '../lib/library.js';
 import { useProject, useTree, useTreeMutations, useUpdateProject } from '../lib/projects.js';
 import { buildTree, flatten } from '../lib/tree.js';
 import { fromFileList } from '../lib/upload.js';
@@ -102,14 +104,21 @@ export function ProjectPage() {
   const [newFile, setNewFile] = useState(false);
   const [sharing, setSharing] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [libraryDialog, setLibraryDialog] = useState<'link' | 'copy' | null>(null);
+  const library = useLibraryFiles(projectId);
   const compiles = useLatestCompile(projectId);
   const aiStatus = useAiStatus(projectId);
   // Turned off by the instance or the project: the panel is hidden, not just empty.
+  // A texmf tree is never compiled on its own: it feeds the owner's other projects.
+  const isTexmf = project.data?.type === 'texmf';
   const aiShown =
+    !isTexmf &&
     aiStatus.data !== undefined &&
     aiStatus.data.reason !== 'instance-disabled' &&
     aiStatus.data.reason !== 'project-disabled';
-  const { viewMode, setViewMode } = useCompilePreferences();
+  const preferences = useCompilePreferences();
+  const viewMode: ViewMode = isTexmf ? 'editor' : preferences.viewMode;
+  const setViewMode = preferences.setViewMode;
 
   useEffect(() => {
     open(projectId);
@@ -183,6 +192,12 @@ export function ProjectPage() {
         },
       );
     },
+    refreshLink: (id) => {
+      library.refreshLink.mutate(id);
+    },
+    unlink: (id) => {
+      library.unlink.mutate(id);
+    },
   };
 
   const createFile = (name: string) => {
@@ -215,13 +230,15 @@ export function ProjectPage() {
         )}
         <div className="mr-auto" />
         <PresenceBadges paths={paths} />
-        <Button
-          onClick={() => {
-            setSharing(true);
-          }}
-        >
-          {t('share.open')}
-        </Button>
+        {!isTexmf && (
+          <Button
+            onClick={() => {
+              setSharing(true);
+            }}
+          >
+            {t('share.open')}
+          </Button>
+        )}
         <Button
           onClick={() => {
             setHistoryOpen(true);
@@ -229,44 +246,48 @@ export function ProjectPage() {
         >
           {t('history.open')}
         </Button>
-        <label className="flex items-center gap-2 text-sm">
-          <span>{t('project.mainFile')}</span>
-          <select
-            disabled={!canEdit}
-            value={project.data?.mainFileId ?? ''}
-            onChange={(event) => {
-              updateProject.mutate({ mainFileId: event.currentTarget.value || null });
-            }}
-            className="rounded-md border border-slate-300 px-2 py-1"
-          >
-            <option value="">{t('project.mainFileNone')}</option>
-            {texFiles.map((file) => (
-              <option key={file.id} value={file.id}>
-                {file.path}
-              </option>
-            ))}
-          </select>
-        </label>
-        <ToggleGroup.Root
-          type="single"
-          value={viewMode}
-          aria-label={t('compile.view.label')}
-          onValueChange={(value) => {
-            const mode = VIEW_MODES.find((item) => item === value);
-            if (mode) setViewMode(mode);
-          }}
-          className="flex rounded-md border border-slate-300 text-sm"
-        >
-          {VIEW_MODES.map((mode) => (
-            <ToggleGroup.Item
-              key={mode}
-              value={mode}
-              className="px-2 py-1 data-[state=on]:bg-slate-200 data-[state=on]:font-medium"
+        {!isTexmf && (
+          <label className="flex items-center gap-2 text-sm">
+            <span>{t('project.mainFile')}</span>
+            <select
+              disabled={!canEdit}
+              value={project.data?.mainFileId ?? ''}
+              onChange={(event) => {
+                updateProject.mutate({ mainFileId: event.currentTarget.value || null });
+              }}
+              className="rounded-md border border-slate-300 px-2 py-1"
             >
-              {t(`compile.view.${mode}`)}
-            </ToggleGroup.Item>
-          ))}
-        </ToggleGroup.Root>
+              <option value="">{t('project.mainFileNone')}</option>
+              {texFiles.map((file) => (
+                <option key={file.id} value={file.id}>
+                  {file.path}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+        {!isTexmf && (
+          <ToggleGroup.Root
+            type="single"
+            value={viewMode}
+            aria-label={t('compile.view.label')}
+            onValueChange={(value) => {
+              const mode = VIEW_MODES.find((item) => item === value);
+              if (mode) setViewMode(mode);
+            }}
+            className="flex rounded-md border border-slate-300 text-sm"
+          >
+            {VIEW_MODES.map((mode) => (
+              <ToggleGroup.Item
+                key={mode}
+                value={mode}
+                className="px-2 py-1 data-[state=on]:bg-slate-200 data-[state=on]:font-medium"
+              >
+                {t(`compile.view.${mode}`)}
+              </ToggleGroup.Item>
+            ))}
+          </ToggleGroup.Root>
+        )}
         <a
           href={`/api/projects/${projectId}/export`}
           className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium hover:bg-slate-50"
@@ -275,6 +296,11 @@ export function ProjectPage() {
           {t('project.export')}
         </a>
       </div>
+      {isTexmf && (
+        <p role="note" className="rounded-md bg-sky-50 px-3 py-2 text-sm text-sky-900">
+          {t('library.texmf.banner')}
+        </p>
+      )}
       <Warnings projectId={projectId} />
       <ErrorAlert error={updateProject.error} />
       <div className={`grid h-[calc(100vh-11rem)] min-h-[28rem] gap-3 ${GRID[viewMode]}`}>
@@ -303,7 +329,16 @@ export function ProjectPage() {
                 mainFileId={project.data?.mainFileId ?? null}
                 actions={actions}
                 readOnly={!canEdit}
-                error={<ErrorAlert error={mutations.upload.error ?? tree.error} />}
+                error={
+                  <ErrorAlert
+                    error={
+                      mutations.upload.error ??
+                      library.refreshLink.error ??
+                      library.unlink.error ??
+                      tree.error
+                    }
+                  />
+                }
                 toolbar={(openFolderDialog) =>
                   canEdit && (
                     <div className="mb-2 flex flex-wrap gap-1">
@@ -329,6 +364,20 @@ export function ProjectPage() {
                         onClick={() => folderInput.current?.click()}
                       >
                         {t('project.uploadFolder')}
+                      </Button>
+                      <Button
+                        onClick={() => {
+                          setLibraryDialog('link');
+                        }}
+                      >
+                        {t('library.link.open')}
+                      </Button>
+                      <Button
+                        onClick={() => {
+                          setLibraryDialog('copy');
+                        }}
+                      >
+                        {t('library.copy.open')}
                       </Button>
                       {[fileInput, folderInput].map((ref) => (
                         <input
@@ -398,7 +447,7 @@ export function ProjectPage() {
           aria-label={t('compile.pane')}
           className={`min-h-0 min-w-0 overflow-hidden rounded-md border border-slate-200 ${viewMode === 'editor' ? 'hidden' : ''}`}
         >
-          {project.data && (
+          {project.data && !isTexmf && (
             <CompilePane
               project={project.data}
               latest={latest}
@@ -413,6 +462,22 @@ export function ProjectPage() {
       {project.data && (
         <ShareDialog project={project.data} open={sharing} onOpenChange={setSharing} />
       )}
+      <LinkFileDialog
+        projectId={projectId}
+        parentId={uploadTarget}
+        open={libraryDialog === 'link'}
+        onOpenChange={(next) => {
+          if (!next) setLibraryDialog(null);
+        }}
+      />
+      <CopyFilesDialog
+        projectId={projectId}
+        targetFolderId={uploadTarget}
+        open={libraryDialog === 'copy'}
+        onOpenChange={(next) => {
+          if (!next) setLibraryDialog(null);
+        }}
+      />
       <HistoryDialog
         projectId={projectId}
         canEdit={canEdit}

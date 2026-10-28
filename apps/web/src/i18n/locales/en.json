@@ -205,8 +205,13 @@
       "template": "Template",
       "templates": {
         "blank": "Blank project",
-        "article": "Article with bibliography"
-      }
+        "article": "Article with bibliography",
+        "report": "Report with chapters",
+        "beamer": "Beamer presentation",
+        "letter": "Letter"
+      },
+      "builtin": "Built-in templates",
+      "saved": "Saved templates"
     },
     "invites": {
       "title": "Invitations",
@@ -1028,6 +1033,74 @@
       "sso": "Single sign-on (OIDC)",
       "ssoOff": "not configured",
       "health": "Detailed service status"
+    }
+  },
+  "library": {
+    "actions": "Actions for {{name}}",
+    "duplicate": {
+      "action": "Duplicate",
+      "title": "Duplicate “{{name}}”",
+      "name": "Name of the copy",
+      "suffix": "copy",
+      "submit": "Duplicate"
+    },
+    "template": {
+      "action": "Save as template",
+      "title": "Save as template",
+      "help": "The template keeps the project’s files and settings as they are now. Later changes to the project do not affect it.",
+      "name": "Template name",
+      "description": "Description (optional)",
+      "instance": "Offer this template to every user of the instance",
+      "saved": "Template saved. It now appears in “New project”."
+    },
+    "sourceProject": "Source project",
+    "chooseProject": "Choose a project…",
+    "link": {
+      "open": "Linked file…",
+      "title": "Add a linked file",
+      "kind": "Source of the file",
+      "kinds": {
+        "url": "Web address",
+        "project": "File of another project"
+      },
+      "url": "Address (http or https)",
+      "urlHint": "The file is downloaded now, then on each refresh. Local network addresses are refused.",
+      "file": "File",
+      "chooseFile": "Choose a file…",
+      "name": "Name in this project",
+      "submit": "Add",
+      "fetching": "Fetching…",
+      "badge": "linked",
+      "from": "Copy of {{source}}",
+      "refresh": "Refresh from source",
+      "unlink": "Unlink",
+      "readOnly": "File linked to {{source}}, read-only. Refresh it from the file tree, or unlink it to edit it here."
+    },
+    "copy": {
+      "open": "Copy from a project…",
+      "title": "Copy files from another project",
+      "items": "Files and folders to copy",
+      "help": "Copies go into the selected folder. An existing name is never overwritten.",
+      "submit_one": "Copy {{count}} item",
+      "submit_other": "Copy {{count}} items"
+    },
+    "texmf": {
+      "title": "My texmf",
+      "help": "Classes, styles and bibliographies placed here are available when compiling all your projects, without copying them.",
+      "open": "Open my texmf",
+      "banner": "This is your personal texmf tree. Files placed here (.cls, .sty, .bib, …) are visible when compiling all your projects. It is never compiled or shared on its own."
+    },
+    "templates": {
+      "title": "My templates",
+      "help": "Templates saved from your projects, offered in “New project”.",
+      "empty": "No saved template.",
+      "details_one": "{{count}} file · {{owner}}",
+      "details_other": "{{count}} files · {{owner}}",
+      "instance": "offered to the whole instance",
+      "publish": "Offer to everyone",
+      "unpublish": "Withdraw from instance",
+      "delete": "Delete template",
+      "confirmDelete": "Delete the template “{{name}}”? Projects created from it are not affected."
     }
   }
 }

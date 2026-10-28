@@ -405,7 +405,10 @@ export default function EditorArea({
   );
   const activeNode = activeId === null ? undefined : byId.get(activeId);
   const insertTarget =
-    !readOnly && activeNode?.kind === 'text' && /\.(tex|ltx)$/i.test(activeNode.name)
+    !readOnly &&
+    activeNode?.kind === 'text' &&
+    activeNode.link === undefined &&
+    /\.(tex|ltx)$/i.test(activeNode.name)
       ? activeNode.id
       : null;
 
@@ -531,6 +534,11 @@ export default function EditorArea({
           </button>
         </div>
       )}
+      {activeNode?.link !== undefined && (
+        <p role="note" className="border-b border-sky-200 bg-sky-50 px-3 py-1 text-sm text-sky-900">
+          {t('library.link.readOnly', { source: activeNode.link.label })}
+        </p>
+      )}
       {activeId !== null && status[activeId] !== undefined && (
         <p className="sr-only" aria-live="polite">
           {t(`editor.status.${status[activeId]}`)}
@@ -554,7 +562,8 @@ export default function EditorArea({
               fileId={id}
               fileName={node.name}
               active={id === activeId}
-              readOnly={readOnly}
+              // Linked files are copies of their source; the server refuses edits as well.
+              readOnly={readOnly || node.link !== undefined}
               suggesting={suggesting}
               userId={user?.id ?? ''}
               completion={completion}

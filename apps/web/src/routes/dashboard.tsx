@@ -1,7 +1,7 @@
 import {
   type ProjectState,
   type ProjectSummary,
-  type ProjectTemplate,
+  projectTemplate,
   type Tag,
   TRASH_RETENTION_DAYS,
 } from '@galley/shared';
@@ -9,7 +9,9 @@ import { Link, useNavigate } from '@tanstack/react-router';
 import { DropdownMenu, ToggleGroup } from 'radix-ui';
 import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { ProjectActionsMenu } from '../components/ProjectLibrary.js';
 import { Button, ConfirmDialog, Dialog, ErrorAlert, TextField } from '../components/ui.js';
+import { templateChoice, useTemplates } from '../lib/library.js';
 import {
   actionsFor,
   type BulkAction,
@@ -51,6 +53,7 @@ function NewProjectDialog({
 }) {
   const { t } = useTranslation();
   const create = useCreateProject();
+  const templates = useTemplates();
   const navigate = useNavigate();
   return (
     <Dialog open={open} onOpenChange={onOpenChange} title={t('dashboard.create.title')}>
@@ -62,8 +65,7 @@ function NewProjectDialog({
           create.mutate(
             {
               name: formString(form, 'name').trim(),
-              // The select only offers valid template names.
-              template: formString(form, 'template') as ProjectTemplate,
+              ...templateChoice(formString(form, 'template')),
             },
             {
               onSuccess: ({ project }) => {
@@ -87,8 +89,22 @@ function NewProjectDialog({
             name="template"
             className="w-full rounded-md border border-slate-300 px-3 py-2 font-normal"
           >
-            <option value="blank">{t('dashboard.create.templates.blank')}</option>
-            <option value="article">{t('dashboard.create.templates.article')}</option>
+            <optgroup label={t('dashboard.create.builtin')}>
+              {projectTemplate.options.map((name) => (
+                <option key={name} value={name}>
+                  {t(`dashboard.create.templates.${name}`)}
+                </option>
+              ))}
+            </optgroup>
+            {templates.data !== undefined && templates.data.length > 0 && (
+              <optgroup label={t('dashboard.create.saved')}>
+                {templates.data.map((template) => (
+                  <option key={template.id} value={`saved:${template.id}`}>
+                    {template.name}
+                  </option>
+                ))}
+              </optgroup>
+            )}
           </select>
         </label>
         <ErrorAlert error={create.error} />
@@ -625,8 +641,9 @@ export function DashboardPage() {
                   <td className="py-2 whitespace-nowrap">
                     {dateFormat.format(new Date(project.updatedAt))}
                   </td>
-                  <td className="py-2 text-right">
+                  <td className="py-2 text-right whitespace-nowrap">
                     <TagMenu project={project} tags={tags} />
+                    {project.state === 'active' && <ProjectActionsMenu project={project} />}
                   </td>
                 </tr>
               ))}
