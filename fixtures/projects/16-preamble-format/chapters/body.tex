@@ -1,0 +1,26 @@
+\section{Mesures}\label{sec:mesures}
+\begin{table}[h]
+  \centering
+  \begin{tabular}{lr}
+    \toprule
+    Grandeur & Valeur \\
+    \midrule
+    Longueur & \SI{12}{\centi\metre} \\
+    \bottomrule
+  \end{tabular}
+  \caption{Mesures}\label{tab:mesures}
+\end{table}
+\begin{tikzpicture}
+  \node[draw] (a) {A};
+  \node[draw, right=of a] (b) {B};
+  \draw[-Latex] (a) -- (b);
+\end{tikzpicture}
+\begin{tikzpicture}
+  \begin{axis}[width=6cm]
+    \addplot[domain=0:2] {x^2};
+  \end{axis}
+\end{tikzpicture}
+Voir la table~\ref{tab:mesures} et l'équation~\eqref{eq:energie} :
+\begin{equation}\label{eq:energie}
+  E = \frac{1}{2} m \vitesse^2
+\end{equation}

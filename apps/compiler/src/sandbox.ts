@@ -95,6 +95,8 @@ export function bwrapArgs(
     ...['--setenv', 'BIBINPUTS', '.:/texmf//:'],
     ...['--setenv', 'BSTINPUTS', '.:/texmf//:'],
     ...['--setenv', 'TEXMFVAR', '/tmp/texmf-var'],
+    // A precompiled preamble is a format in the output folder (see preamble.ts).
+    ...['--setenv', 'TEXFORMATS', `${SANDBOX_OUT}:`],
     ...['--setenv', 'PAR_GLOBAL_TEMP', '/tmp/par'],
     // Writes only below the working and output directories.
     ...['--setenv', 'openout_any', 'p'],

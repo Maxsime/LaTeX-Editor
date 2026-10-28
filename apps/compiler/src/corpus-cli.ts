@@ -31,13 +31,17 @@ async function main(): Promise<void> {
       report.hotDurationMs === undefined
         ? ''
         : `, hot ${(report.hotDurationMs / 1000).toFixed(1)} s`;
+    const plain =
+      report.plainDurationMs === undefined
+        ? ''
+        : `, hot without the format ${(report.plainDurationMs / 1000).toFixed(1)} s`;
     const synctex =
       report.synctexMedianMs === undefined
         ? ''
         : `, SyncTeX median ${report.synctexMedianMs.toFixed(0)} ms, accuracy ${((report.synctexAccuracy ?? 0) * 100).toFixed(0)} %`;
     const mark = report.failures.length === 0 ? 'ok  ' : 'FAIL';
     process.stdout.write(
-      `${mark} ${report.project}/${report.main} (${report.engine}) ${seconds} s${hot}${synctex}\n`,
+      `${mark} ${report.project}/${report.main} (${report.engine}) ${seconds} s${hot}${plain}${synctex}\n`,
     );
     for (const failure of report.failures) process.stdout.write(`       - ${failure}\n`);
   };

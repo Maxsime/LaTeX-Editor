@@ -48,6 +48,7 @@ function job(overrides: Partial<CompileJob> = {}): CompileJob {
     haltOnError: false,
     chktexDisabled: [],
     clean: false,
+    precompilePreamble: false,
     ...overrides,
   };
 }

@@ -1,0 +1,30 @@
+{
+  "description": "Préambule lourd (TikZ, pgfplots, siunitx, hyperref, babel, paquet et macros du projet) compilé avec un format précompilé : même nombre de pages et même .aux que sans le format, recompilation rapide après une modification du corps. Le préambule de fallback.tex dépend de \\jobname, qui vaut le nom du format quand il est vidé : la compilation repasse sans format et le signale (SPEC §3.3, J11 A2).",
+  "runs": [
+    {
+      "main": "main.tex",
+      "precompilePreamble": true,
+      "hotEdit": "chapters/body.tex",
+      "expect": {
+        "outcome": "success",
+        "minPages": 1,
+        "sameAsWithoutFormat": true,
+        "logContains": ["format=galley-preamble"],
+        "hotRecompileMs": 3000
+      }
+    },
+    {
+      "main": "fallback.tex",
+      "precompilePreamble": true,
+      "expect": {
+        "outcome": "success",
+        "warnings": [
+          {
+            "file": "fallback.tex",
+            "message": "PREAMBLE_FORMAT_UNUSABLE"
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -54,4 +54,10 @@ describe('latexmkArgv', () => {
       expect.arrayContaining(['-xelatex', '-shell-escape']),
     );
   });
+
+  it('loads a precompiled preamble through the engine options', () => {
+    expect(latexmkArgv(job, 'restricted', 'main.tex', 'galley-preamble')).toContain(
+      '-latexoption=-fmt=galley-preamble',
+    );
+  });
 });
