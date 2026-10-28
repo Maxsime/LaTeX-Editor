@@ -128,6 +128,8 @@ git clone https://localhost/git/<identifiant-du-projet>
 
 L'adresse exacte est affichée dans la fenêtre « Historique ». `git pull` récupère les modifications faites dans l'éditeur, `git push` envoie les vôtres, visibles aussitôt par les personnes qui ont le projet ouvert. Un push est refusé si le projet a changé depuis votre dernier `git pull` : récupérez, laissez Git fusionner, puis poussez. Seule la branche `main` est acceptée ; liens symboliques et sous-modules sont refusés. Avec le certificat local, indiquez-le à Git : `git -c http.sslCAInfo=root.crt clone ...`.
 
+Un projet peut aussi être relié à un dépôt GitHub ou GitLab, dans la fenêtre « Historique » : adresse `https` du dépôt, branche, et jeton d'accès personnel (facultatif pour tirer d'un dépôt public). « Tirer » récupère la branche et l'applique au projet, en fusionnant si les deux côtés ont avancé ; si les mêmes lignes ont changé des deux côtés, les fichiers en conflit sont signalés et rien n'est modifié. « Pousser » envoie l'état courant du projet, et est refusé si le dépôt distant a avancé depuis : tirez d'abord. Seul le propriétaire relie ou délie le dépôt ; toute personne qui peut éditer tire et pousse. Le jeton est chiffré et n'est plus jamais affiché, hormis ses quatre derniers caractères. Hôtes acceptés : voir [`docs/operations.md`](docs/operations.md#synchronisation-githubgitlab).
+
 ### Compiler
 
 Le PDF s'affiche à droite de l'éditeur ; les boutons de l'en-tête basculent entre éditeur seul, PDF seul ou les deux. Un projet compile à son ouverture, puis à chaque pause de frappe (2 s par défaut, réglable ou désactivable dans « Options »), avec le bouton « Compiler », Ctrl+S ou Ctrl+Entrée. Le PDF garde sa position de lecture et son zoom d'une compilation à l'autre.

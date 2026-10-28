@@ -73,6 +73,16 @@ SMTP_FROM=Galley <galley@example.org>
 
 Le lien de réinitialisation contient un jeton aléatoire de 256 bits dont seule l'empreinte est stockée. Il expire au bout d'une heure, ne sert qu'une fois, et toute nouvelle demande annule le précédent. La réponse est la même, et aussi rapide, que l'adresse corresponde à un compte ou non. Changer le mot de passe ferme toutes les sessions du compte. Un compte créé par l'OIDC, sans mot de passe propre, ne reçoit pas de lien.
 
+## Synchronisation GitHub/GitLab
+
+Les projets peuvent être reliés à un dépôt distant (fenêtre « Historique »). Seuls les hôtes de `GIT_SYNC_HOSTS` sont acceptés, `github.com,gitlab.com` par défaut ; ajoutez le vôtre pour une forge auto-hébergée :
+
+```sh
+GIT_SYNC_HOSTS=github.com,gitlab.com,git.example.org
+```
+
+Seul `https` est accepté, sans identifiants dans l'adresse ni redirection suivie. `GIT_SYNC_ALLOW_HTTP=true` autorise aussi `http`, pour les tests seulement : le jeton circulerait en clair. Le jeton est chiffré au repos par `GALLEY_MASTER_KEY` (AES-256-GCM) et transmis à `git` par un assistant d'identification qui le lit dans l'environnement du processus : il n'apparaît ni dans l'adresse, ni dans la configuration du dépôt, ni dans les journaux. Un échange avec le dépôt distant dure au plus 120 secondes, et aucun fichier qu'il écrit ne dépasse `GIT_MAX_PUSH_MB`. Le contenu tiré passe par les mêmes contrôles qu'un `git push` vers Galley (chemins, liens symboliques, sous-modules, tailles, quota). Dix synchronisations par minute et par personne au plus.
+
 ## Sauvegarde et restauration
 
 `scripts/backup.sh [dossier]` (défaut `./backups`) sauvegarde une instance en marche dans `galley-<date UTC>/` :

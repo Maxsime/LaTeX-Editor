@@ -481,6 +481,7 @@ export function ProjectPage() {
       <HistoryDialog
         projectId={projectId}
         canEdit={canEdit}
+        isOwner={project.data?.role === 'owner'}
         open={historyOpen}
         onOpenChange={setHistoryOpen}
       />

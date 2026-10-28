@@ -7,6 +7,9 @@ import { git } from './run.js';
 /** The only branch of a project's repository. */
 export const MAIN_REF = 'refs/heads/main';
 
+/** Where the branch of a synchronised GitHub or GitLab repository is fetched; never served. */
+export const SYNC_REF = 'refs/sync/remote';
+
 const HOOK_SCRIPT = fileURLToPath(new URL('../../hooks/pre-receive.mjs', import.meta.url));
 
 /** Repositories configured by this process, so that it is done once each. */
@@ -44,6 +47,9 @@ export async function ensureRepository(config: ApiConfig, projectId: string): Pr
     ['receive.denyDeletes', 'true'],
     ['receive.fsckObjects', 'true'],
     ['receive.maxInputSize', String(config.GIT_MAX_PUSH_MB * 1024 * 1024)],
+    // The fetched remote branch is the server's business, not the clients'.
+    ['uploadpack.hideRefs', 'refs/sync'],
+    ['receive.hideRefs', 'refs/sync'],
   ];
   for (const [key, value] of settings) await git(path, ['config', key, value]);
   // The hook names the running Node binary and script, which change with the image.

@@ -56,6 +56,10 @@ jobs:
       # Likewise a test mail server (e2e/tests/mail.spec.ts).
       SMTP_URL: smtp://172.17.0.1:2525
       SMTP_FROM: Galley <galley@localhost>
+      # The synchronisation test uses the instance's own Git endpoint as remote
+      # (e2e/tests/remote.spec.ts), which the API reaches over plain HTTP.
+      GIT_SYNC_HOSTS: github.com,gitlab.com,127.0.0.1:3000
+      GIT_SYNC_ALLOW_HTTP: 'true'
     steps:
       - uses: actions/checkout@v5
       # Installation time is measured from here, as docs/installation.md steps 3 and 4.

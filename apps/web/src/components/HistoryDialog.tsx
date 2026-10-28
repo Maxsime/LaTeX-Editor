@@ -10,6 +10,7 @@ import {
   useTextChange,
 } from '../lib/history.js';
 import { cloneUrl } from '../lib/tokens.js';
+import { RemoteSync } from './RemoteSync.js';
 import { Button, ConfirmDialog, Dialog, ErrorAlert, NameDialog } from './ui.js';
 
 type Change = CompareResponse['changes'][number];
@@ -279,11 +280,13 @@ function GitAccess({ projectId }: { projectId: string }) {
 export function HistoryDialog({
   projectId,
   canEdit,
+  isOwner,
   open,
   onOpenChange,
 }: {
   projectId: string;
   canEdit: boolean;
+  isOwner: boolean;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
@@ -367,6 +370,7 @@ export function HistoryDialog({
         )}
       </div>
       <GitAccess projectId={projectId} />
+      {canEdit && <RemoteSync projectId={projectId} isOwner={isOwner} />}
       <NameDialog
         open={naming}
         onOpenChange={setNaming}

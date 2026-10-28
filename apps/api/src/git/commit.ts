@@ -64,76 +64,90 @@ async function authorsSince(
  * @returns the commit `main` points to.
  */
 export async function serveCurrentState(context: AppContext, projectId: string): Promise<string> {
-  const { config, database, redis, s3 } = context;
+  const gitDir = await ensureRepository(context.config, projectId);
+  return withLock(context.redis, gitLockKey(projectId), () =>
+    commitCurrentState(context, projectId, gitDir),
+  );
+}
+
+/** Key of the lock serialising every change to a project's repository. */
+export function gitLockKey(projectId: string): string {
+  return `git:lock:${projectId}`;
+}
+
+/** {@link serveCurrentState} for a caller already holding {@link gitLockKey}. */
+export async function commitCurrentState(
+  context: AppContext,
+  projectId: string,
+  gitDir: string,
+): Promise<string> {
+  const { config, database, s3 } = context;
   const { db } = database;
-  const gitDir = await ensureRepository(config, projectId);
-  return withLock(redis, `git:lock:${projectId}`, async () => {
-    const state = await materializeProject(context, projectId);
-    const digest = filesDigest(state.manifest);
-    const row = await repositoryRow(db, projectId);
-    const head = await mainCommit(gitDir);
-    // A repository lost from the volume is rebuilt from the project, without its old commits.
-    const parent = head !== null && head === row?.commit ? head : null;
-    if (parent !== null && row?.digest === digest) return parent;
+  const state = await materializeProject(context, projectId);
+  const digest = filesDigest(state.manifest);
+  const row = await repositoryRow(db, projectId);
+  const head = await mainCommit(gitDir);
+  // A repository lost from the volume is rebuilt from the project, without its old commits.
+  const parent = head !== null && head === row?.commit ? head : null;
+  if (parent !== null && row?.digest === digest) return parent;
 
-    // The history records the state first, so that the commit can name its authors.
-    await takeSnapshot(context, projectId, 'auto', { state });
-    const authors = await authorsSince(
-      context,
-      projectId,
-      parent === null ? undefined : row?.updatedAt,
-    );
+  // The history records the state first, so that the commit can name its authors.
+  await takeSnapshot(context, projectId, 'auto', { state });
+  const authors = await authorsSince(
+    context,
+    projectId,
+    parent === null ? undefined : row?.updatedAt,
+  );
 
-    const objects = { ...(parent === null ? {} : row?.objects) };
-    const root: TreeNode = { files: new Map(), folders: new Map() };
-    for (const [path, hash] of Object.entries(state.manifest)) {
-      let oid = objects[hash];
-      if (oid === undefined) {
-        const bytes = await readBlobBytes(s3, config.S3_BUCKET, hash);
-        oid = (await git(gitDir, ['hash-object', '-w', '--stdin'], { input: bytes }))
-          .toString('utf8')
-          .trim();
-        objects[hash] = oid;
-      }
-      const segments = path.split('/');
-      const name = segments.pop() ?? path;
-      let node = root;
-      for (const segment of segments) {
-        let child = node.folders.get(segment);
-        if (!child) {
-          child = { files: new Map(), folders: new Map() };
-          node.folders.set(segment, child);
-        }
-        node = child;
-      }
-      node.files.set(name, oid);
+  const objects = { ...(parent === null ? {} : row?.objects) };
+  const root: TreeNode = { files: new Map(), folders: new Map() };
+  for (const [path, hash] of Object.entries(state.manifest)) {
+    let oid = objects[hash];
+    if (oid === undefined) {
+      const bytes = await readBlobBytes(s3, config.S3_BUCKET, hash);
+      oid = (await git(gitDir, ['hash-object', '-w', '--stdin'], { input: bytes }))
+        .toString('utf8')
+        .trim();
+      objects[hash] = oid;
     }
-    const tree = await writeTree(gitDir, root);
+    const segments = path.split('/');
+    const name = segments.pop() ?? path;
+    let node = root;
+    for (const segment of segments) {
+      let child = node.folders.get(segment);
+      if (!child) {
+        child = { files: new Map(), folders: new Map() };
+        node.folders.set(segment, child);
+      }
+      node = child;
+    }
+    node.files.set(name, oid);
+  }
+  const tree = await writeTree(gitDir, root);
 
-    const [author = SERVER_IDENTITY, ...coAuthors] = authors;
-    const message = [
-      'Update from Galley',
-      ...(coAuthors.length
-        ? ['', ...coAuthors.map((person) => `Co-authored-by: ${person.name} <${person.email}>`)]
-        : []),
-      '',
-    ].join('\n');
-    const commit = (
-      await git(gitDir, ['commit-tree', tree, ...(parent === null ? [] : ['-p', parent])], {
-        input: message,
-        env: {
-          GIT_AUTHOR_NAME: author.name,
-          GIT_AUTHOR_EMAIL: author.email,
-          GIT_COMMITTER_NAME: SERVER_IDENTITY.name,
-          GIT_COMMITTER_EMAIL: SERVER_IDENTITY.email,
-        },
-      })
-    )
-      .toString('utf8')
-      .trim();
-    // Moves main only from the commit read above; anything else is a concurrent change.
-    await git(gitDir, ['update-ref', MAIN_REF, commit, head ?? '']);
-    await saveRepositoryRow(db, projectId, commit, state.manifest, objects);
-    return commit;
-  });
+  const [author = SERVER_IDENTITY, ...coAuthors] = authors;
+  const message = [
+    'Update from Galley',
+    ...(coAuthors.length
+      ? ['', ...coAuthors.map((person) => `Co-authored-by: ${person.name} <${person.email}>`)]
+      : []),
+    '',
+  ].join('\n');
+  const commit = (
+    await git(gitDir, ['commit-tree', tree, ...(parent === null ? [] : ['-p', parent])], {
+      input: message,
+      env: {
+        GIT_AUTHOR_NAME: author.name,
+        GIT_AUTHOR_EMAIL: author.email,
+        GIT_COMMITTER_NAME: SERVER_IDENTITY.name,
+        GIT_COMMITTER_EMAIL: SERVER_IDENTITY.email,
+      },
+    })
+  )
+    .toString('utf8')
+    .trim();
+  // Moves main only from the commit read above; anything else is a concurrent change.
+  await git(gitDir, ['update-ref', MAIN_REF, commit, head ?? '']);
+  await saveRepositoryRow(db, projectId, commit, state.manifest, objects);
+  return commit;
 }

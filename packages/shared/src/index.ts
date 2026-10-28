@@ -15,6 +15,7 @@ export * from './library.js';
 export * from './mail.js';
 export * from './names.js';
 export * from './projects.js';
+export * from './remote.js';
 export * from './review.js';
 export * from './sharing.js';
 export * from './synctex.js';

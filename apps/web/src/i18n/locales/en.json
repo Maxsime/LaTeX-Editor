@@ -43,6 +43,13 @@
     "SERVICE_UNAVAILABLE": "Service temporarily unavailable.",
     "MAIL_DISABLED": "This instance sends no e-mail. Ask its administrator to reset your password.",
     "RESET_TOKEN_INVALID": "This link no longer works: it was used, has expired or was replaced by a newer one. Ask for a new link.",
+    "REMOTE_NOT_CONFIGURED": "No GitHub or GitLab repository is linked to this project.",
+    "REMOTE_URL_REFUSED": "Address refused: give the HTTPS address of a repository on one of the allowed hosts, without credentials.",
+    "REMOTE_AUTH_FAILED": "The repository refuses the token, or does not exist. Check the address and that the token grants read and write access to its contents.",
+    "REMOTE_UNREACHABLE": "The remote repository does not answer, or it is too large. Try again later.",
+    "REMOTE_BRANCH_NOT_FOUND": "This branch does not exist on the remote repository. Push the project first to create it.",
+    "REMOTE_AHEAD": "The remote repository has changes the project lacks: pull them first, then push.",
+    "REMOTE_REJECTED": "The remote repository refused the push (protected branch or missing rights).",
     "INTERNAL_ERROR": "Internal error.",
     "USER_NOT_FOUND": "No account matches. The person must sign up first; you can also send them a share link.",
     "ALREADY_MEMBER": "This person is already a member of the project.",
@@ -1198,6 +1205,44 @@
       "failure": "The fragment does not compile.",
       "timeout": "The fragment took too long to compile.",
       "error": "No compiler answered in time."
+    }
+  },
+  "remote": {
+    "title": "GitHub or GitLab synchronisation",
+    "intro": "Link a repository to push the project to it or pull its changes, on demand. Create an access token on GitHub or GitLab allowed to write the repository's contents.",
+    "none": "The project owner has linked no repository.",
+    "unavailable": "Unavailable: the instance has no master key to encrypt tokens.",
+    "url": "Repository address",
+    "hosts": "Allowed hosts: {{hosts}}.",
+    "branch": "Branch",
+    "token": "Access token",
+    "tokenHint": "Encrypted on the server; only its last four characters will be shown.",
+    "tokenKeep": "Leave empty to keep the current token (…{{hint}}).",
+    "onBranch": "branch {{branch}}",
+    "never": "Never synchronised.",
+    "last": "Last synchronised: {{date}}.",
+    "pull": "Pull",
+    "push": "Push",
+    "edit": "Edit",
+    "unlink": "Unlink",
+    "unlinkTitle": "Unlink the repository",
+    "unlinkConfirm": "The token is erased. The remote repository and the project stay as they are.",
+    "working": "Talking to the remote repository…",
+    "outcome": {
+      "upToDate": "Already up to date.",
+      "updated": "Changes of the remote repository applied.",
+      "merged": "Changes of the remote repository merged with the project's.",
+      "pushed": "Project pushed to the remote repository.",
+      "conflict": "The same passages changed on both sides; nothing was applied. Reconcile these files in the project or the repository, then pull again:"
+    },
+    "refused": {
+      "symlink": "The repository holds a symbolic link, refused: {{path}}",
+      "submodule": "The repository holds a submodule, refused: {{path}}",
+      "invalidPath": "Path refused in the repository: {{path}}",
+      "fileTooLarge": "File too large in the repository: {{path}}",
+      "tooLarge": "The repository is too large for the project.",
+      "tooManyFiles": "The repository has too many files.",
+      "quota": "The project owner's storage space is full."
     }
   }
 }
