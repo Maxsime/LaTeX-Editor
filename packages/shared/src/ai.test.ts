@@ -19,7 +19,8 @@ describe('AI schemas', () => {
   it('rejects empty conversations, unknown modes and bad images', () => {
     expect(aiChatRequest.safeParse({ mode: 'chat', messages: [] }).success).toBe(false);
     expect(
-      aiChatRequest.safeParse({ mode: 'agent', messages: [{ role: 'user', text: 'x' }] }).success,
+      aiChatRequest.safeParse({ mode: 'autopilot', messages: [{ role: 'user', text: 'x' }] })
+        .success,
     ).toBe(false);
     expect(
       aiChatRequest.safeParse({
