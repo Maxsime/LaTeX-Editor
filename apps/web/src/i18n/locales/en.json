@@ -64,7 +64,11 @@
     "OIDC_NOT_CONFIGURED": "Sign-in with an identity provider is not configured.",
     "OIDC_FAILED": "Sign-in with the identity provider failed.",
     "OIDC_EMAIL_UNVERIFIED": "The identity provider does not vouch for your e-mail address.",
-    "OIDC_SIGNUP_CLOSED": "No account matches this identity and registration is closed."
+    "OIDC_SIGNUP_CLOSED": "No account matches this identity and registration is closed.",
+    "FILE_READ_ONLY": "This file is linked to an external source and is read-only. Refresh it or remove the link.",
+    "LINKS_DISABLED": "Files linked to a web address are disabled on this instance.",
+    "LINK_ADDRESS_REFUSED": "This address is not allowed: only public http or https addresses are accepted.",
+    "LINK_FETCH_FAILED": "The source of the linked file could not be read. Try again later."
   },
   "common": {
     "cancel": "Cancel",

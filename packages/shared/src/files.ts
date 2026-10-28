@@ -6,6 +6,19 @@ export type FileKind = z.infer<typeof fileKind>;
 
 export const fileId = z.uuid();
 
+/** Longest URL a file may be linked to. */
+export const MAX_LINK_URL_LENGTH = 2000;
+
+/** Where a linked file comes from (SPEC §3.1). */
+export const fileLink = z.discriminatedUnion('kind', [
+  z.object({
+    kind: z.literal('url'),
+    url: z.url({ protocol: /^https?$/ }).check(z.maxLength(MAX_LINK_URL_LENGTH)),
+  }),
+  z.object({ kind: z.literal('project'), projectId: z.uuid(), fileId }),
+]);
+export type FileLink = z.infer<typeof fileLink>;
+
 /** One node of a project tree as returned by the API; the client rebuilds the hierarchy. */
 export const treeNode = z.object({
   id: fileId,
@@ -15,6 +28,15 @@ export const treeNode = z.object({
   /** Bytes; `null` for folders. */
   size: z.nullable(z.number()),
   updatedAt: z.string(),
+  /** Set for linked files, which are read-only and refreshed on request. */
+  link: z.optional(
+    z.object({
+      source: fileLink,
+      /** Name of the source: its URL, or the project and file it comes from. */
+      label: z.string(),
+      refreshedAt: z.nullable(z.string()),
+    }),
+  ),
 });
 export type TreeNode = z.infer<typeof treeNode>;
 

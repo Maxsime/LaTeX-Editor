@@ -165,6 +165,8 @@ export const apiEnv = z
     OIDC_SCOPES: z._default(z.string(), 'openid email profile'),
     /** Creates accounts on first sign-in even when registration is not open. */
     OIDC_ALLOW_SIGNUP: z._default(booleanFlag, false),
+    /** Lets people link files to public web addresses (SPEC §3.1). */
+    LINKED_URLS_ENABLED: z._default(booleanFlag, true),
   })
   .check(
     z.refine((env) => !env.OIDC_ISSUER || Boolean(env.OIDC_CLIENT_ID), {

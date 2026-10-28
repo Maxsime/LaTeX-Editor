@@ -1,4 +1,4 @@
-import type { CompileOptions, CompileResult } from '@galley/shared';
+import type { CompileOptions, CompileResult, FileLink, Manifest } from '@galley/shared';
 import { sql } from 'drizzle-orm';
 import {
   bigint,
@@ -110,6 +110,10 @@ export const projects = pgTable(
   },
   (table) => [
     index('projects_owner_idx').on(table.ownerId),
+    // One personal texmf tree per person (SPEC §3.1).
+    uniqueIndex('projects_texmf_owner_idx')
+      .on(table.ownerId)
+      .where(sql`${table.type} = 'texmf'`),
     index('projects_deleted_idx')
       .on(table.deletedAt)
       .where(sql`${table.deletedAt} is not null`),
@@ -223,6 +227,9 @@ export const files = pgTable(
     blobHash: text('blob_hash').references(() => blobs.hash),
     /** Content size in bytes at the last write, for display only. */
     size: bigint('size', { mode: 'number' }),
+    /** Source of a linked file, read-only and refreshed on request (SPEC §3.1). */
+    link: jsonb('link').$type<FileLink>(),
+    linkRefreshedAt: timestamp('link_refreshed_at', { withTimezone: true }),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
     ...timestamps,
   },
@@ -571,5 +578,34 @@ export const userIdentities = pgTable(
   (table) => [
     uniqueIndex('user_identities_issuer_subject_idx').on(table.issuer, table.subject),
     index('user_identities_user_idx').on(table.userId),
+  ],
+);
+
+export const templateVisibility = pgEnum('template_visibility', ['private', 'instance']);
+
+/** Project templates saved by people, or published by an administrator for everyone. */
+export const templates = pgTable(
+  'templates',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    ownerId: uuid('owner_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    visibility: templateVisibility('visibility').notNull().default('private'),
+    name: text('name').notNull(),
+    description: text('description').notNull().default(''),
+    /** Files as `{path: blob hash}`; blobs are never deleted while referenced. */
+    manifest: jsonb('manifest').$type<Manifest>().notNull(),
+    folders: text('folders').array().notNull().default(sql`'{}'::text[]`),
+    mainPath: text('main_path'),
+    engine: engineEnum('engine').notNull().default('pdflatex'),
+    bibTool: bibToolEnum('bib_tool').notNull().default('biber'),
+    ...timestamps,
+  },
+  (table) => [
+    index('templates_owner_idx').on(table.ownerId),
+    index('templates_instance_idx')
+      .on(table.visibility)
+      .where(sql`${table.visibility} = 'instance'`),
   ],
 );
