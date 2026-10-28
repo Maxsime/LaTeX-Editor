@@ -28,7 +28,7 @@ import { eq } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import { Redis } from 'ioredis';
 import type { StartedTestContainer } from 'testcontainers';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { buildApp } from '../src/app.js';
 import { ensureSetupCode } from '../src/auth/setup.js';
 import { createDocumentGateway } from '../src/collab/documents.js';
@@ -465,7 +465,14 @@ describe.skipIf(!dockerAvailable)('compilation API', () => {
     await worker.pause();
     const run = await compile();
     await queue.remove(run.id);
+    // A run just recorded may not have its job queued yet: it is not lost at once.
+    const fresh = await owner.send('GET', `/api/projects/${projectId}/compiles/${run.id}`);
+    expect(fresh.json()).toMatchObject({ status: 'queued' });
+    // A minute later, the run without a job is lost.
+    const now = Date.now();
+    const clock = vi.spyOn(Date, 'now').mockReturnValue(now + 60_000);
     await waitFor(run.id, 'error');
+    clock.mockRestore();
     const [row] = await database.db.select().from(compileRuns).where(eq(compileRuns.id, run.id));
     expect(row?.failureCode).toBe('LOST');
     await worker.resume();
