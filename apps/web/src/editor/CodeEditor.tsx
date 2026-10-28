@@ -81,6 +81,20 @@ function checkOf(fileName: string): 'latex' | 'bibtex' | null {
  * its tab, hidden when inactive, so scroll position and undo history survive
  * tab switches.
  */
+/** The visual editor over the project's macros, leaving suggestions as source. */
+function visualConfig(
+  macros: () => Record<string, string>,
+  review: { readonly current: ReviewOptions | null },
+) {
+  return visualEditor({
+    macros: (state: EditorState) => ({
+      ...macros(),
+      ...katexMacros(extractStructure(state.doc.toString()).commands),
+    }),
+    protectedSpans: () => (review.current ? suggestedSpans(review.current) : []),
+  });
+}
+
 export function CodeEditor({
   connection,
   fileId,
@@ -121,6 +135,12 @@ export function CodeEditor({
   }, [suggesting, userId, readOnly]);
   const changesets = useAi((state) => state.changesets);
   const review = useRef<ReviewOptions | null>(null);
+  // The visual mode a rebuilt editor starts in, and the one the current editor shows.
+  const visualLive = useRef(visual);
+  const visualApplied = useRef(visual);
+  useEffect(() => {
+    visualLive.current = visual;
+  }, [visual]);
 
   useEffect(() => {
     const parent = host.current;
@@ -171,7 +191,7 @@ export function CodeEditor({
           source: i18n.t('editor.lint.sourceEditor'),
         }),
         spellCompartment.current.of([]),
-        visualCompartment.current.of([]),
+        visualCompartment.current.of(visualLive.current ? visualConfig(macros, review) : []),
         LIVE_LINT.test(fileName)
           ? [
               mathPreview({
@@ -208,6 +228,7 @@ export function CodeEditor({
       ],
     });
     view.current = editor;
+    visualApplied.current = visualLive.current;
     return () => {
       view.current = null;
       review.current = null;
@@ -253,22 +274,14 @@ export function CodeEditor({
 
   useEffect(() => {
     const editor = view.current;
-    if (!editor) return;
+    // The editor is built with the current mode: only a change of mode reconfigures it,
+    // as a reconfiguration closes the tooltips open at that moment.
+    if (!editor || visual === visualApplied.current) return;
+    visualApplied.current = visual;
     editor.dispatch({
-      effects: visualCompartment.current.reconfigure(
-        visual
-          ? visualEditor({
-              macros: (state: EditorState) => ({
-                ...macros(),
-                ...katexMacros(extractStructure(state.doc.toString()).commands),
-              }),
-              protectedSpans: () => (review.current ? suggestedSpans(review.current) : []),
-            })
-          : [],
-      ),
+      effects: visualCompartment.current.reconfigure(visual ? visualConfig(macros, review) : []),
     });
-    // Also after the editor is rebuilt, which resets the compartment.
-  }, [visual, connection, fileId, fileName, completion, lintContext, macros, reloads]);
+  }, [visual, macros]);
 
   // Following a collaborator: keep their cursor in view until the reader acts here.
   const following = usePresence((state) => state.following);
