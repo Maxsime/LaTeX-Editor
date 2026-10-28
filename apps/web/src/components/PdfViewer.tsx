@@ -9,10 +9,11 @@ import {
   PDFViewer,
 } from 'pdfjs-dist/web/pdf_viewer.mjs';
 import 'pdfjs-dist/web/pdf_viewer.css';
-import { useEffect, useRef, useState } from 'react';
+import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { type ReadingPosition, restorePosition, savePosition } from '../lib/pdf-position.js';
 import { toPdfRect, toSynctexPoint, type ViewBox } from '../lib/synctex.js';
+import { useCompilePreferences } from '../stores/compile.js';
 
 GlobalWorkerOptions.workerSrc = workerUrl;
 
@@ -38,6 +39,8 @@ interface PdfViewerProps {
   /** Called on a double-click in a page, with the point in SyncTeX coordinates. */
   onSynctex?: (point: { page: number; x: number; y: number }) => void;
   highlight?: PdfHighlight | null;
+  /** Extra buttons at the end of the toolbar. */
+  actions?: ReactNode;
 }
 
 /** How long a highlight stays on screen. */
@@ -71,8 +74,15 @@ function cssRect(view: PDFPageView, box: SynctexBox) {
  * pdf.js viewer. Loading a new PDF keeps the zoom and the reading position, so
  * a recompilation does not send the reader back to the first page.
  */
-export default function PdfViewer({ url, downloadName, onSynctex, highlight }: PdfViewerProps) {
+export default function PdfViewer({
+  url,
+  downloadName,
+  onSynctex,
+  highlight,
+  actions,
+}: PdfViewerProps) {
   const { t } = useTranslation();
+  const { pdfDark, setPdfDark } = useCompilePreferences();
   const container = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<PDFViewer | null>(null);
   const linkRef = useRef<PDFLinkService | null>(null);
@@ -255,16 +265,29 @@ export default function PdfViewer({ url, downloadName, onSynctex, highlight }: P
           </select>
         </label>
         <span className="text-slate-600">{t('pdf.pages', { count: pages })}</span>
+        <button
+          type="button"
+          aria-pressed={pdfDark}
+          onClick={() => {
+            setPdfDark(!pdfDark);
+          }}
+          className="rounded px-1 py-0.5 hover:bg-slate-200 aria-pressed:bg-slate-700 aria-pressed:text-white"
+        >
+          {t('pdf.dark')}
+        </button>
         <a href={url} download={downloadName} className="ml-auto text-accent underline">
           {t('pdf.download')}
         </a>
+        {actions}
       </div>
       {failed && (
         <p role="alert" className="bg-red-50 px-3 py-2 text-sm text-red-900">
           {t('pdf.loadFailed')}
         </p>
       )}
-      <div className="relative min-h-0 flex-1 bg-slate-200">
+      <div
+        className={`relative min-h-0 flex-1 ${pdfDark ? 'pdf-dark bg-slate-800' : 'bg-slate-200'}`}
+      >
         <div
           ref={container}
           data-testid="pdf-viewer"

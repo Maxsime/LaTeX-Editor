@@ -472,7 +472,13 @@
     "pages_one": "{{count}} page",
     "pages_other": "{{count}} pages",
     "download": "Download PDF",
-    "loadFailed": "The PDF could not be shown."
+    "loadFailed": "The PDF could not be shown.",
+    "dark": "Dark mode",
+    "detach": "Detach",
+    "attach": "Bring the PDF back",
+    "detached": "The PDF is open in a separate window. Source synchronisation works both ways.",
+    "waiting": "Waiting for the PDF from the project page…",
+    "windowTitle": "PDF — Galley"
   },
   "roles": {
     "owner": "Owner",

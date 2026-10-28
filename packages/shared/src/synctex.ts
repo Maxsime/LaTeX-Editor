@@ -122,3 +122,24 @@ export function synctexInputToProjectPath(input: string): string | null {
 export function projectPathToSynctexInput(path: string): string {
   return `${SANDBOX_PROJECT_PREFIX}${path}`;
 }
+
+/** BroadcastChannel name between a project page and its detached PDF window. */
+export function pdfChannelName(projectId: string): string {
+  return `galley-pdf:${projectId}`;
+}
+
+/**
+ * Messages between the project page and its detached PDF window. The page
+ * sends the PDF to show and the boxes of a forward search; the window asks
+ * for the current state, reports a double-click for a reverse search and
+ * says when it closes.
+ */
+export const pdfChannelMessage = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('pdf'), url: z.string(), downloadName: z.string() }),
+  z.object({ type: z.literal('highlight'), boxes: z.array(synctexBox), nonce: z.number() }),
+  z.object({ type: z.literal('close') }),
+  z.object({ type: z.literal('hello') }),
+  z.object({ type: z.literal('bye') }),
+  z.object({ type: z.literal('synctex'), page: z.number(), x: z.number(), y: z.number() }),
+]);
+export type PdfChannelMessage = z.infer<typeof pdfChannelMessage>;

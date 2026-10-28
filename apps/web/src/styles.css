@@ -12,3 +12,9 @@
     outline-offset: 2px;
   }
 }
+
+/* Dark PDF: inverted pages, hue turned back so that figures keep their colours. */
+.pdf-dark .pdfViewer .page canvas,
+.pdf-dark .pdfViewer .page img {
+  filter: invert(0.9) hue-rotate(180deg);
+}

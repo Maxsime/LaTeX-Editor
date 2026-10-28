@@ -5,6 +5,7 @@ import { AdminPage } from './routes/admin.js';
 import { IndexRedirect, LoginPage, RegisterPage, RequireAuth, SetupPage } from './routes/auth.js';
 import { DashboardPage } from './routes/dashboard.js';
 import { JoinPage } from './routes/join.js';
+import { PdfWindowPage } from './routes/pdf-window.js';
 import { ProjectPage } from './routes/project.js';
 import { RootLayout } from './routes/root.js';
 import { StatusPage } from './routes/status.js';
@@ -51,6 +52,11 @@ const projectRoute = route('/projects/$projectId', () => (
     <ProjectPage />
   </RequireAuth>
 ));
+const pdfWindowRoute = route('/projects/$projectId/pdf', () => (
+  <RequireAuth>
+    <PdfWindowPage />
+  </RequireAuth>
+));
 const accountRoute = route('/account', () => (
   <RequireAuth>
     <AccountPage />
@@ -76,6 +82,7 @@ export const router = createRouter({
     statusRoute,
     projectsRoute,
     projectRoute,
+    pdfWindowRoute,
     joinRoute,
     accountRoute,
     adminRoute,

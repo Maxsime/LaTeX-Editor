@@ -472,7 +472,13 @@
     "pages_one": "{{count}} page",
     "pages_other": "{{count}} pages",
     "download": "Télécharger le PDF",
-    "loadFailed": "Le PDF n'a pas pu être affiché."
+    "loadFailed": "Le PDF n'a pas pu être affiché.",
+    "dark": "Mode sombre",
+    "detach": "Détacher",
+    "attach": "Rattacher le PDF",
+    "detached": "Le PDF est ouvert dans une fenêtre séparée. La synchronisation avec le source fonctionne dans les deux sens.",
+    "waiting": "En attente du PDF de la page du projet…",
+    "windowTitle": "PDF — Galley"
   },
   "roles": {
     "owner": "Propriétaire",
