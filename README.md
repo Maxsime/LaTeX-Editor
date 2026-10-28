@@ -59,6 +59,8 @@ docker compose exec api node dist/cli/admin.js reset-password ada
 
 Le lien d'invitation affiché est relatif : le préfixer par l'adresse de l'instance (`https://localhost/register?invite=…`). Les administrateurs peuvent aussi créer des invitations par l'API (`POST /api/admin/invites`). En développement, la même commande s'utilise avec `pnpm --filter @galley/api admin <commande>`.
 
+Avec un serveur d'envoi configuré (`SMTP_URL`, `SMTP_FROM`, voir [docs/operations.md](docs/operations.md#e-mail)), la page de connexion propose « Mot de passe oublié ? » : un lien valable une heure, utilisable une fois, part vers l'adresse du compte. Les invitations à un projet et les mentions dans les commentaires sont aussi envoyées par e-mail ; chacun peut couper celles des mentions dans « Mon compte ». Sans SMTP, rien n'est envoyé et le mot de passe se réinitialise par l'administrateur comme ci-dessus.
+
 ### Importer un projet existant
 
 Le bouton « Importer un zip » du tableau de bord accepte l'export d'un projet Overleaf ou Prism, ou n'importe quel dossier compressé. Aucune organisation n'est imposée : le document principal est le fichier `.tex` racine qui déclare `\documentclass`, et il se change depuis la page du projet. Les fichiers texte en UTF-8 sont stockés comme documents texte, éditables dans l'éditeur ; les autres (images, PDF, fichiers texte dans un autre encodage) sont conservés octet pour octet. L'export redonne exactement les mêmes fichiers.
