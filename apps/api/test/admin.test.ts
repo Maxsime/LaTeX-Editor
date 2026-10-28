@@ -418,6 +418,7 @@ describe.skipIf(!dockerAvailable)('administration, quotas and OIDC', () => {
           draft: false,
           haltOnError: false,
           clean: false,
+          original: false,
           bibTool: 'biber',
           shellEscape: 'restricted',
         },

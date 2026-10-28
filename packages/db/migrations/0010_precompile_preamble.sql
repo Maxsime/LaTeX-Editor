@@ -1,0 +1,1 @@
+ALTER TABLE "projects" ADD COLUMN "precompile_preamble" boolean DEFAULT false NOT NULL;

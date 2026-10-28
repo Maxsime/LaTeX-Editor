@@ -102,6 +102,8 @@ export const projects = pgTable(
       .array()
       .notNull()
       .default(sql`'{1,8,13,36,44}'::integer[]`),
+    /** Compiles with a format holding the preamble, rebuilt when it changes (pdfLaTeX). */
+    precompilePreamble: boolean('precompile_preamble').notNull().default(false),
     type: projectType('type').notNull().default('document'),
     archivedAt: timestamp('archived_at', { withTimezone: true }),
     deletedAt: timestamp('deleted_at', { withTimezone: true }),

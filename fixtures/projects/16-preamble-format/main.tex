@@ -1,0 +1,21 @@
+\documentclass[11pt]{article}
+\usepackage[T1]{fontenc}
+\usepackage[french]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage{siunitx}
+\usepackage{booktabs}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.18}
+\usepackage{notation}
+\input{macros}
+\usepackage{hyperref}
+\title{Préambule précompilé}
+\author{Galley}
+\begin{document}
+\maketitle
+\section{Introduction}\label{sec:intro}
+La section~\ref{sec:mesures} donne \SI{3.5}{\milli\metre} et $\norme{x} = \vitesse$.
+\input{chapters/body}
+\end{document}

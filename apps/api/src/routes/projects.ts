@@ -133,6 +133,9 @@ export function projectRoutes(app: FastifyInstance, context: AppContext): void {
         ...(body.aiEnabled === undefined ? {} : { aiEnabled: body.aiEnabled }),
         ...(body.citeKeyPattern === undefined ? {} : { citeKeyPattern: body.citeKeyPattern }),
         ...(body.spellLanguage === undefined ? {} : { spellLanguage: body.spellLanguage }),
+        ...(body.precompilePreamble === undefined
+          ? {}
+          : { precompilePreamble: body.precompilePreamble }),
         ...(body.chktexDisabled === undefined
           ? {}
           : { chktexDisabled: [...new Set(body.chktexDisabled)].sort((a, b) => a - b) }),

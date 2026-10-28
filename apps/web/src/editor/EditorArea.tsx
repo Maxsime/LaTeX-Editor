@@ -13,6 +13,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { FilePreview } from '../components/FilePreview.js';
 import { BibToolbar } from '../components/BibToolbar.js';
+import { FragmentPreview } from '../components/FragmentPreview.js';
 import { InsertToolbar } from '../components/InsertToolbar.js';
 import { useAiStatus } from '../lib/ai.js';
 import { api } from '../lib/api.js';
@@ -554,6 +555,13 @@ export default function EditorArea({
           </label>
         )}
         {visualTarget !== null && <VisualToggle fileId={visualTarget} />}
+        {visualTarget !== null && (
+          <FragmentPreview
+            projectId={projectId}
+            fileId={visualTarget}
+            read={() => connection.document(visualTarget)?.text.toJSON() ?? null}
+          />
+        )}
         {bibTarget !== null && (
           <BibToolbar
             fileId={bibTarget}

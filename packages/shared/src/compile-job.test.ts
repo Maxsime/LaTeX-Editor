@@ -48,7 +48,12 @@ describe('compileJob', () => {
   };
 
   it('accepts a well-formed job and defaults clean to false', () => {
-    expect(compileJob.parse(job)).toEqual({ ...job, clean: false, chktexDisabled: [] });
+    expect(compileJob.parse(job)).toEqual({
+      ...job,
+      clean: false,
+      chktexDisabled: [],
+      precompilePreamble: false,
+    });
   });
 
   it('rejects traversal in manifest keys and bad digests', () => {

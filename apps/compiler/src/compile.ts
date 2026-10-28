@@ -1,3 +1,4 @@
+import { rm, stat, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { parseBibtexLog, parseBiberLog, parseTexLog, type LogEntry } from '@galley/latex-log';
 import {
@@ -8,12 +9,21 @@ import {
   MAX_DIAGNOSTICS,
 } from '@galley/shared';
 import { effectiveShellEscape, latexmkArgv, splitMainFile } from './latexmk.js';
+import {
+  formatArgv,
+  PREAMBLE_FORMAT,
+  PREAMBLE_STAMP,
+  preambleFingerprint,
+  preambleOf,
+  usesPreambleFormat,
+} from './preamble.js';
 import { chktexArgv, lintedFiles, parseChktex, parseTexcount, texcountArgv } from './tools.js';
 import {
   runSandboxed,
   SANDBOX_OUT,
   SANDBOX_PROJECT,
   type SandboxLimits,
+  type SandboxPaths,
   type SandboxRun,
 } from './sandbox.js';
 import {
@@ -132,6 +142,89 @@ export function locateRunaway(source: string, runaway: string): number | null {
   return index === -1 ? null : index + 1;
 }
 
+async function exists(path: string): Promise<boolean> {
+  try {
+    return (await stat(path)).isFile();
+  } catch {
+    return false;
+  }
+}
+
+/** State of the precompiled preamble before a compilation. */
+interface PreparedFormat {
+  /** The compilation can load the format. */
+  ready: boolean;
+  /** The format was just built: its first compilation checks it. */
+  fresh: boolean;
+  /** What the stamp records, to mark the format unusable after its check. */
+  fingerprint: string;
+  warning: Diagnostic | null;
+}
+
+/** Stamp of a format whose first compilation failed where a normal one succeeded. */
+const UNUSABLE = 'unusable:';
+
+function formatWarning(job: CompileJob, code: string, context = ''): Diagnostic {
+  return {
+    level: 'warning',
+    source: 'compiler',
+    file: job.mainFile,
+    line: null,
+    message: code,
+    context,
+  };
+}
+
+/**
+ * Makes sure the output folder holds a format of the current preamble,
+ * building it when the preamble or what it loads changed. A preamble whose
+ * format proved unusable is not built again until it changes.
+ */
+async function preparePreambleFormat(
+  job: CompileJob,
+  env: CompileEnvironment,
+  dirs: ProjectDirs,
+  paths: SandboxPaths,
+  shellEscape: CompileJob['shellEscape'],
+  signal?: AbortSignal,
+): Promise<PreparedFormat> {
+  const source = await readSandboxFile(join(dirs.src, job.mainFile), MAX_LOG_BYTES);
+  const preamble = source === null ? null : preambleOf(source.toString('utf8'));
+  const fmt = join(dirs.out, `${PREAMBLE_FORMAT}.fmt`);
+  const stamp = join(dirs.out, PREAMBLE_STAMP);
+  const none = { ready: false, fresh: false, fingerprint: '', warning: null };
+  if (preamble === null) return none;
+  const fingerprint = preambleFingerprint(preamble, job, shellEscape, env.texlive);
+  const stamped = (await readSandboxFile(stamp, 1024))?.toString('utf8');
+  if (stamped === fingerprint && (await exists(fmt))) {
+    return { ready: true, fresh: false, fingerprint, warning: null };
+  }
+  if (stamped === `${UNUSABLE}${fingerprint}`) {
+    return { ...none, warning: formatWarning(job, 'PREAMBLE_FORMAT_UNUSABLE') };
+  }
+
+  await rm(fmt, { force: true });
+  await rm(stamp, { force: true });
+  const { cwd, base } = splitMainFile(job.mainFile);
+  const build = await runSandboxed(
+    paths,
+    env.limits,
+    cwd,
+    formatArgv(base, shellEscape, SANDBOX_OUT),
+    signal,
+  );
+  if (build.exitCode === 0 && (await exists(fmt))) {
+    await writeFile(stamp, fingerprint);
+    return { ready: true, fresh: true, fingerprint, warning: null };
+  }
+  await rm(fmt, { force: true });
+  if (build.cancelled) return none;
+  return {
+    ...none,
+    warning: formatWarning(job, 'PREAMBLE_FORMAT_FAILED', build.console.slice(-CONSOLE_TAIL)),
+  };
+}
+
 async function resolveRunaways(entries: LogEntry[], dirs: ProjectDirs): Promise<void> {
   for (const entry of entries) {
     if (entry.runaway === undefined || entry.line !== null || entry.file === null) continue;
@@ -178,8 +271,54 @@ export async function compileProject(
     timeoutMs: Math.min(env.limits.timeoutMs, TOOL_TIMEOUT_MS),
     maxProcesses: Math.min(env.limits.maxProcesses, 8),
   };
-  const [run, lint, wordCount] = await Promise.all([
-    runSandboxed(paths, env.limits, cwd, latexmkArgv(job, shellEscape, base), signal),
+  const pathContext = { projectRoot: SANDBOX_PROJECT, cwd, outDir: SANDBOX_OUT };
+  /** One latexmk run and the entries of its logs. */
+  const latexPass = async (format: boolean) => {
+    const argv = latexmkArgv(job, shellEscape, base, format ? PREAMBLE_FORMAT : null);
+    const pass = await runSandboxed(paths, env.limits, cwd, argv, signal);
+    const texLog = (
+      await readSandboxFile(join(dirs.out, `${jobname}.log`), MAX_LOG_BYTES)
+    )?.toString('utf8');
+    const found: LogEntry[] = texLog
+      ? parseTexLog(texLog, { ...pathContext, mainFile: job.mainFile })
+      : [];
+    const blg = (await readSandboxFile(join(dirs.out, `${jobname}.blg`), MAX_LOG_BYTES))?.toString(
+      'utf8',
+    );
+    if (blg) {
+      found.push(
+        ...(blg.startsWith('This is BibTeX')
+          ? parseBibtexLog(blg, pathContext)
+          : parseBiberLog(blg, pathContext)),
+      );
+    }
+    return { run: pass, log: texLog, entries: found };
+  };
+  const errorCount = (found: readonly LogEntry[]) =>
+    found.filter((entry) => entry.level === 'error').length;
+
+  const [{ run, log, entries, preambleWarning }, lint, wordCount] = await Promise.all([
+    (async () => {
+      const prepared = usesPreambleFormat(job)
+        ? await preparePreambleFormat(job, env, dirs, paths, shellEscape, signal)
+        : null;
+      const warning = prepared?.warning ?? null;
+      const first = await latexPass(prepared?.ready === true);
+      if (prepared?.fresh !== true || errorCount(first.entries) === 0 || first.run.cancelled) {
+        return { ...first, preambleWarning: warning };
+      }
+      // Some preambles do not survive a dump (babel shorthands with cleveref, for one):
+      // a new format whose compilation fails is checked against a normal compilation.
+      await rm(join(dirs.out, `${jobname}.aux`), { force: true });
+      await rm(join(dirs.out, `${jobname}.fdb_latexmk`), { force: true });
+      const plain = await latexPass(false);
+      if (errorCount(plain.entries) < errorCount(first.entries)) {
+        await rm(join(dirs.out, `${PREAMBLE_FORMAT}.fmt`), { force: true });
+        await writeFile(join(dirs.out, PREAMBLE_STAMP), `${UNUSABLE}${prepared.fingerprint}`);
+        return { ...plain, preambleWarning: formatWarning(job, 'PREAMBLE_FORMAT_UNUSABLE') };
+      }
+      return { ...plain, preambleWarning: warning };
+    })(),
     runSandboxed(
       paths,
       toolLimits,
@@ -191,24 +330,6 @@ export async function compileProject(
       parseTexcount(tool.console),
     ),
   ]);
-
-  const pathContext = { projectRoot: SANDBOX_PROJECT, cwd, outDir: SANDBOX_OUT };
-  const log = (await readSandboxFile(join(dirs.out, `${jobname}.log`), MAX_LOG_BYTES))?.toString(
-    'utf8',
-  );
-  const entries: LogEntry[] = log
-    ? parseTexLog(log, { ...pathContext, mainFile: job.mainFile })
-    : [];
-  const blg = (await readSandboxFile(join(dirs.out, `${jobname}.blg`), MAX_LOG_BYTES))?.toString(
-    'utf8',
-  );
-  if (blg) {
-    entries.push(
-      ...(blg.startsWith('This is BibTeX')
-        ? parseBibtexLog(blg, pathContext)
-        : parseBiberLog(blg, pathContext)),
-    );
-  }
   await resolveRunaways(entries, dirs);
 
   const outputs = await listOutputs(dirs);
@@ -236,6 +357,7 @@ export async function compileProject(
       compilerDiagnostic('NO_OUTPUT', run.console.slice(-CONSOLE_TAIL), job.mainFile),
     );
   }
+  if (preambleWarning !== null) diagnostics.push(preambleWarning);
   const errors = diagnostics.filter((d) => d.level === 'error').length;
 
   const publishable = outputs.filter(

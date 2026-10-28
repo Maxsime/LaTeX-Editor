@@ -1,3 +1,4 @@
+import { acceptedText, RANGES_KEY } from '@galley/review';
 import { TEXT_KEY } from '@galley/shared';
 import * as Y from 'yjs';
 
@@ -18,6 +19,15 @@ export function stateToText(state: Uint8Array): string {
   const doc = new Y.Doc();
   Y.applyUpdate(doc, state);
   const content = doc.getText(TEXT_KEY).toJSON();
+  doc.destroy();
+  return content;
+}
+
+/** Reads a stored Yjs document state with every suggestion rejected. */
+export function stateToOriginalText(state: Uint8Array): string {
+  const doc = new Y.Doc();
+  Y.applyUpdate(doc, state);
+  const content = acceptedText(doc.getText(TEXT_KEY), doc.getMap(RANGES_KEY));
   doc.destroy();
   return content;
 }

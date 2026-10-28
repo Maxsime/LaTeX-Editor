@@ -33,6 +33,8 @@ export function latexmkArgv(
   job: Pick<CompileJob, 'engine' | 'draft' | 'haltOnError'>,
   shellEscape: CompileJob['shellEscape'],
   base: string,
+  /** Format holding the precompiled preamble, found in the output folder. */
+  format: string | null = null,
 ): string[] {
   const argv = [
     'latexmk',
@@ -49,6 +51,7 @@ export function latexmkArgv(
   if (shellEscape === 'full') argv.push('-shell-escape');
   // Without -f, latexmk gives up at the first error and leaves no PDF to look at.
   argv.push(job.haltOnError ? '-halt-on-error' : '-f');
+  if (format !== null) argv.push(`-latexoption=-fmt=${format}`);
   if (job.draft) argv.push('-usepretex=\\PassOptionsToPackage{draft}{graphicx}');
   argv.push(base);
   return argv;

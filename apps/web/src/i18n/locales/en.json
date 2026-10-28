@@ -393,7 +393,9 @@
     "codes": {
       "TIMEOUT": "The compilation exceeded the {{value}} s limit and was stopped.",
       "OUTPUT_LIMIT": "The compilation exceeded the {{value}} MiB output limit and was stopped.",
-      "NO_OUTPUT": "The compilation produced no PDF."
+      "NO_OUTPUT": "The compilation produced no PDF.",
+      "PREAMBLE_FORMAT_FAILED": "The preamble could not be precompiled: normal compilation.",
+      "PREAMBLE_FORMAT_UNUSABLE": "This preamble cannot be precompiled: normal compilation. It will be tried again when the preamble changes."
     },
     "view": {
       "label": "Layout",
@@ -427,7 +429,10 @@
       "seconds_one": "{{count}} s",
       "seconds_other": "{{count}} s",
       "draft": "Draft mode (images replaced by frames)",
-      "haltOnError": "Stop at the first error"
+      "haltOnError": "Stop at the first error",
+      "precompilePreamble": "Precompile the preamble",
+      "precompilePreambleHint": "pdfLaTeX only. The preamble is prepared once and reused until it changes.",
+      "original": "Compile without suggestions (original version)"
     },
     "logButtonTitle": "Open the log at the first error. F8 and Shift+F8: next and previous error.",
     "errorCount_one": "{{count}} error",
@@ -464,7 +469,9 @@
       "missingNumber": "A length or a number is expected here but none was found.",
       "illegalUnit": "A length is given without a valid unit: write for example 2cm, 10pt or 0.5\\textwidth.",
       "fontNotFound": "The font {{name}} is not installed on the compilation server."
-    }
+    },
+    "originalBadge": "Original version",
+    "originalBadgeTitle": "Compiled without the pending suggestions"
   },
   "pdf": {
     "zoom": "Zoom",
@@ -1156,5 +1163,17 @@
     "align": "Align the = signs",
     "apply": "Apply",
     "invalid": "The file has syntax errors: fix them before formatting it."
+  },
+  "fragmentPreview": {
+    "open": "Isolated preview",
+    "help": "Compiles the selection, or the environment or formula at the cursor, alone with the project's preamble.",
+    "title": "Isolated preview",
+    "nothing": "Select some code, or place the cursor in an environment or a formula.",
+    "compiling": "Compiling the fragment…",
+    "outcome": {
+      "failure": "The fragment does not compile.",
+      "timeout": "The fragment took too long to compile.",
+      "error": "No compiler answered in time."
+    }
   }
 }

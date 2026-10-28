@@ -25,6 +25,7 @@
     "@galley/ai": "workspace:*",
     "@galley/db": "workspace:*",
     "@galley/latex-index": "workspace:*",
+    "@galley/review": "workspace:*",
     "@galley/shared": "workspace:*",
     "@node-rs/argon2": "2.2.2",
     "@retorquere/bibtex-parser": "12.1.3",

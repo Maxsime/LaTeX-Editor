@@ -71,6 +71,13 @@
       "when": 1793147769697,
       "tag": "0009_projects_library",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1793154717634,
+      "tag": "0010_precompile_preamble",
+      "breakpoints": true
     }
   ]
 }

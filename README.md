@@ -134,6 +134,10 @@ Le bouton « Journal » liste les erreurs et avertissements : un clic ouvre le f
 
 Un double-clic dans le PDF ouvre le fichier source à la ligne correspondante, y compris dans un fichier inclus. Dans l'autre sens, le bouton « Vers le PDF » ou Ctrl+Alt+J fait défiler le PDF jusqu'à la ligne du curseur et la surligne. Le bouton « Mode sombre » de la visionneuse inverse les couleurs des pages ; « Détacher » ouvre le PDF dans une fenêtre séparée, pour un second écran, où le double-clic et « Vers le PDF » fonctionnent toujours. Le journal brut et les fichiers produits (`.log`, `.bbl`, `.synctex.gz`...) y sont téléchargeables. Le menu « Options » règle le moteur (pdfLaTeX, XeLaTeX, LuaLaTeX), l'outil bibliographique, le shell-escape, la compilation en brouillon et l'arrêt à la première erreur, et propose « Nettoyer et recompiler ».
 
+Pour un préambule lourd (TikZ, pgfplots, siunitx…), la case « Précompiler le préambule » des options du projet prépare le préambule une fois et le réutilise tant qu'il ne change pas : la recompilation après une modification du corps est environ deux fois plus rapide. Elle ne vaut que pour pdfLaTeX ; un préambule qui ne s'y prête pas est compilé normalement, avec un avertissement dans le journal. La case « Compiler sans les suggestions » produit la version d'origine d'un texte en cours de relecture : suggestions d'ajout retirées, suppressions suggérées remises. Le PDF porte alors l'étiquette « Version d'origine ».
+
+Le bouton « Aperçu isolé » de l'éditeur compile seul la sélection, ou l'environnement ou la formule sous le curseur, avec les paquets et définitions du préambule du projet, et l'affiche dans une bulle. Le projet n'est pas modifié et sa compilation n'est pas interrompue.
+
 Chaque compilation tourne sans réseau, dans un bac à sable limité en temps (3 min), en mémoire et en disque. Le shell-escape complet (minted, par exemple) n'est accepté que si l'administrateur l'autorise (`COMPILER_ALLOW_FULL_SHELL_ESCAPE`) ; sinon le projet compile avec la liste restreinte de TeX Live.
 
 ### Administration, quotas et sauvegardes

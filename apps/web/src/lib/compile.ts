@@ -5,6 +5,7 @@ import {
   type Diagnostic,
   isFinalCompileStatus,
   type LatestCompileResponse,
+  type PreviewResponse,
 } from '@galley/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCompileStore } from '../stores/compile.js';
@@ -134,4 +135,17 @@ export function useCancelCompile(projectId: string) {
       api<CompileRun>('POST', `/api/projects/${projectId}/compiles/${compileId}/cancel`),
     onSettled: () => client.invalidateQueries({ queryKey: compileKey(projectId) }),
   });
+}
+
+/** Compiles a fragment alone, with the project's preamble (SPEC §3.3). */
+export function usePreview(projectId: string) {
+  return useMutation({
+    mutationFn: (code: string) =>
+      api<PreviewResponse>('POST', `/api/projects/${projectId}/preview`, { json: { code } }),
+  });
+}
+
+/** URL of the PDF of an isolated preview, kept an hour for its author. */
+export function previewPdfUrl(projectId: string, compileId: string): string {
+  return `/api/projects/${projectId}/preview/${compileId}/pdf`;
 }

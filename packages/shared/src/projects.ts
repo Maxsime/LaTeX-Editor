@@ -56,6 +56,8 @@ export const projectDetails = z.object({
   citeKeyPattern: z.string(),
   spellLanguage,
   chktexDisabled: z.array(z.number()),
+  /** Compiles with a precompiled preamble (pdfLaTeX only). */
+  precompilePreamble: z.boolean(),
   aiEnabled: z.boolean(),
   /** `texmf` for a personal texmf tree: no compilation, sharing or assistant. */
   type: z.enum(['document', 'texmf']),
@@ -93,6 +95,7 @@ export const updateProjectRequest = z.object({
   citeKeyPattern: z.optional(citeKeyPattern),
   spellLanguage: z.optional(spellLanguage),
   chktexDisabled: z.optional(chktexDisabled),
+  precompilePreamble: z.optional(z.boolean()),
   /** Owner only: lets the AI assistant work on the project (SPEC §3.8). */
   aiEnabled: z.optional(z.boolean()),
 });

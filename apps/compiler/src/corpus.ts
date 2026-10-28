@@ -46,6 +46,11 @@ const expectation = z.object({
    * sandboxed binary the worker uses (SPEC §6.5).
    */
   synctexMedianMs: z.optional(z.number()),
+  /**
+   * The run uses a precompiled preamble: a second compilation without it, in a
+   * fresh folder, must give the same page count and the same `.aux` file.
+   */
+  sameAsWithoutFormat: z.optional(z.boolean()),
   /** chktex warnings the run must report. */
   lint: z.optional(z.array(expectedDiagnostic)),
   /** texcount results: least total of words, and the section titles in order. */
@@ -56,6 +61,7 @@ const corpusRun = z.object({
   main: z.string(),
   engine: z.optional(z.enum(['pdflatex', 'xelatex', 'lualatex'])),
   shellEscape: z.optional(z.enum(['disabled', 'restricted', 'full'])),
+  precompilePreamble: z.optional(z.boolean()),
   timeoutS: z.optional(z.number()),
   /** File modified before a second compilation, to measure a hot recompilation. */
   hotEdit: z.optional(z.string()),
@@ -76,6 +82,8 @@ export interface RunReport {
   engine: string;
   durationMs: number;
   hotDurationMs?: number;
+  /** Duration of the same compilation without the precompiled preamble. */
+  plainDurationMs?: number;
   /** Median duration of the SyncTeX queries, when the run measures them. */
   synctexMedianMs?: number;
   /** Share of source lines that a SyncTeX round trip leads back to (SPEC §9 J4, A1). */
@@ -161,6 +169,33 @@ async function exists(path: string): Promise<boolean> {
     () => true,
     () => false,
   );
+}
+
+/** Differences between a compilation with a precompiled preamble and one without. */
+async function compareWithoutFormat(
+  run: CorpusRun,
+  withFormat: LocalCompileResult,
+  plain: LocalCompileResult,
+): Promise<string[]> {
+  const failures: string[] = [];
+  const { jobname } = splitMainFile(run.main);
+  const read = async (local: LocalCompileResult, name: string) =>
+    (await readSandboxFile(join(local.dirs.out, name), 64 * 1024 * 1024))?.toString('utf8') ?? '';
+  if (!(await read(withFormat, `${jobname}.log`)).includes('format=galley-preamble')) {
+    failures.push('the precompiled preamble was not used');
+  }
+  if (plain.result.outcome !== withFormat.result.outcome) {
+    failures.push(`${withFormat.result.outcome} with the format, ${plain.result.outcome} without`);
+  }
+  if (withFormat.result.pages !== plain.result.pages) {
+    failures.push(
+      `${String(withFormat.result.pages)} pages with the format, ${String(plain.result.pages)} without`,
+    );
+  }
+  if ((await read(withFormat, `${jobname}.aux`)) !== (await read(plain, `${jobname}.aux`))) {
+    failures.push('the .aux file differs with the format');
+  }
+  return failures;
 }
 
 /** Checks a compilation against what its corpus entry expects. */
@@ -385,6 +420,7 @@ export async function runCorpus(root: string, options: CorpusOptions): Promise<R
         draft: false,
         haltOnError: false,
         clean: false,
+        precompilePreamble: run.precompilePreamble ?? false,
       };
       const environment: CompileEnvironment = {
         ...options.environment,
@@ -416,18 +452,18 @@ export async function runCorpus(root: string, options: CorpusOptions): Promise<R
             )),
           );
         }
-        if (run.hotEdit !== undefined && run.expect.hotRecompileMs !== undefined) {
-          // Change one source as a user would, then recompile in the same work folder.
-          const edited = join(local.dirs.src, run.hotEdit);
+        // Change one source as a user would, then recompile in the same work folder.
+        const recompile = async (first: LocalCompileResult, firstJob: CompileJob, edit: string) => {
+          const edited = join(first.dirs.src, edit);
           await appendFile(edited, `\n% hot edit ${new Date().toISOString()}\n`);
           const editedHash = createHash('sha256')
             .update(await readFile(edited))
             .digest('hex');
-          const hot = await compileProject(
+          return compileProject(
             {
-              ...job,
+              ...firstJob,
               compileId: randomUUID(),
-              manifest: { ...job.manifest, [run.hotEdit]: editedHash },
+              manifest: { ...firstJob.manifest, [edit]: editedHash },
             },
             {
               ...environment,
@@ -437,6 +473,24 @@ export async function runCorpus(root: string, options: CorpusOptions): Promise<R
                   : source.fetch(hash),
             },
           );
+        };
+        if (run.expect.sameAsWithoutFormat === true) {
+          const plainJob = {
+            ...job,
+            compileId: randomUUID(),
+            projectId: randomUUID(),
+            precompilePreamble: false,
+          };
+          const plain = await compileProject(plainJob, environment);
+          report.failures.push(...(await compareWithoutFormat(run, local, plain)));
+          // What the format saves shows on a recompilation, the first one building it.
+          report.plainDurationMs =
+            run.hotEdit === undefined
+              ? plain.result.durationMs
+              : (await recompile(plain, plainJob, run.hotEdit)).result.durationMs;
+        }
+        if (run.hotEdit !== undefined && run.expect.hotRecompileMs !== undefined) {
+          const hot = await recompile(local, job, run.hotEdit);
           report.hotDurationMs = hot.result.durationMs;
           if (hot.result.outcome !== 'success')
             report.failures.push(`hot recompilation ${hot.result.outcome}`);
@@ -444,6 +498,12 @@ export async function runCorpus(root: string, options: CorpusOptions): Promise<R
             report.failures.push(
               `hot recompilation took ${String(hot.result.durationMs)} ms, limit ${String(run.expect.hotRecompileMs)} ms`,
             );
+          }
+          if (
+            report.plainDurationMs !== undefined &&
+            hot.result.durationMs >= report.plainDurationMs
+          ) {
+            report.failures.push('the precompiled preamble did not make the recompilation faster');
           }
         }
       } catch (error) {

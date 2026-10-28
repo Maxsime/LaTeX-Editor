@@ -15,6 +15,8 @@ export const compileRequest = z.object({
   haltOnError: z._default(z.boolean(), false),
   /** Deletes the cached auxiliary files first ("clean and recompile"). */
   clean: z._default(z.boolean(), false),
+  /** Compiles the text with every suggestion rejected: the version under review. */
+  original: z._default(z.boolean(), false),
 });
 export type CompileRequest = z.infer<typeof compileRequest>;
 
@@ -23,6 +25,8 @@ export const compileOptions = z.object({
   draft: z.boolean(),
   haltOnError: z.boolean(),
   clean: z.boolean(),
+  /** Absent from runs recorded before the option existed. */
+  original: z._default(z.boolean(), false),
   bibTool,
   shellEscape: shellEscapeMode,
 });
@@ -89,3 +93,22 @@ export function isFinalCompileStatus(status: z.infer<typeof compileStatus>): boo
 
 /** Finished compilations whose files stay downloadable, per project (besides the last PDF). */
 export const KEPT_COMPILES = 3;
+
+/** Longest fragment sent to an isolated preview; a page of LaTeX is far below. */
+export const MAX_PREVIEW_CODE = 20_000;
+
+/** Body of `POST /api/projects/:id/preview`: a fragment compiled alone (SPEC §3.3). */
+export const previewRequest = z.object({
+  code: z.string().check(z.minLength(1), z.maxLength(MAX_PREVIEW_CODE)),
+});
+export type PreviewRequest = z.infer<typeof previewRequest>;
+
+/** Result of an isolated preview; the PDF stays available for an hour. */
+export const previewResponse = z.object({
+  /** Null when no PDF was produced. */
+  compileId: z.nullable(z.uuid()),
+  outcome: z.enum(['success', 'failure', 'timeout', 'error']),
+  /** First errors of the log, as `l.N: message`. */
+  errors: z.array(z.string()),
+});
+export type PreviewResponse = z.infer<typeof previewResponse>;

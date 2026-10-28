@@ -21,11 +21,44 @@ test.describe('editor', () => {
     await editor(page).click();
     await page.keyboard.press('Control+End');
     const typed = 'Appended at the end of a long document';
-    const started = Date.now();
+    // Event Timing measures each keystroke inside the browser, from the key
+    // press until the editor has handled it (its wait in the input queue plus
+    // its handlers), without the test runner's round trips, whose cost depends
+    // on the load of the machine rather than on the editor. The paint that
+    // follows is left out: headless Chromium paints on its own schedule.
+    const observed = await page.evaluate(() => {
+      const durations: number[] = [];
+      Reflect.set(window, '__keyDurations', durations);
+      // `durationThreshold` (the shortest entry reported) is missing from
+      // TypeScript's DOM types; the object widens to the init type as declared.
+      const init: PerformanceObserverInit & { durationThreshold: number } = {
+        type: 'event',
+        buffered: true,
+        durationThreshold: 16,
+      };
+      new PerformanceObserver((list) => {
+        for (const entry of list.getEntries()) {
+          if (entry instanceof PerformanceEventTiming && entry.name.startsWith('key')) {
+            durations.push(entry.processingEnd - entry.startTime);
+          }
+        }
+      }).observe(init);
+      return PerformanceObserver.supportedEntryTypes.includes('event');
+    });
+    expect(observed).toBe(true);
     await page.keyboard.type(typed, { delay: 0 });
     await expect(editor(page)).toContainText(typed);
-    // Typing must not lag: each keystroke is applied in well under the 50 ms budget.
-    expect(Date.now() - started).toBeLessThan(typed.length * 50);
+    // Typing must not lag: 95 % of keystrokes are handled within the 50 ms
+    // budget, and none stalls. A percentile rather than the maximum, because
+    // one event in a run can wait behind the machine's other work (the stack
+    // and a second browser share the CI runner), which says nothing of the editor.
+    const durations = await page.evaluate(() => {
+      const recorded: unknown = Reflect.get(window, '__keyDurations');
+      return Array.isArray(recorded) ? recorded.filter((value) => typeof value === 'number') : [];
+    });
+    const slow = durations.filter((duration) => duration >= 50);
+    expect(slow.length).toBeLessThanOrEqual(Math.floor(typed.length * 0.05));
+    expect(Math.max(0, ...durations)).toBeLessThan(200);
 
     await page.keyboard.press('Control+Home');
     await expect(editor(page)).toContainText('\\section{Part 0}');

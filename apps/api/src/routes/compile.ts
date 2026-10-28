@@ -2,6 +2,8 @@ import {
   ApiError,
   compileRequest,
   type CompileRun,
+  previewRequest,
+  type PreviewResponse,
   type CompilerInfo,
   type LatestCompileResponse,
   type SynctexEditResponse,
@@ -28,6 +30,8 @@ import { listNodes, nodePaths } from '../files/tree.js';
 import { parse } from '../http/validate.js';
 import { loadProject } from '../projects/access.js';
 import { readCompileOutput } from '../storage/compiles.js';
+import { AiStore } from '../ai/store.js';
+import { previewFragment, PREVIEW_PDF } from '../compile/preview.js';
 import { sendUserFile } from './files.js';
 import { projectParams } from './projects.js';
 
@@ -36,6 +40,9 @@ const outputParams = z.object({ id: z.uuid(), compileId: z.uuid(), '*': z.string
 
 /** A double-click per query; generous for a reader jumping around the PDF. */
 const synctexRateLimit = { rateLimit: { max: 240, timeWindow: '1 minute' } };
+
+/** Previews are asked for one at a time, by hand. */
+const previewRateLimit = { rateLimit: { max: 30, timeWindow: '1 minute' } };
 
 /** A user compiling in a loop (auto-compile on every pause) stays far below this. */
 const compileRateLimit = { rateLimit: { max: 60, timeWindow: '1 minute' } };
@@ -81,6 +88,44 @@ export function compileRoutes(app: FastifyInstance, context: AppContext): void {
       return toCompileRun(row);
     },
   );
+
+  // Isolated previews are kept like the assistant's snippets: an hour, for their author only.
+  const snippets = new AiStore(context.redis);
+
+  app.post(
+    '/api/projects/:id/preview',
+    { config: previewRateLimit },
+    async (request): Promise<PreviewResponse> => {
+      const auth = requireAuth(request);
+      const { id } = parse(projectParams, request.params);
+      const { code } = parse(previewRequest, request.body);
+      const { project } = await loadProject(db, id, auth.user.id, 'reader');
+      const outcome = await previewFragment(context, project, auth.user.id, code);
+      if (outcome.compileId !== null) {
+        await snippets.recordSnippet(outcome.compileId, auth.user.id, id);
+      }
+      return outcome;
+    },
+  );
+
+  app.get('/api/projects/:id/preview/:compileId/pdf', async (request, reply) => {
+    const auth = requireAuth(request);
+    const { id, compileId } = parse(compileParams, request.params);
+    await loadProject(db, id, auth.user.id, 'reader');
+    if (!(await snippets.snippetBelongsTo(compileId, auth.user.id, id))) {
+      throw new ApiError('NOT_FOUND');
+    }
+    const body = await readCompileOutput(
+      context.s3,
+      context.config.S3_BUCKET,
+      compileId,
+      PREVIEW_PDF,
+    );
+    return reply
+      .header('content-type', 'application/pdf')
+      .header('cache-control', 'private, max-age=3600')
+      .send(body);
+  });
 
   app.get('/api/projects/:id/compiles/latest', async (request): Promise<LatestCompileResponse> => {
     const auth = requireAuth(request);

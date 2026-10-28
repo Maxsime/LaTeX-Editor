@@ -7,3 +7,4 @@ export * from './annotation.js';
 export * from './bibtex.js';
 export * from './bibformat.js';
 export { detectLanguage, loadedPackages } from './language.js';
+export * from './preview.js';

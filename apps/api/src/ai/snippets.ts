@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { type CompileJob, type CompileResult, compileResult } from '@galley/shared';
+import { type CompileJob, type CompileResult, compileResult, type Manifest } from '@galley/shared';
 import type { Queue, QueueEvents } from 'bullmq';
 import type { Redis } from 'ioredis';
 import { assertCompileTime, recordSnippetTime } from '../admin/quotas.js';
@@ -68,12 +68,28 @@ export interface SnippetOutcome {
   errors: string[];
 }
 
+/** Where an isolated preview runs: alongside the project's files rather than alone. */
+export interface SnippetSetting {
+  engine: CompileJob['engine'];
+  /** Files beside the document, e.g. the project's images and packages. */
+  manifest: Manifest;
+  texmfManifest: Manifest;
+  /** Path of the document among them. */
+  mainFile: string;
+}
+
 /** Compiles a standalone document in the sandbox and keeps its PDF for an hour. */
 export async function compileSnippet(
   context: AppContext,
   projectId: string,
   userId: string,
   document: string,
+  setting: SnippetSetting = {
+    engine: 'pdflatex',
+    manifest: {},
+    texmfManifest: {},
+    mainFile: 'main.tex',
+  },
 ): Promise<SnippetOutcome> {
   const { database, s3, config, snippets, redis } = context;
   if (snippets === undefined) return { compileId: null, outcome: 'error', errors: [] };
@@ -89,16 +105,17 @@ export async function compileSnippet(
   const result = await snippets({
     compileId,
     projectId: snippetProjectId(projectId, userId),
-    manifest: { 'main.tex': hash },
-    texmfManifest: {},
-    mainFile: 'main.tex',
-    engine: 'pdflatex',
+    manifest: { ...setting.manifest, [setting.mainFile]: hash },
+    texmfManifest: setting.texmfManifest,
+    mainFile: setting.mainFile,
+    engine: setting.engine,
     bibTool: 'bibtex',
     shellEscape: 'disabled',
     draft: false,
     haltOnError: true,
     clean: true,
     chktexDisabled: [],
+    precompilePreamble: false,
   });
   await recordSnippetTime(redis, userId, (performance.now() - started) / 1000);
   if (result === null) return { compileId: null, outcome: 'error', errors: [] };
