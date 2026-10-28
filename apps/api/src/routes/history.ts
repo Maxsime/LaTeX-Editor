@@ -224,12 +224,18 @@ export function historyRoutes(app: FastifyInstance, context: AppContext): void {
         if (hash === undefined) throw new ApiError('NOT_FOUND', 'no such file in this version');
         target = { manifest: { ...current.manifest, [path]: hash }, folders: current.folders };
       }
-      await applyState(context, id, target);
+      const changes = await applyState(context, id, target);
       await recordActivity(db, id, auth.user.id);
+      const changed =
+        changes.written.length + changes.removedFiles.length + changes.removedFolders.length > 0;
       // Restoring the state the project already had changes nothing and records nothing.
+      // Otherwise the restoration is always listed, even when a periodic snapshot taken
+      // in between already holds the same state.
       const row =
-        (await takeSnapshot(context, id, 'restore', { authorIds: [auth.user.id] })) ??
-        (await latestSnapshot(db, id));
+        (await takeSnapshot(context, id, 'restore', {
+          authorIds: [auth.user.id],
+          always: changed,
+        })) ?? (await latestSnapshot(db, id));
       if (!row) throw new ApiError('INTERNAL_ERROR');
       const [summary] = await summarize(db, [row]);
       if (!summary) throw new ApiError('INTERNAL_ERROR');

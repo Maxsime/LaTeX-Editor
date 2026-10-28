@@ -146,9 +146,9 @@ test('a project is cloned, pushed to live, pulled and restored without losing hi
     .click();
   await expect(editor(page)).not.toContainText('Réécrite.');
   await expect(editor(page)).toContainText('Ligne envoyée par Git.');
-  // Nothing was lost: the named version and the replaced state are both listed.
-  // The periodic snapshots may add one more meanwhile.
-  await expect.poll(() => versions.getByRole('listitem').count()).toBeGreaterThanOrEqual(count + 2);
+  // Nothing was lost: the named version and the restoration are both listed. The
+  // replaced state is listed too, unless a periodic snapshot already held it.
+  await expect.poll(() => versions.getByRole('listitem').count()).toBeGreaterThanOrEqual(count + 1);
   await expect(versions.getByRole('button', { name: /Avant la réécriture/ })).toBeVisible();
   await expect(versions.getByRole('button', { name: /^Restauration/ })).toBeVisible();
 });
