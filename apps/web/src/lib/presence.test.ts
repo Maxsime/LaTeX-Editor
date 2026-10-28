@@ -1,6 +1,7 @@
 import { presenceUserOf } from '@galley/shared';
 import { describe, expect, it } from 'vitest';
-import { initials, participantsOf } from './presence.js';
+import * as Y from 'yjs';
+import { cursorOf, initials, participantsOf } from './presence.js';
 
 const alice = presenceUserOf('00000000-0000-4000-8000-000000000001', 'Alice Martin');
 const bruno = presenceUserOf('00000000-0000-4000-8000-000000000002', 'Bruno');
@@ -36,5 +37,25 @@ describe('initials', () => {
     expect(initials('jean de la Fontaine')).toBe('JF');
     expect(initials('bruno')).toBe('BR');
     expect(initials('  ')).toBe('');
+  });
+});
+
+describe('cursorOf', () => {
+  it("reads the followed person's cursor as an offset of the text", () => {
+    const doc = new Y.Doc();
+    const text = doc.getText('content');
+    text.insert(0, 'Bonjour le monde');
+    const head: unknown = Y.relativePositionToJSON(Y.createRelativePositionFromTypeIndex(text, 8));
+    const states = new Map<number, Record<string, unknown>>([
+      [1, { user: alice, cursor: { anchor: head, head } }],
+    ]);
+    expect(cursorOf(states, alice.id, text)).toBe(8);
+    // The position follows edits made before it.
+    text.insert(0, '« ');
+    expect(cursorOf(states, alice.id, text)).toBe(10);
+    expect(cursorOf(states, '00000000-0000-4000-8000-000000000009', text)).toBeNull();
+    expect(
+      cursorOf(new Map([[1, { user: alice, cursor: { head: 'bad' } }]]), alice.id, text),
+    ).toBeNull();
   });
 });

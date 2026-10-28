@@ -531,7 +531,11 @@
   },
   "presence": {
     "label": "Personnes présentes",
-    "inFile": "{{name}} : {{path}}"
+    "inFile": "{{name}} : {{path}}",
+    "follow": "Suivre : {{where}}",
+    "unfollow": "Ne plus suivre : {{where}}",
+    "following": "Vous suivez {{name}}",
+    "stop": "Arrêter"
   },
   "join": {
     "title": "Rejoindre un projet",

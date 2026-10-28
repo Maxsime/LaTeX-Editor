@@ -6,9 +6,11 @@ import { EditorView } from '@codemirror/view';
 import { useEffect, useRef } from 'react';
 import i18n from '../i18n/index.js';
 import { appendedBlock } from '../lib/writing.js';
+import { cursorOf } from '../lib/presence.js';
 import { lineChanges } from '../lib/textdiff.js';
 import { type Insertion, setSelection, useEditor, usePreferences } from '../stores/editor.js';
 import { pendingHunksOf, useAi } from '../stores/ai.js';
+import { usePresence } from '../stores/presence.js';
 import { useReview } from '../stores/review.js';
 import { aiExtension, setProposals } from './ai.js';
 import type { CompletionSources } from './completion.js';
@@ -236,6 +238,33 @@ export function CodeEditor({
       readOnly: !writable || serverReadOnly,
     });
   }, [theme, fontSize, lineWrapping, writable, serverReadOnly]);
+
+  // Following a collaborator: keep their cursor in view until the reader acts here.
+  const following = usePresence((state) => state.following);
+  useEffect(() => {
+    const editor = view.current;
+    const document = connection.document(fileId);
+    if (!editor || !document || !active || following === null) return;
+    const { awareness } = document.provider;
+    if (!awareness) return;
+    const reveal = () => {
+      const position = cursorOf(awareness.getStates(), following, document.text);
+      if (position === null || position > editor.state.doc.length) return;
+      editor.dispatch({ effects: EditorView.scrollIntoView(position, { y: 'center' }) });
+    };
+    const stop = () => {
+      usePresence.getState().setFollowing(null);
+    };
+    reveal();
+    awareness.on('change', reveal);
+    editor.dom.addEventListener('mousedown', stop);
+    editor.dom.addEventListener('keydown', stop);
+    return () => {
+      awareness.off('change', reveal);
+      editor.dom.removeEventListener('mousedown', stop);
+      editor.dom.removeEventListener('keydown', stop);
+    };
+  }, [connection, fileId, active, following, status]);
 
   useEffect(() => {
     let cancelled = false;
