@@ -27,6 +27,34 @@ const SCRIPT: FakeTurn[] = [
   { text: '```latex\nUn second paragraphe plus court.\n```' },
   // Generation.
   { text: '```latex\n\\begin{tabular}{cc}\n  a & b \\\\\n\\end{tabular}\n```' },
+  // Agent mode.
+  {
+    toolCalls: [
+      { name: 'update_plan', input: { steps: [{ title: 'Conclure', status: 'active' }] } },
+    ],
+  },
+  {
+    toolCalls: [
+      {
+        name: 'edit_draft',
+        input: {
+          edits: [
+            {
+              path: 'main.tex',
+              search: '\\end{document}',
+              replace: 'Conclusion.\n\\end{document}',
+            },
+          ],
+        },
+      },
+    ],
+  },
+  { toolCalls: [{ name: 'compile_draft', input: {} }] },
+  {
+    toolCalls: [{ name: 'update_plan', input: { steps: [{ title: 'Conclure', status: 'done' }] } }],
+  },
+  { toolCalls: [{ name: 'submit_changes', input: {} }] },
+  { text: 'Conclusion ajoutée et vérifiée.' },
 ];
 
 let fake: FakeProvider;
@@ -126,5 +154,25 @@ test('the assistant proposes changes that apply only once accepted', async ({ pa
   await dialog.getByRole('button', { name: 'Insérer au curseur' }).click();
   await expect(dialog).toBeHidden();
   await expect(editor(page)).toContainText('\\begin{tabular}{cc}');
+  await synced(page);
+
+  // Agent mode: a plan, a draft compiled in the sandbox, one proposal to accept.
+  await page.getByLabel('Mode agent').check();
+  await page.getByLabel("Message à l'assistant").fill('Ajoute une conclusion.');
+  await page.getByRole('button', { name: 'Envoyer' }).click();
+  const answer = page.getByTestId('ai-answer').last();
+  await expect(answer).toContainText('Conclusion ajoutée et vérifiée.', { timeout: 60_000 });
+  await expect(answer.getByTestId('ai-plan-step')).toHaveAttribute('data-status', 'done');
+  await expect(
+    answer.getByTestId('ai-tool').filter({ hasText: 'Compilation du brouillon' }),
+  ).toHaveAttribute('data-status', 'done');
+  const agentCard = answer.getByTestId('ai-changeset');
+  await expect(agentCard).toContainText('Conclusion.');
+  // Shown as a proposal in the editor, not written.
+  await expect(page.getByTestId('ai-inline-proposal')).toContainText('Conclusion.');
+  await agentCard.getByRole('button', { name: 'Accepter' }).click();
+  await expect(agentCard.getByTestId('ai-hunk')).toHaveAttribute('data-status', 'applied');
+  await expect(page.getByTestId('ai-inline-proposal')).toHaveCount(0);
+  await expect(editor(page)).toContainText('Conclusion.');
   await synced(page);
 });
