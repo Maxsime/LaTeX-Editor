@@ -21,6 +21,10 @@ function host(overrides: Partial<ToolHost> = {}): ToolHost {
     proposeChanges: refuse,
     searchLiterature: refuse,
     fetchBibtex: refuse,
+    updatePlan: refuse,
+    editDraft: refuse,
+    compileDraft: refuse,
+    submitChanges: refuse,
     onFailure: () => undefined,
     ...overrides,
   };
@@ -87,6 +91,36 @@ describe.each(['openai', 'anthropic'] as const)('runAssistant over %s', (protoco
     expect(first).toContain('read_file');
     expect(first).not.toContain('search_project');
     if (protocol === 'anthropic') expect(first).toContain('"cache_control"');
+  });
+
+  it('stops at the token budget or the step count, and says which', async () => {
+    const reading = {
+      toolCalls: [{ name: 'read_file', input: { path: 'main.tex' } }],
+      usage: { input: 600, output: 10 },
+    };
+    const run = async (bounds: { maxSteps?: number; maxTotalTokens?: number }) => {
+      const setup = await setUp(protocol, [reading, reading, reading, { text: 'Fini.' }]);
+      const result = await runAssistant({
+        ...setup,
+        mode: 'agent',
+        context: { stable: '', variable: '' },
+        messages: [{ role: 'user', text: 'Lis.' }],
+        tools: { host: host(), names: ['read_file'] },
+        ...bounds,
+        onEvent: () => undefined,
+      });
+      return { result, calls: setup.fake.requests.length };
+    };
+    const budget = await run({ maxTotalTokens: 1_000 });
+    expect(budget.calls).toBe(2);
+    expect(budget.result.limit).toBe('tokens');
+    expect(budget.result.promptId).toBe('agent.v1');
+    const steps = await run({ maxSteps: 1 });
+    expect(steps.calls).toBe(1);
+    expect(steps.result.limit).toBe('steps');
+    const free = await run({ maxSteps: 10, maxTotalTokens: 100_000 });
+    expect(free.calls).toBe(4);
+    expect(free.result).toMatchObject({ limit: null, text: 'Fini.' });
   });
 
   it('hands refusals back to the model and reports them', async () => {

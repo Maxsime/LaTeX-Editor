@@ -8,6 +8,7 @@ export const PROMPT_FILES: Record<AiMode, string> = {
   fix: 'fix.v1',
   generate: 'generate.v1',
   image: 'image.v1',
+  agent: 'agent.v1',
 };
 
 export interface SystemPrompt {

@@ -3,6 +3,8 @@ import { aiToolName } from '@galley/shared';
 import {
   type LanguageModel,
   type ModelMessage,
+  type StopCondition,
+  type Tool,
   stepCountIs,
   streamText,
   type SystemModelMessage,
@@ -31,6 +33,8 @@ export interface AssistantRequest {
   abortSignal?: AbortSignal | undefined;
   /** Model calls in one request, tool round trips included (SPEC §6.8). */
   maxSteps?: number;
+  /** Input and output tokens of every model call together; the request stops after the step that reaches it. */
+  maxTotalTokens?: number;
   maxOutputTokens?: number;
   onEvent(event: AssistantEvent): void;
 }
@@ -41,6 +45,8 @@ export interface AssistantResult {
   usage: TokenUsage;
   /** Version of the system prompt used, for the usage log. */
   promptId: string;
+  /** The bound that ended the request while the model still had tools to call, if any. */
+  limit: 'steps' | 'tokens' | null;
 }
 
 export const DEFAULT_MAX_STEPS = 8;
@@ -89,6 +95,15 @@ function numberOf(value: number | undefined): number {
   return value ?? 0;
 }
 
+/** Stops once the steps so far have used `budget` tokens, input and output together. */
+export function tokensUsedUp(budget: number): StopCondition<Record<string, Tool>> {
+  return ({ steps }) =>
+    steps.reduce(
+      (total, step) => total + numberOf(step.usage.inputTokens) + numberOf(step.usage.outputTokens),
+      0,
+    ) >= budget;
+}
+
 /**
  * Runs one request of the assistant: streams text and tool activity through
  * `onEvent` and returns the final text and token usage. Provider failures are
@@ -105,7 +120,10 @@ export async function runAssistant(request: AssistantRequest): Promise<Assistant
     instructions: systemMessages(request, prompt.text),
     messages: conversation(request),
     ...(tools === undefined ? {} : { tools }),
-    stopWhen: stepCountIs(request.maxSteps ?? DEFAULT_MAX_STEPS),
+    stopWhen: [
+      stepCountIs(request.maxSteps ?? DEFAULT_MAX_STEPS),
+      ...(request.maxTotalTokens === undefined ? [] : [tokensUsedUp(request.maxTotalTokens)]),
+    ],
     maxOutputTokens: request.maxOutputTokens ?? DEFAULT_MAX_OUTPUT_TOKENS,
     // Retries would multiply the cost of a failing request; the user retries.
     maxRetries: 0,
@@ -154,6 +172,15 @@ export async function runAssistant(request: AssistantRequest): Promise<Assistant
     }
   }
   const usage = await result.usage;
+  const steps = await result.steps;
+  // A last step that still called tools was cut short by a bound, not finished.
+  const cut = steps.at(-1)?.finishReason === 'tool-calls';
+  const total = numberOf(usage.inputTokens) + numberOf(usage.outputTokens);
+  const limit = !cut
+    ? null
+    : request.maxTotalTokens !== undefined && total >= request.maxTotalTokens
+      ? 'tokens'
+      : 'steps';
   return {
     text: stepText,
     usage: {
@@ -162,5 +189,6 @@ export async function runAssistant(request: AssistantRequest): Promise<Assistant
       cachedInputTokens: numberOf(usage.inputTokenDetails.cacheReadTokens),
     },
     promptId: prompt.id,
+    limit,
   };
 }
