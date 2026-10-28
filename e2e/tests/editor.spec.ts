@@ -22,8 +22,10 @@ test.describe('editor', () => {
     await page.keyboard.press('Control+End');
     const typed = 'Appended at the end of a long document';
     // Event Timing measures each keystroke inside the browser, from the key
-    // press to the next frame painted, without the test runner's round trips,
-    // whose cost depends on the load of the machine rather than on the editor.
+    // press until the editor has handled it (its wait in the input queue plus
+    // its handlers), without the test runner's round trips, whose cost depends
+    // on the load of the machine rather than on the editor. The paint that
+    // follows is left out: headless Chromium paints on its own schedule.
     const observed = await page.evaluate(() => {
       const durations: number[] = [];
       Reflect.set(window, '__keyDurations', durations);
@@ -36,7 +38,9 @@ test.describe('editor', () => {
       };
       new PerformanceObserver((list) => {
         for (const entry of list.getEntries()) {
-          if (entry.name.startsWith('key')) durations.push(entry.duration);
+          if (entry instanceof PerformanceEventTiming && entry.name.startsWith('key')) {
+            durations.push(entry.processingEnd - entry.startTime);
+          }
         }
       }).observe(init);
       return PerformanceObserver.supportedEntryTypes.includes('event');
