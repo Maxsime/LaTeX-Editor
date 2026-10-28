@@ -57,7 +57,14 @@
     "AI_BAD_RESPONSE": "Réponse inattendue du fournisseur IA.",
     "AI_NO_VISION": "Le modèle configuré ne lit pas les images.",
     "AI_ENDPOINT_FORBIDDEN": "Adresse de fournisseur personnalisée non autorisée sur cette instance.",
-    "UNKNOWN_CITATION": "La proposition cite une clé absente de la bibliographie."
+    "UNKNOWN_CITATION": "La proposition cite une clé absente de la bibliographie.",
+    "QUOTA_STORAGE_EXCEEDED": "L'espace de stockage du propriétaire du projet est plein.",
+    "QUOTA_COMPILE_EXCEEDED": "Votre temps de compilation du mois est épuisé.",
+    "LAST_ADMIN": "L'instance doit garder au moins un administrateur actif.",
+    "OIDC_NOT_CONFIGURED": "La connexion par fournisseur d'identité n'est pas configurée.",
+    "OIDC_FAILED": "La connexion par le fournisseur d'identité a échoué.",
+    "OIDC_EMAIL_UNVERIFIED": "Le fournisseur d'identité ne garantit pas votre adresse e-mail.",
+    "OIDC_SIGNUP_CLOSED": "Aucun compte n'est associé à cette identité et l'inscription est fermée."
   },
   "common": {
     "cancel": "Annuler",
@@ -73,7 +80,8 @@
     "status": "État des services",
     "logout": "Se déconnecter",
     "signedInAs": "Connecté en tant que {{name}}",
-    "account": "Mon compte"
+    "account": "Mon compte",
+    "admin": "Administration"
   },
   "auth": {
     "fields": {
@@ -89,7 +97,9 @@
       "title": "Connexion",
       "submit": "Se connecter",
       "noAccount": "Pas encore de compte ?",
-      "register": "Créer un compte"
+      "register": "Créer un compte",
+      "oidc": "Se connecter avec {{name}}",
+      "or": "ou avec un mot de passe"
     },
     "register": {
       "title": "Créer un compte",
@@ -555,6 +565,18 @@
         "unpriced": "{{count}} requêtes sur des modèles sans prix ne sont pas comptées.",
         "none": "Aucune requête ce mois-ci."
       }
+    },
+    "quotas": {
+      "title": "Espace et temps de compilation",
+      "storage": "Espace de stockage",
+      "compile": "Compilation depuis le {{since}}",
+      "unlimited": "{{used}} utilisés, sans limite",
+      "of": "{{used}} sur {{limit}}",
+      "minutesUnlimited_one": "{{count}} minute, sans limite",
+      "minutesUnlimited_other": "{{count}} minutes, sans limite",
+      "minutesOf_one": "{{used}} sur {{count}} minute",
+      "minutesOf_other": "{{used}} sur {{count}} minutes",
+      "note": "L'espace compte les fichiers des projets dont vous êtes propriétaire, corbeille comprise. Le temps compte les compilations que vous lancez, aperçus de l'assistant compris."
     }
   },
   "history": {
@@ -887,6 +909,121 @@
     "options": {
       "enabled": "Assistant IA",
       "enabledHint": "Désactivé, l'assistant n'est proposé à aucun membre du projet."
+    }
+  },
+  "admin": {
+    "title": "Administration",
+    "forbidden": "Cette page est réservée aux administrateurs de l'instance.",
+    "tabs": {
+      "users": "Utilisateurs",
+      "invites": "Invitations",
+      "instance": "Inscription et quotas",
+      "ai": "Assistant IA",
+      "services": "Services"
+    },
+    "users": {
+      "search": "Rechercher (nom, identifiant, adresse)",
+      "create": "Créer un compte",
+      "createTitle": "Nouveau compte",
+      "makeAdmin": "Administrateur de l'instance",
+      "temporaryPassword": "Mot de passe temporaire",
+      "temporaryPasswordNote": "Affiché une seule fois. Transmettez-le à la personne, qui le changera après sa première connexion.",
+      "resetNote": "Affiché une seule fois. Les sessions ouvertes de la personne ont été fermées.",
+      "person": "Personne",
+      "storage": "Espace",
+      "compile": "Compilation (mois)",
+      "lastSeen": "Dernière activité",
+      "actions": "Actions",
+      "admin": "admin",
+      "disabled": "désactivé",
+      "sso": "SSO",
+      "never": "jamais",
+      "manage": "Gérer",
+      "minutes_one": "{{count}} min",
+      "minutes_other": "{{count}} min",
+      "total_one": "{{count}} compte",
+      "total_other": "{{count}} comptes",
+      "previous": "Précédents",
+      "next": "Suivants",
+      "enable": "Réactiver",
+      "disable": "Désactiver",
+      "grantAdmin": "Donner les droits d'administration",
+      "revokeAdmin": "Retirer les droits d'administration",
+      "resetPassword": "Réinitialiser le mot de passe",
+      "givePassword": "Donner un mot de passe",
+      "quotas": "Quotas de la personne",
+      "quotasHint": "Vide : valeur par défaut de l'instance. -1 : sans limite."
+    },
+    "invites": {
+      "intro": "Une invitation permet de créer un compte quand l'inscription se fait sur invitation. Chaque lien ne sert qu'une fois.",
+      "validity": "Validité",
+      "create": "Créer une invitation",
+      "link": "Lien d'invitation",
+      "once": "Affiché une seule fois : copiez-le maintenant.",
+      "pending": "Créée le {{created}}, valable jusqu'au {{expires}}",
+      "used": "Utilisée le {{date}}",
+      "none": "Aucune invitation."
+    },
+    "instance": {
+      "registration": "Inscription",
+      "fromConsole": "Réglé dans cette console (prioritaire sur la configuration du serveur).",
+      "fromEnv": "Valeur de la configuration du serveur (.env).",
+      "modes": {
+        "open": "Ouverte à tous",
+        "invite": "Sur invitation",
+        "closed": "Fermée (comptes créés par un administrateur)"
+      }
+    },
+    "quotas": {
+      "title": "Quotas par défaut",
+      "intro": "S'appliquent à chaque compte, sauf valeur propre fixée dans l'onglet Utilisateurs.",
+      "storageMb": "Espace par personne (Mo)",
+      "compileMinutes": "Compilation par mois (minutes)",
+      "emptyUnlimited": "Vide : sans limite.",
+      "invalid": "Indiquez un nombre entier positif, ou laissez vide."
+    },
+    "ai": {
+      "enabled": "Assistant activé sur l'instance",
+      "default": "Modèle par défaut",
+      "defaultIntro": "Proposé à toute personne qui n'a pas configuré son propre fournisseur. La clé est chiffrée et n'est plus jamais affichée en entier.",
+      "baseUrlHint": "Obligatoire pour un serveur compatible OpenAI (Ollama, vLLM). Vide : adresse officielle du fournisseur.",
+      "vision": "Lecture d'images",
+      "contextTokens": "Fenêtre de contexte (jetons)",
+      "auto": "Selon la table intégrée",
+      "autoHint": "Vide : selon la table intégrée.",
+      "yes": "Oui",
+      "no": "Non",
+      "backToEnv": "Revenir à la configuration du serveur",
+      "prices": "Prix des modèles",
+      "pricesIntro": "Une ligne par modèle : fournisseur, modèle, prix par million de jetons en entrée, en sortie, en entrée mise en cache (vide si aucun), devise. Ils servent à estimer les coûts affichés dans « Mon compte ».",
+      "badLine": "La ligne {{line}} n'est pas valide.",
+      "savePrices": "Enregistrer les prix",
+      "pricesSaved": "Prix enregistrés."
+    },
+    "services": {
+      "version": "Version de Galley",
+      "texlive": "Millésime TeX Live",
+      "unknown": "inconnu (aucun worker n'a démarré)",
+      "queue": "File de compilation",
+      "queueDetail": "{{waiting}} en attente, {{active}} en cours, {{failed}} en échec",
+      "lastDay": "Compilations des dernières 24 h",
+      "outcomes": {
+        "queued": "en attente",
+        "running": "en cours",
+        "success": "réussies",
+        "failure": "en erreur",
+        "timeout": "trop longues",
+        "cancelled": "annulées",
+        "superseded": "remplacées",
+        "error": "incidents"
+      },
+      "users": "Comptes",
+      "usersDetail": "{{total}} au total, {{active}} actifs sur 30 jours",
+      "projects": "Projets",
+      "storage": "Stockage des projets",
+      "sso": "Connexion unique (OIDC)",
+      "ssoOff": "non configurée",
+      "health": "État détaillé des services"
     }
   }
 }

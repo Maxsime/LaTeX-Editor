@@ -1,5 +1,7 @@
+import { type ErrorCode, errorCode } from '@galley/shared';
 import { createRootRoute, createRoute, createRouter } from '@tanstack/react-router';
 import { AccountPage } from './routes/account.js';
+import { AdminPage } from './routes/admin.js';
 import { IndexRedirect, LoginPage, RegisterPage, RequireAuth, SetupPage } from './routes/auth.js';
 import { DashboardPage } from './routes/dashboard.js';
 import { JoinPage } from './routes/join.js';
@@ -19,9 +21,14 @@ const loginRoute = createRoute({
   path: '/login',
   component: LoginPage,
   // Pages that need a session send visitors here with ?redirect=<path>.
-  validateSearch: (search: Record<string, unknown>): { redirect?: string } => {
+  // A failed sign-in through the identity provider comes back with ?error=<code>.
+  validateSearch: (search: Record<string, unknown>): { redirect?: string; error?: ErrorCode } => {
     const redirect = safeRedirect(search.redirect);
-    return redirect === undefined ? {} : { redirect };
+    const error = errorCode.safeParse(search.error);
+    return {
+      ...(redirect === undefined ? {} : { redirect }),
+      ...(error.success ? { error: error.data } : {}),
+    };
   },
 });
 const setupRoute = route('/setup', SetupPage);
@@ -49,6 +56,11 @@ const accountRoute = route('/account', () => (
     <AccountPage />
   </RequireAuth>
 ));
+const adminRoute = route('/admin', () => (
+  <RequireAuth>
+    <AdminPage />
+  </RequireAuth>
+));
 const joinRoute = route('/join/$token', () => (
   <RequireAuth>
     <JoinPage />
@@ -66,6 +78,7 @@ export const router = createRouter({
     projectRoute,
     joinRoute,
     accountRoute,
+    adminRoute,
   ]),
 });
 

@@ -64,6 +64,8 @@ export const authConfigResponse = z.object({
   registrationMode,
   /** True while no account exists: the first one is created with the setup code. */
   setupRequired: z.boolean(),
+  /** Sign-in through the instance's identity provider, when one is configured. */
+  oidc: z.nullable(z.object({ displayName: z.string() })),
 });
 export type AuthConfigResponse = z.infer<typeof authConfigResponse>;
 

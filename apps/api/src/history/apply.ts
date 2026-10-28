@@ -1,6 +1,8 @@
 import { ApiError, splitProjectPath } from '@galley/shared';
 import { blobs } from '@galley/db';
 import { inArray } from 'drizzle-orm';
+import { storageGuard } from '../admin/quotas.js';
+import { instanceSettingsOf } from '../admin/settings.js';
 import type { AppContext } from '../context.js';
 import { decodeText } from '../files/classify.js';
 import type { IncomingFile } from '../files/ingest.js';
@@ -76,6 +78,7 @@ export async function applyState(
   // Removed folders include one replaced by a file, cleared before the file is written.
   const cleared = [...changes.removedFiles, ...changes.removedFolders];
 
+  const { quotas } = await instanceSettingsOf(context).get();
   const written = await db.transaction(async (tx) => {
     const closed: string[] = [];
     const ids = new Map(
@@ -89,7 +92,9 @@ export async function applyState(
       for (const key of [...ids.keys()]) if (key.startsWith(`${path}/`)) ids.delete(key);
       closed.push(...(await deleteNode(tx, projectId, id)));
     }
+    const guard = await storageGuard(tx, quotas, projectId);
     const result = await writeFiles(tx, projectId, null, incoming, target.folders.map(segmentsOf));
+    await guard.check();
     await ensureMainFile(tx, projectId);
     await touchProject(tx, projectId);
     return { replaced: result.replaced, closed: [...closed, ...result.closed] };

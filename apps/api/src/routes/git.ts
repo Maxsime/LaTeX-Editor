@@ -76,6 +76,10 @@ const refusalMessages: Record<PushRefusal['reason'], Record<Locale, (path: strin
     fr: () => 'Le projet poussé contient trop de fichiers.',
     en: () => 'The pushed project has too many files.',
   },
+  quota: {
+    fr: () => "L'espace de stockage du propriétaire du projet est plein.",
+    en: () => "The project owner's storage space is full.",
+  },
 };
 
 /** Git sends the user's language, from LANG, in Accept-Language. */

@@ -6,6 +6,8 @@ import {
 } from '@galley/shared';
 import type { FastifyInstance } from 'fastify';
 import { requireAuth } from '../auth/plugin.js';
+import { assertOwnerRoom } from '../admin/quotas.js';
+import { instanceSettingsOf } from '../admin/settings.js';
 import type { AppContext } from '../context.js';
 import { ArchiveError, DEFAULT_ARCHIVE_LIMITS, type ArchiveLimits } from '../archive/limits.js';
 import { extractArchive } from '../archive/read.js';
@@ -87,6 +89,16 @@ export function archiveRoutes(
       for (const file of extracted.files) {
         incoming.push(await classifySpooled(file.segments, file, warnings));
       }
+      const { quotas } = await instanceSettingsOf(context).get();
+      await assertOwnerRoom(
+        db,
+        quotas,
+        auth.user.id,
+        incoming.reduce(
+          (total, file) => total + (file.kind === 'binary' ? file.blob.size : file.size),
+          0,
+        ),
+      );
       await storeBlobs(
         db,
         s3,

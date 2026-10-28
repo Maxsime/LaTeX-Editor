@@ -2,6 +2,8 @@ import { createHash, randomUUID } from 'node:crypto';
 import { type CompileJob, type CompileResult, compileResult } from '@galley/shared';
 import type { Queue, QueueEvents } from 'bullmq';
 import type { Redis } from 'ioredis';
+import { assertCompileTime, recordSnippetTime } from '../admin/quotas.js';
+import { instanceSettingsOf } from '../admin/settings.js';
 import type { AppContext } from '../context.js';
 import { sha256 } from '../files/classify.js';
 import { deleteCompileOutputs } from '../storage/compiles.js';
@@ -75,12 +77,15 @@ export async function compileSnippet(
 ): Promise<SnippetOutcome> {
   const { database, s3, config, snippets, redis } = context;
   if (snippets === undefined) return { compileId: null, outcome: 'error', errors: [] };
+  const { quotas } = await instanceSettingsOf(context).get();
+  await assertCompileTime(database.db, redis, quotas, userId);
   const bytes = textBytes(document);
   const hash = sha256(bytes);
   await storeBlobs(database.db, s3, config.S3_BUCKET, [
     { hash, size: bytes.length, mimeType: 'text/x-tex', bytes },
   ]);
   const compileId = randomUUID();
+  const started = performance.now();
   const result = await snippets({
     compileId,
     projectId: snippetProjectId(projectId, userId),
@@ -95,6 +100,7 @@ export async function compileSnippet(
     clean: true,
     chktexDisabled: [],
   });
+  await recordSnippetTime(redis, userId, (performance.now() - started) / 1000);
   if (result === null) return { compileId: null, outcome: 'error', errors: [] };
   await redis.zadd(
     SNIPPETS_KEY,

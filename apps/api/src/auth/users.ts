@@ -8,7 +8,8 @@ export interface NewUser {
   email: string;
   username: string;
   displayName: string;
-  password: string;
+  /** Null for an account that signs in through the identity provider only. */
+  password: string | null;
 }
 
 export function toPublicUser(row: typeof users.$inferSelect): PublicUser {
@@ -35,13 +36,13 @@ export async function createUser(
   input: NewUser,
   isAdmin = false,
 ): Promise<PublicUser> {
-  const lowered = input.password.toLowerCase();
+  const lowered = input.password?.toLowerCase();
   if (lowered === input.email.toLowerCase() || lowered === input.username.toLowerCase()) {
     throw new ValidationError([
       { path: 'password', messageKey: 'validation.password_matches_identity' },
     ]);
   }
-  const passwordHash = await hashPassword(input.password);
+  const passwordHash = input.password === null ? null : await hashPassword(input.password);
   try {
     const [row] = await db
       .insert(users)

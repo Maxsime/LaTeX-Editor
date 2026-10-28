@@ -91,6 +91,17 @@ services:
       AI_DEFAULT_CONTEXT_TOKENS: ${AI_DEFAULT_CONTEXT_TOKENS:-}
       AI_ALLOW_USER_ENDPOINTS: ${AI_ALLOW_USER_ENDPOINTS:-false}
       AI_RATE_LIMIT_PER_MINUTE: ${AI_RATE_LIMIT_PER_MINUTE:-20}
+      # Public address: the API refuses the development secrets on any host but localhost.
+      GALLEY_HOST: ${GALLEY_HOST:-localhost}
+      GALLEY_HTTPS_PORT: ${GALLEY_HTTPS_PORT:-443}
+      QUOTA_STORAGE_MB: ${QUOTA_STORAGE_MB:-}
+      QUOTA_COMPILE_MINUTES: ${QUOTA_COMPILE_MINUTES:-}
+      OIDC_ISSUER: ${OIDC_ISSUER:-}
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-}
+      OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}
+      OIDC_DISPLAY_NAME: ${OIDC_DISPLAY_NAME:-SSO}
+      OIDC_SCOPES: ${OIDC_SCOPES:-openid email profile}
+      OIDC_ALLOW_SIGNUP: ${OIDC_ALLOW_SIGNUP:-false}
     # A model served on the host (Ollama, LM Studio) is reached at host.docker.internal.
     extra_hosts:
       - host.docker.internal:host-gateway
@@ -224,6 +235,28 @@ services:
       timeout: 3s
       retries: 20
 
+  # Optional: docker compose --profile monitoring up -d (docs/operations.md).
+  prometheus:
+    image: prom/prometheus:v3.15.0
+    profiles: [monitoring]
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=${PROMETHEUS_RETENTION:-30d}
+    volumes:
+      - ./infra/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    # Reachable from the server itself only; publish it through a tunnel or a proxy.
+    ports:
+      - '127.0.0.1:${PROMETHEUS_PORT:-9090}:9090'
+    networks: [data, edge]
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '-O', '/dev/null', 'http://127.0.0.1:9090/-/ready']
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
 networks:
   # Caddy and the services it proxies.
   edge: {}
@@ -239,3 +272,4 @@ volumes:
   git-data: {}
   caddy-data: {}
   caddy-config: {}
+  prometheus-data: {}

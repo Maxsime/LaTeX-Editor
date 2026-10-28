@@ -26,6 +26,7 @@ import { and, desc, eq } from 'drizzle-orm';
 import type { FastifyBaseLogger } from 'fastify';
 import type * as z from 'zod/mini';
 import type { AppContext } from '../context.js';
+import { aiTokens } from '../metrics.js';
 import { nodePaths } from '../files/tree.js';
 import { type ProjectText, readProjectTexts } from '../materialize.js';
 import type { ProjectRow } from '../projects/access.js';
@@ -165,6 +166,8 @@ async function recordUsage(
       ),
     );
   const costMicros = price ? estimateCost(usage, price) : null;
+  aiTokens.inc({ provider: model.config.provider, direction: 'input' }, usage.inputTokens);
+  aiTokens.inc({ provider: model.config.provider, direction: 'output' }, usage.outputTokens);
   await db.insert(aiUsage).values({
     userId: options.userId,
     projectId: options.project.id,
@@ -319,7 +322,13 @@ export async function runChat(options: ChatOptions): Promise<void> {
         project.id,
         userId,
         standaloneDocument(generated.code, generated.preamble),
-      );
+      ).catch((error: unknown) => {
+        // The code is still worth showing when the preview cannot be compiled.
+        if (error instanceof ApiError && error.code === 'QUOTA_COMPILE_EXCEEDED') {
+          return { compileId: null, outcome: 'error' as const, errors: [] };
+        }
+        throw error;
+      });
       if (compiled.compileId !== null)
         await store.recordSnippet(compiled.compileId, userId, project.id);
       send({

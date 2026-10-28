@@ -12,6 +12,7 @@
   "devDependencies": {
     "@playwright/test": "1.63.0",
     "@types/yauzl": "3.4.0",
+    "oauth2-mock-server": "9.2.0",
     "yauzl": "3.4.0",
     "yjs": "13.6.33"
   }

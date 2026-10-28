@@ -62,7 +62,7 @@ export function buildApp({
     },
   });
 
-  const metrics = createMetrics();
+  const metrics = createMetrics(context?.compileQueue);
   app.addHook('onRequest', (request, reply, done) => {
     void reply.header(REQUEST_ID_HEADER, request.id);
     done();
@@ -92,7 +92,7 @@ export function buildApp({
       await api.register(multipart);
       await registerAuth(api, context);
       authRoutes(api, context);
-      adminRoutes(api, context);
+      adminRoutes(api, context, version);
       projectRoutes(api, context);
       sharingRoutes(api, context);
       tagRoutes(api, context);

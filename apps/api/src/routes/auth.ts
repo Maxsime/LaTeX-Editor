@@ -9,12 +9,21 @@ import {
 } from '@galley/shared';
 import { and, eq, gt, isNull, sql } from 'drizzle-orm';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
+import * as z from 'zod/mini';
 import { clearSessionCookie, requireAuth, setSessionCookie } from '../auth/plugin.js';
 import { verifyAgainstDummy, verifyPassword } from '../auth/password.js';
 import { createSession, deleteSession } from '../auth/sessions.js';
 import { checkSetupCode, clearSetupCode } from '../auth/setup.js';
-import { tokenDigest } from '../auth/tokens.js';
+import { safeEqual, tokenDigest } from '../auth/tokens.js';
 import { countUsers, createUser, findUserByLogin, toPublicUser } from '../auth/users.js';
+import { instanceSettingsOf } from '../admin/settings.js';
+import {
+  accountForIdentity,
+  OIDC_CALLBACK_PATH,
+  OidcClient,
+  oidcEnabled,
+  safeRedirect,
+} from '../auth/oidc.js';
 import type { AppContext } from '../context.js';
 import { registrationInvites } from '@galley/db';
 import { parse } from '../http/validate.js';
@@ -46,6 +55,23 @@ const loginRateLimit = {
   },
 };
 
+const OIDC_STATE_COOKIE = 'galley_oidc_state';
+const OIDC_KEY_PREFIX = 'galley:oidc:';
+/** Time a person has to sign in at the provider. */
+const OIDC_PENDING_SECONDS = 600;
+
+const oidcStartQuery = z.object({ redirect: z.optional(z.string().check(z.maxLength(2_000))) });
+const oidcCallbackQuery = z.object({ state: z.string().check(z.minLength(1), z.maxLength(200)) });
+
+/** What the start of a sign-in leaves for its return, kept in Valkey under its state. */
+const pendingSignIn = z.object({ nonce: z.string(), verifier: z.string(), redirect: z.string() });
+type PendingSignIn = z.infer<typeof pendingSignIn>;
+
+/** A loggable reason: library messages name the failed check, never a token. */
+function reasonOf(error: unknown): string {
+  return error instanceof Error ? error.message.slice(0, 200) : 'unknown';
+}
+
 /** Arbitrary constant serialising first-account creation across API instances. */
 const SETUP_LOCK_KEY = 7_265_830_142;
 
@@ -71,8 +97,9 @@ export function authRoutes(app: FastifyInstance, context: AppContext): void {
     { config: { public: true } },
     async (): Promise<AuthConfigResponse> => {
       return authConfigResponse.parse({
-        registrationMode: config.REGISTRATION_MODE,
+        registrationMode: (await instanceSettingsOf(context).get()).registrationMode,
         setupRequired: (await countUsers(database.db)) === 0,
+        oidc: oidcEnabled(config) ? { displayName: config.OIDC_DISPLAY_NAME } : null,
       });
     },
   );
@@ -110,12 +137,13 @@ export function authRoutes(app: FastifyInstance, context: AppContext): void {
     { config: { public: true, ...credentialRateLimit } },
     async (request, reply) => {
       const body = parse(registerRequest, request.body);
-      if (config.REGISTRATION_MODE === 'closed') {
+      const { registrationMode } = await instanceSettingsOf(context).get();
+      if (registrationMode === 'closed') {
         throw new ApiError('FORBIDDEN', 'registration closed');
       }
       const user = await database.db.transaction(async (tx) => {
         let inviteId: string | undefined;
-        if (config.REGISTRATION_MODE === 'invite') {
+        if (registrationMode === 'invite') {
           if (!body.inviteToken) throw new ApiError('FORBIDDEN', 'invite required');
           // Locks the invite row so that one invite cannot create two accounts.
           const [invite] = await tx
@@ -152,15 +180,105 @@ export function authRoutes(app: FastifyInstance, context: AppContext): void {
     async (request, reply) => {
       const body = parse(loginRequest, request.body);
       const row = await findUserByLogin(database.db, body.login);
-      const valid = row
-        ? await verifyPassword(row.passwordHash, body.password)
-        : await verifyAgainstDummy(body.password);
+      // An account without a password (created through OIDC) is checked like an
+      // unknown one, so that timing does not tell them apart.
+      const hash = row?.passwordHash ?? null;
+      const valid =
+        hash === null
+          ? await verifyAgainstDummy(body.password)
+          : await verifyPassword(hash, body.password);
       if (!row || !valid) {
         throw new ApiError('UNAUTHENTICATED', 'invalid credentials');
       }
       if (request.auth) await deleteSession(database, request.auth.sessionId);
       await startSession(reply, row.id, request.headers['user-agent']);
       return { user: toPublicUser(row) };
+    },
+  );
+
+  // --- Identity provider (OIDC) ------------------------------------------------------
+
+  const oidc = new OidcClient(config);
+  const cookieOptions = {
+    httpOnly: true,
+    secure: true,
+    sameSite: 'lax' as const,
+    path: '/api/auth/oidc/',
+  };
+
+  app.get(
+    '/api/auth/oidc/start',
+    { config: { public: true, ...credentialRateLimit } },
+    async (request, reply) => {
+      if (!oidcEnabled(config)) throw new ApiError('OIDC_NOT_CONFIGURED');
+      const { redirect } = parse(oidcStartQuery, request.query);
+      let started;
+      try {
+        started = await oidc.start();
+      } catch (error) {
+        request.log.warn({ reason: reasonOf(error) }, 'identity provider unreachable');
+        return reply.redirect('/login?error=OIDC_FAILED');
+      }
+      const pending: PendingSignIn = {
+        nonce: started.nonce,
+        verifier: started.verifier,
+        redirect: safeRedirect(redirect),
+      };
+      await redis.set(
+        `${OIDC_KEY_PREFIX}${started.state}`,
+        JSON.stringify(pending),
+        'EX',
+        OIDC_PENDING_SECONDS,
+      );
+      // Binds the sign-in to this browser, so that a link carrying someone
+      // else's state cannot sign the victim into the attacker's account.
+      void reply.setCookie(OIDC_STATE_COOKIE, started.state, {
+        ...cookieOptions,
+        maxAge: OIDC_PENDING_SECONDS,
+      });
+      return reply.redirect(started.url);
+    },
+  );
+
+  app.get(
+    OIDC_CALLBACK_PATH,
+    { config: { public: true, ...credentialRateLimit } },
+    async (request, reply) => {
+      void reply.clearCookie(OIDC_STATE_COOKIE, cookieOptions);
+      let target: string;
+      try {
+        if (!oidcEnabled(config)) throw new ApiError('OIDC_NOT_CONFIGURED');
+        const { state } = parse(oidcCallbackQuery, request.query);
+        const bound = request.cookies[OIDC_STATE_COOKIE];
+        if (bound === undefined || !safeEqual(bound, state)) {
+          throw new ApiError('OIDC_FAILED', 'state not bound to this browser');
+        }
+        const stored = await redis.getdel(`${OIDC_KEY_PREFIX}${state}`);
+        if (stored === null) throw new ApiError('OIDC_FAILED', 'unknown or expired state');
+        const pending = pendingSignIn.parse(JSON.parse(stored));
+        const query = request.url.slice(request.url.indexOf('?'));
+        const claims = await oidc.finish(query, { state, ...pending });
+        const { registrationMode } = await instanceSettingsOf(context).get();
+        const policy = {
+          issuer: oidc.issuer,
+          allowSignup: config.OIDC_ALLOW_SIGNUP || registrationMode === 'open',
+        };
+        const outcome = await database.db.transaction((tx) =>
+          accountForIdentity(tx, policy, claims),
+        );
+        request.log.info(
+          { userId: outcome.user.id, created: outcome.created, linked: outcome.linked },
+          'signed in through the identity provider',
+        );
+        if (request.auth) await deleteSession(database, request.auth.sessionId);
+        await startSession(reply, outcome.user.id, request.headers['user-agent']);
+        target = pending.redirect;
+      } catch (error) {
+        const code = error instanceof ApiError ? error.code : 'OIDC_FAILED';
+        request.log.warn({ code, reason: reasonOf(error) }, 'identity provider sign-in refused');
+        target = `/login?error=${code}`;
+      }
+      return reply.redirect(target);
     },
   );
 

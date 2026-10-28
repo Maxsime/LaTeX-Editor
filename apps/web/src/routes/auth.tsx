@@ -55,13 +55,27 @@ function RedirectWhenSignedIn({ to = '/projects' }: { to?: string }) {
 
 export function LoginPage() {
   const { t } = useTranslation();
-  const { redirect } = useSearch({ from: '/login' });
+  const { redirect, error } = useSearch({ from: '/login' });
   const login = useAuthMutation('/api/auth/login', redirect);
   const config = useAuthConfig();
   if (config.data?.setupRequired) return <Navigate to="/setup" />;
+  const oidc = config.data?.oidc ?? null;
   return (
     <AuthCard title={t('auth.login.title')}>
       <RedirectWhenSignedIn {...(redirect === undefined ? {} : { to: redirect })} />
+      {error !== undefined && <ErrorAlert error={new ApiRequestError(400, error)} />}
+      {oidc !== null && (
+        <>
+          <a
+            // A full navigation: the provider's page is not part of the application.
+            href={`/api/auth/oidc/start${redirect === undefined ? '' : `?redirect=${encodeURIComponent(redirect)}`}`}
+            className="inline-flex w-full items-center justify-center rounded-md bg-accent px-3 py-2 text-sm font-medium text-white hover:bg-accent/90"
+          >
+            {t('auth.login.oidc', { name: oidc.displayName })}
+          </a>
+          <p className="text-center text-xs text-slate-600">{t('auth.login.or')}</p>
+        </>
+      )}
       <form
         className="space-y-4"
         onSubmit={(event) => {

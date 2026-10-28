@@ -47,8 +47,19 @@ jobs:
   stack:
     name: Images, compose stack and end-to-end tests
     runs-on: ubuntu-24.04
+    env:
+      # A mock identity provider started by the end-to-end test on the Docker
+      # host; the API container reaches it through the default bridge gateway.
+      OIDC_ISSUER: http://172.17.0.1:9440
+      OIDC_CLIENT_ID: galley-ci
+      OIDC_CLIENT_SECRET: galley-ci-secret
     steps:
       - uses: actions/checkout@v5
+      # Installation time is measured from here, as docs/installation.md steps 3 and 4.
+      - name: Record the installation start
+        run: echo "INSTALL_STARTED=$(date +%s)" >> "$GITHUB_ENV"
+      - name: Create .env with fresh secrets
+        run: scripts/init-env.sh
       # The compiler image carries a full TeX Live (about 9 GB unpacked); the
       # runner's preinstalled SDKs we never use make room for it.
       - name: Free disk space
@@ -87,6 +98,12 @@ jobs:
           # The assistant's end-to-end test points a user configuration at a fake
           # model served by the test runner (e2e/tests/assistant.spec.ts).
           AI_ALLOW_USER_ENDPOINTS: 'true'
+      # J10 acceptance: a clean clone is installed in under 15 minutes.
+      - name: Check the installation time
+        run: |
+          elapsed=$(( $(date +%s) - INSTALL_STARTED ))
+          echo "Installation from a clean clone: $((elapsed / 60)) min $((elapsed % 60)) s" | tee -a "$GITHUB_STEP_SUMMARY"
+          test "$elapsed" -le 900
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v5
         with:
@@ -97,6 +114,9 @@ jobs:
       - run: pnpm test:e2e
       - name: Compile the corpus in the sandbox
         run: pnpm --filter @galley/compiler test:corpus
+      # Last: it destroys the volumes and restores them from the backup.
+      - name: Back up, wipe and restore the instance
+        run: scripts/ci-backup-roundtrip.sh
       - name: Collect container logs
         if: failure()
         run: docker compose logs --no-color > compose-logs.txt

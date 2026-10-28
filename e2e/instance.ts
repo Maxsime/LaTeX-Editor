@@ -34,8 +34,21 @@ export interface Account {
   password: string;
 }
 
+/** Runs SQL in the instance's database, for states the interface cannot reach quickly. */
+export function sql(statement: string): string {
+  return compose([
+    'exec',
+    '-T',
+    'postgres',
+    'sh',
+    '-c',
+    'psql --username="$POSTGRES_USER" --dbname="$POSTGRES_DB" -tA -v ON_ERROR_STOP=1 -c "$0"',
+    statement,
+  ]).trim();
+}
+
 /** Creates an account through the CLI; names are unique per run so the suite can be replayed. */
-export function createAccount(prefix: string): Account {
+export function createAccount(prefix: string, options: { admin?: boolean } = {}): Account {
   const username = `${prefix}${String(Date.now())}${String(Math.floor(Math.random() * 1000))}`;
   const output = adminCli([
     'create-user',
@@ -45,6 +58,7 @@ export function createAccount(prefix: string): Account {
     username,
     '--name',
     prefix,
+    ...(options.admin === true ? ['--admin'] : []),
   ]);
   const password = /Temporary password: (\S+)/.exec(output)?.[1];
   if (password === undefined) throw new Error(`unexpected CLI output: ${output}`);

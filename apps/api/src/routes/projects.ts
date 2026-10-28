@@ -11,6 +11,8 @@ import { eq } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import * as z from 'zod/mini';
 import { requireAuth } from '../auth/plugin.js';
+import { assertOwnerRoom } from '../admin/quotas.js';
+import { instanceSettingsOf } from '../admin/settings.js';
 import type { AppContext } from '../context.js';
 import { projects } from '@galley/db';
 import { getNode, writeFiles } from '../files/tree.js';
@@ -37,6 +39,7 @@ export function projectRoutes(app: FastifyInstance, context: AppContext): void {
   app.post('/api/projects', async (request, reply) => {
     const auth = requireAuth(request);
     const body = parse(createProjectRequest, request.body);
+    const { quotas } = await instanceSettingsOf(context).get();
     const project = await db.transaction(async (tx) => {
       const row = await insertProject(tx, auth.user.id, body.name);
       const files = templates[body.template].map((file) => {
@@ -49,6 +52,12 @@ export function projectRoutes(app: FastifyInstance, context: AppContext): void {
           size: textBytes(file.content).length,
         };
       });
+      await assertOwnerRoom(
+        tx,
+        quotas,
+        auth.user.id,
+        files.reduce((total, file) => total + file.size, 0),
+      );
       const {
         rows: [main],
       } = await writeFiles(tx, row.id, null, files);

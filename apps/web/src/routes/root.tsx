@@ -25,6 +25,11 @@ function UserMenu() {
       <span className="hidden text-slate-600 sm:inline">
         {t('nav.signedInAs', { name: user.displayName })}
       </span>
+      {user.isAdmin && (
+        <Link to="/admin" className="text-ink hover:underline">
+          {t('nav.admin')}
+        </Link>
+      )}
       <Link to="/account" className="text-ink hover:underline">
         {t('nav.account')}
       </Link>

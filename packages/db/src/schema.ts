@@ -32,7 +32,8 @@ export const users = pgTable('users', {
   email: citext('email').notNull().unique(),
   username: citext('username').notNull().unique(),
   displayName: text('display_name').notNull(),
-  passwordHash: text('password_hash').notNull(),
+  /** Null for an account created through OIDC: it signs in there only. */
+  passwordHash: text('password_hash'),
   isAdmin: boolean('is_admin').notNull().default(false),
   disabledAt: timestamp('disabled_at', { withTimezone: true }),
   ...timestamps,
@@ -530,4 +531,45 @@ export const aiModelPrices = pgTable(
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [primaryKey({ columns: [table.provider, table.model] })],
+);
+
+/**
+ * Instance settings changed from the administration console. A key present
+ * here overrides the environment variable of the same setting.
+ */
+export const instanceSettings = pgTable('instance_settings', {
+  key: text('key').primaryKey(),
+  value: jsonb('value').notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedBy: uuid('updated_by').references(() => users.id, { onDelete: 'set null' }),
+});
+
+/** Quotas of one person, overriding the instance defaults; null means the default. */
+export const userQuotas = pgTable('user_quotas', {
+  userId: uuid('user_id')
+    .primaryKey()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  /** Megabytes of project files owned; -1 for unlimited. */
+  storageMb: integer('storage_mb'),
+  /** Minutes of compilation per calendar month; -1 for unlimited. */
+  compileMinutes: integer('compile_minutes'),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Accounts of an OpenID Connect provider linked to local users. */
+export const userIdentities = pgTable(
+  'user_identities',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    issuer: text('issuer').notNull(),
+    subject: text('subject').notNull(),
+    ...timestamps,
+  },
+  (table) => [
+    uniqueIndex('user_identities_issuer_subject_idx').on(table.issuer, table.subject),
+    index('user_identities_user_idx').on(table.userId),
+  ],
 );
