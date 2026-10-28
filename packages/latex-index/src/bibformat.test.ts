@@ -69,6 +69,29 @@ describe('formatBibtex', () => {
     );
   });
 
+  it('reads parenthesised entries, @preamble, @comment and trailing text', () => {
+    const source = [
+      '@comment{old entries below}',
+      '@online(web, date = {2020-05-01}, editor = "Doe, Jane", url = {https://example.org})',
+      '@preamble{"\\newcommand{\\noop}[1]{}"}',
+      '@book{early, year = {n.d.}, author = {Ann Other}}',
+      'Free text at the end.',
+    ].join('\n');
+    const formatted = formatBibtex(source, { sort: 'year', align: false }) ?? '';
+    expect(formatted.startsWith('@preamble{')).toBe(true);
+    expect(formatted).toContain(
+      '@comment{old entries below}\n@online{web,\n  editor = "Doe, Jane",',
+    );
+    expect(formatted.indexOf('@online{web')).toBeLessThan(formatted.indexOf('@book{early'));
+    expect(formatted.trimEnd().endsWith('Free text at the end.')).toBe(true);
+    const byAuthor = formatBibtex(source, { sort: 'author', align: false }) ?? '';
+    expect(byAuthor.indexOf('@online{web')).toBeLessThan(byAuthor.indexOf('@book{early'));
+  });
+
+  it('returns an empty text for an empty file', () => {
+    expect(formatBibtex('', { sort: 'key', align: true })).toBe('');
+  });
+
   it('is stable: formatting twice gives the same text', () => {
     const once = formatBibtex(SOURCE, { sort: 'author', align: true }) ?? '';
     expect(formatBibtex(once, { sort: 'author', align: true })).toBe(once);
