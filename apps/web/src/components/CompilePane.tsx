@@ -262,14 +262,18 @@ export function CompilePane({
   const downloadName = `${project.name}.pdf`;
   // The PDF may live in a window of its own; both sides talk over a BroadcastChannel.
   const [detached, setDetached] = useState(false);
+  const [greetings, setGreetings] = useState(0);
   const post = usePdfChannel(project.id, (message: PdfChannelMessage) => {
-    if (message.type === 'hello') setDetached(true);
-    else if (message.type === 'bye') setDetached(false);
+    if (message.type === 'hello') {
+      // A window that just opened asks for the PDF, even when this page already counts it.
+      setDetached(true);
+      setGreetings((count) => count + 1);
+    } else if (message.type === 'bye') setDetached(false);
     else if (message.type === 'synctex') void synctex.toSource(message);
   });
   useEffect(() => {
     if (detached && pdfUrl !== null) post({ type: 'pdf', url: pdfUrl, downloadName });
-  }, [detached, pdfUrl, downloadName, post]);
+  }, [detached, greetings, pdfUrl, downloadName, post]);
   useEffect(() => {
     if (detached && synctex.highlight)
       post({ type: 'highlight', ...synctex.highlight, boxes: [...synctex.highlight.boxes] });
