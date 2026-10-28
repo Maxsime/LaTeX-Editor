@@ -23,6 +23,8 @@ import {
   type MentionsResponse,
   messagesQuery,
   type MessagesResponse,
+  type NotificationSettings,
+  notificationSettings,
   type ProjectMessage,
   type ProjectRole,
   readMentionsRequest,
@@ -31,9 +33,11 @@ import {
 import { and, asc, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import * as z from 'zod/mini';
+import { publicOrigin } from '../auth/oidc.js';
 import { requireAuth } from '../auth/plugin.js';
 import type { AppContext } from '../context.js';
 import { parse } from '../http/validate.js';
+import { mentionMail } from '../mail/messages.js';
 import { loadProject } from '../projects/access.js';
 import { publishProjectEvent } from '../projects/events.js';
 import { projectParams } from './projects.js';
@@ -140,16 +144,21 @@ async function loadThread(db: Executor, projectId: string, threadId: string) {
   return row;
 }
 
-/** Records who a comment names: members of the project, other than its author. */
+/**
+ * Records who a comment names: members of the project, other than its author.
+ *
+ * @returns the people named for the first time by this comment, whom an edit
+ * that keeps a mention does not notify again.
+ */
 async function recordMentions(
   db: Executor,
   projectId: string,
   commentId: string,
   authorId: string,
   body: string,
-): Promise<void> {
+): Promise<string[]> {
   const names = mentionedUsernames(body);
-  if (names.length === 0) return;
+  if (names.length === 0) return [];
   const named = await db
     .select({ id: users.id })
     .from(projectMembers)
@@ -162,11 +171,13 @@ async function recordMentions(
       ),
     );
   const targets = named.filter((row) => row.id !== authorId);
-  if (targets.length === 0) return;
-  await db
+  if (targets.length === 0) return [];
+  const added = await db
     .insert(commentMentions)
     .values(targets.map((row) => ({ commentId, userId: row.id })))
-    .onConflictDoNothing();
+    .onConflictDoNothing()
+    .returning({ userId: commentMentions.userId });
+  return added.map((row) => row.userId);
 }
 
 /** Who may resolve, reopen or delete a thread: its author while a reviewer, editors and the owner. */
@@ -178,8 +189,50 @@ function mayManage(role: ProjectRole, userId: string, authorId: string | null): 
  * Comment threads, mentions and the project chat (SPEC §3.4). Anchors of the
  * threads live in the files' Yjs documents, written by the clients.
  */
-export function reviewRoutes(app: FastifyInstance, { database, redis }: AppContext): void {
+export function reviewRoutes(app: FastifyInstance, context: AppContext): void {
+  const { database, redis, mailer } = context;
   const { db } = database;
+
+  /**
+   * E-mails the people a comment just named, unless they opted out (SPEC
+   * §3.4). Queuing failures are logged: the mention itself is already saved.
+   */
+  async function notifyMentions(
+    request: FastifyRequest,
+    projectId: string,
+    author: string,
+    body: string,
+    userIds: string[],
+  ): Promise<void> {
+    if (mailer === undefined || userIds.length === 0) return;
+    const [recipients, [project]] = await Promise.all([
+      db
+        .select({ email: users.email })
+        .from(users)
+        .where(
+          and(inArray(users.id, userIds), eq(users.emailMentions, true), isNull(users.disabledAt)),
+        ),
+      db.select({ name: projects.name }).from(projects).where(eq(projects.id, projectId)),
+    ]);
+    if (project === undefined) return;
+    const origin = publicOrigin(context.config);
+    for (const recipient of recipients) {
+      await mailer
+        .send(
+          mentionMail({
+            to: recipient.email,
+            author,
+            project: project.name,
+            comment: body,
+            link: `${origin}/projects/${projectId}`,
+            settings: `${origin}/account`,
+          }),
+        )
+        .catch((error: unknown) => {
+          request.log.warn({ err: error, projectId }, 'mention e-mail not queued');
+        });
+    }
+  }
 
   async function changed(projectId: string, threadId: string): Promise<void> {
     await publishProjectEvent(redis, projectId, { type: 'review.changed', threadId });
@@ -203,7 +256,7 @@ export function reviewRoutes(app: FastifyInstance, { database, redis }: AppConte
     const { id } = parse(projectParams, request.params);
     const body = parse(createThreadRequest, request.body);
     await loadProject(db, id, auth.user.id, 'reviewer');
-    const threadId = await db.transaction(async (tx) => {
+    const { threadId, named } = await db.transaction(async (tx) => {
       const [file] = await tx
         .select({ id: files.id })
         .from(files)
@@ -220,10 +273,11 @@ export function reviewRoutes(app: FastifyInstance, { database, redis }: AppConte
         .values({ threadId: thread.id, authorId: auth.user.id, body: body.body })
         .returning({ id: comments.id });
       if (!first) throw new ApiError('INTERNAL_ERROR');
-      await recordMentions(tx, id, first.id, auth.user.id, body.body);
-      return thread.id;
+      const named = await recordMentions(tx, id, first.id, auth.user.id, body.body);
+      return { threadId: thread.id, named };
     });
     await changed(id, threadId);
+    await notifyMentions(request, id, auth.user.displayName, body.body, named);
     return reply.status(201).send(await threadById(id, threadId));
   });
 
@@ -232,16 +286,17 @@ export function reviewRoutes(app: FastifyInstance, { database, redis }: AppConte
     const { id, threadId } = parse(threadParams, request.params);
     const { body } = parse(commentRequest, request.body);
     await loadProject(db, id, auth.user.id, 'reviewer');
-    await db.transaction(async (tx) => {
+    const named = await db.transaction(async (tx) => {
       await loadThread(tx, id, threadId);
       const [created] = await tx
         .insert(comments)
         .values({ threadId, authorId: auth.user.id, body })
         .returning({ id: comments.id });
       if (!created) throw new ApiError('INTERNAL_ERROR');
-      await recordMentions(tx, id, created.id, auth.user.id, body);
+      return recordMentions(tx, id, created.id, auth.user.id, body);
     });
     await changed(id, threadId);
+    await notifyMentions(request, id, auth.user.displayName, body, named);
     return reply.status(201).send(await threadById(id, threadId));
   });
 
@@ -264,14 +319,15 @@ export function reviewRoutes(app: FastifyInstance, { database, redis }: AppConte
   app.patch('/api/projects/:id/threads/:threadId/comments/:commentId', async (request) => {
     const { auth, params } = await ownComment(request);
     const { body } = parse(commentRequest, request.body);
-    await db.transaction(async (tx) => {
+    const named = await db.transaction(async (tx) => {
       await tx
         .update(comments)
         .set({ body, editedAt: new Date() })
         .where(eq(comments.id, params.commentId));
-      await recordMentions(tx, params.id, params.commentId, auth.user.id, body);
+      return recordMentions(tx, params.id, params.commentId, auth.user.id, body);
     });
     await changed(params.id, params.threadId);
+    await notifyMentions(request, params.id, auth.user.displayName, body, named);
     return threadById(params.id, params.threadId);
   });
 
@@ -319,6 +375,26 @@ export function reviewRoutes(app: FastifyInstance, { database, redis }: AppConte
     await db.delete(commentThreads).where(eq(commentThreads.id, threadId));
     await changed(id, threadId);
     return reply.status(204).send();
+  });
+
+  app.get('/api/me/notifications', async (request): Promise<NotificationSettings> => {
+    const auth = requireAuth(request);
+    const [row] = await db
+      .select({ emailMentions: users.emailMentions })
+      .from(users)
+      .where(eq(users.id, auth.user.id));
+    if (!row) throw new ApiError('NOT_FOUND');
+    return row;
+  });
+
+  app.patch('/api/me/notifications', async (request): Promise<NotificationSettings> => {
+    const auth = requireAuth(request);
+    const body = parse(notificationSettings, request.body);
+    await db
+      .update(users)
+      .set({ emailMentions: body.emailMentions })
+      .where(eq(users.id, auth.user.id));
+    return body;
   });
 
   app.get('/api/mentions', async (request): Promise<MentionsResponse> => {

@@ -12,6 +12,7 @@ import { countUsers } from './auth/users.js';
 import { developmentSecretsInUse, readConfig } from './config.js';
 import { DEVELOPMENT_MASTER_KEY } from './crypto/secrets.js';
 import { createDatabase, runMigrations } from '@galley/db';
+import { startMailer } from './mail/mailer.js';
 import { startMaintenance } from './projects/purge.js';
 import { createS3Client, ensureBucket, headBucket } from './storage/s3.js';
 
@@ -70,6 +71,8 @@ async function main(): Promise<void> {
     connection: { url: config.VALKEY_URL, maxRetriesPerRequest: null },
   });
 
+  const mail = startMailer(config, queueRedis, logger);
+  logger.info(mail === null ? 'SMTP_URL is not set: no e-mail is sent' : 'e-mail delivery enabled');
   const context = {
     config,
     database,
@@ -79,6 +82,7 @@ async function main(): Promise<void> {
     compileQueue,
     synctex: createSynctexClient(synctexQueue, synctexEvents),
     snippets: createSnippetCompiler(compileQueue, compileEvents),
+    ...(mail === null ? {} : { mailer: mail.mailer }),
   };
   followCompileEvents(context, compileEvents, logger);
   const stopMaintenance = await startMaintenance(context, queueRedis, logger);
@@ -102,6 +106,7 @@ async function main(): Promise<void> {
     app
       .close()
       .then(stopMaintenance)
+      .then(() => mail?.close())
       .then(() =>
         Promise.allSettled([
           compileEvents.close(),

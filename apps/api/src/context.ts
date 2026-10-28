@@ -7,6 +7,7 @@ import type { CompileQueue } from './compile/service.js';
 import type { SynctexClient } from './compile/synctex.js';
 import type { SnippetCompiler } from './ai/snippets.js';
 import type { LinkFetcher } from './links/fetch.js';
+import type { Mailer } from './mail/mailer.js';
 
 /** Long-lived dependencies shared by every route. */
 export interface AppContext {
@@ -21,4 +22,6 @@ export interface AppContext {
   snippets?: SnippetCompiler;
   /** Reads linked files from the web; tests replace it to reach a local server. */
   linkFetcher?: LinkFetcher;
+  /** Queues outgoing e-mail; absent when the instance has no SMTP server. */
+  mailer?: Mailer;
 }

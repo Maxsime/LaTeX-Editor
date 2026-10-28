@@ -3,6 +3,8 @@ import {
   type AuthConfigResponse,
   authConfigResponse,
   loginRequest,
+  passwordResetConfirm,
+  passwordResetRequest,
   registerRequest,
   type SessionResponse,
   setupRequest,
@@ -12,6 +14,7 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 import * as z from 'zod/mini';
 import { clearSessionCookie, requireAuth, setSessionCookie } from '../auth/plugin.js';
 import { verifyAgainstDummy, verifyPassword } from '../auth/password.js';
+import { confirmPasswordReset, requestPasswordReset } from '../auth/password-reset.js';
 import { createSession, deleteSession } from '../auth/sessions.js';
 import { checkSetupCode, clearSetupCode } from '../auth/setup.js';
 import { safeEqual, tokenDigest } from '../auth/tokens.js';
@@ -22,6 +25,7 @@ import {
   OIDC_CALLBACK_PATH,
   OidcClient,
   oidcEnabled,
+  publicOrigin,
   safeRedirect,
 } from '../auth/oidc.js';
 import type { AppContext } from '../context.js';
@@ -100,6 +104,7 @@ export function authRoutes(app: FastifyInstance, context: AppContext): void {
         registrationMode: (await instanceSettingsOf(context).get()).registrationMode,
         setupRequired: (await countUsers(database.db)) === 0,
         oidc: oidcEnabled(config) ? { displayName: config.OIDC_DISPLAY_NAME } : null,
+        mail: context.mailer !== undefined,
       });
     },
   );
@@ -193,6 +198,40 @@ export function authRoutes(app: FastifyInstance, context: AppContext): void {
       if (request.auth) await deleteSession(database, request.auth.sessionId);
       await startSession(reply, row.id, request.headers['user-agent']);
       return { user: toPublicUser(row) };
+    },
+  );
+
+  // --- Password reset by e-mail (SPEC §3.9) -------------------------------------------
+
+  app.post(
+    '/api/auth/password-reset',
+    { config: { public: true, ...credentialRateLimit } },
+    async (request, reply) => {
+      const { mailer } = context;
+      if (mailer === undefined) throw new ApiError('MAIL_DISABLED');
+      const { email } = parse(passwordResetRequest, request.body);
+      // Answered before the lookup, so that neither the reply nor its latency
+      // tells whether an account uses this address.
+      requestPasswordReset(database, mailer, publicOrigin(config), email, new Date()).then(
+        (sent) => {
+          if (sent) request.log.info('password reset link sent');
+        },
+        (error: unknown) => {
+          request.log.error({ reason: reasonOf(error) }, 'password reset request failed');
+        },
+      );
+      return reply.status(202).send();
+    },
+  );
+
+  app.post(
+    '/api/auth/password-reset/confirm',
+    { config: { public: true, ...credentialRateLimit } },
+    async (request, reply) => {
+      const { token, password } = parse(passwordResetConfirm, request.body);
+      const userId = await confirmPasswordReset(database, token, password, new Date());
+      request.log.info({ userId }, 'password reset through an e-mail link');
+      return reply.status(204).send();
     },
   );
 
