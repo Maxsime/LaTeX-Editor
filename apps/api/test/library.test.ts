@@ -365,6 +365,17 @@ describe.skipIf(!dockerAvailable)('duplication, templates, texmf and linked file
       });
       expect(missing.json()).toMatchObject({ error: { code: 'LINK_FETCH_FAILED' } });
 
+      // A project-wide replacement skips the linked file; aiming at it is refused.
+      const replaced = await alice.send('POST', `/api/projects/${project}/replace`, {
+        json: { q: 'Second', replacement: 'Changed' },
+      });
+      expect(replaced.json()).toMatchObject({ files: 0, replacements: 0 });
+      const aimed = await alice.send('POST', `/api/projects/${project}/replace`, {
+        json: { q: 'Second', replacement: 'Changed', fileIds: [node.id] },
+      });
+      expect(aimed.json()).toMatchObject({ error: { code: 'FILE_READ_ONLY' } });
+      expect(await content(alice, project, node.id)).toBe(served);
+
       const unlinked = await alice.send('POST', `/api/projects/${project}/files/${node.id}/unlink`);
       expect(unlinked.json<{ node: TreeNode }>().node.link).toBeUndefined();
     });

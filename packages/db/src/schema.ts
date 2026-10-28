@@ -596,7 +596,10 @@ export const templates = pgTable(
     description: text('description').notNull().default(''),
     /** Files as `{path: blob hash}`; blobs are never deleted while referenced. */
     manifest: jsonb('manifest').$type<Manifest>().notNull(),
-    folders: text('folders').array().notNull().default(sql`'{}'::text[]`),
+    folders: text('folders')
+      .array()
+      .notNull()
+      .default(sql`'{}'::text[]`),
     mainPath: text('main_path'),
     engine: engineEnum('engine').notNull().default('pdflatex'),
     bibTool: bibToolEnum('bib_tool').notNull().default('biber'),

@@ -158,6 +158,7 @@ export async function projectDetails(
     shellEscape: row.shellEscape,
     trackChanges: row.trackChanges,
     aiEnabled: row.aiEnabled,
+    type: row.type,
     citeKeyPattern: row.citeKeyPattern,
     // Stored as text so that a language can be added without a migration.
     spellLanguage: spellLanguage.safeParse(row.spellLanguage).data ?? 'auto',

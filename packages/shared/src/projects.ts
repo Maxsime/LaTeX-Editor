@@ -57,6 +57,8 @@ export const projectDetails = z.object({
   spellLanguage,
   chktexDisabled: z.array(z.number()),
   aiEnabled: z.boolean(),
+  /** `texmf` for a personal texmf tree: no compilation, sharing or assistant. */
+  type: z.enum(['document', 'texmf']),
 });
 export type ProjectDetails = z.infer<typeof projectDetails>;
 
