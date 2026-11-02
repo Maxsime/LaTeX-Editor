@@ -6,7 +6,7 @@ import {
   type ProjectDetails,
   shellEscapeMode as shellEscapeModes,
 } from '@galley/shared';
-import { ExternalLink } from 'lucide-react';
+import { ChevronRight, ExternalLink } from 'lucide-react';
 import { Popover } from 'radix-ui';
 import { AiOption, WritingOptions } from './WritingOptions.js';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -255,7 +255,8 @@ export function CompilePane({
   const { autoCompile, autoCompileDelay } = useCompilePreferences();
   const editCount = useEditor((state) => state.editCount);
   const revealAt = useEditor((state) => state.revealAt);
-  const [logOpen, setLogOpen] = useState(false);
+  // Folded or unfolded at will, and remembered: the PDF keeps the room otherwise.
+  const { logOpen, setLogOpen } = useCompilePreferences();
   const pending = isPending(latest) || compile.isPending;
   const shown = latest !== null && !isPending(latest) ? latest : lastPdf;
   const counts = countLevels(shown?.diagnostics ?? []);
@@ -363,11 +364,10 @@ export function CompilePane({
   // Show the log when a compilation fails without leaving anything to look at.
   const failedId =
     shown !== null && shown.status !== 'success' && shown.pdf === null ? shown.id : null;
-  const [seenFailure, setSeenFailure] = useState<string | null>(null);
-  if (failedId !== seenFailure) {
-    setSeenFailure(failedId);
+  useEffect(() => {
+    // The setting lives in a store shared with other components: set after rendering.
     if (failedId !== null) setLogOpen(true);
-  }
+  }, [failedId, setLogOpen]);
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -403,23 +403,6 @@ export function CompilePane({
           className="ml-auto"
         >
           {t('compile.synctex.toPdf')}
-        </Button>
-        <Button
-          variant="ghost"
-          aria-pressed={logOpen}
-          onClick={() => {
-            // Opening the log also takes the editor to the first error.
-            if (!logOpen && counts.error > 0) {
-              goToStop(1, -1);
-            }
-            setLogOpen(!logOpen);
-          }}
-          title={t('compile.logButtonTitle')}
-        >
-          {t('compile.logButton', {
-            errors: t('compile.errorCount', { count: counts.error }),
-            warnings: t('compile.warningCount', { count: counts.warning }),
-          })}
         </Button>
         <Popover.Root>
           <Popover.Trigger asChild>
@@ -500,9 +483,46 @@ export function CompilePane({
             </p>
           )}
         </div>
-        {logOpen && shown !== null && (
-          <div className="min-h-0 flex-[2] border-t border-slate-300 bg-white">
-            <LogPanel projectId={project.id} run={shown} fileIds={fileIds} />
+        {shown !== null && (
+          <div
+            className={`flex flex-col border-t border-slate-300 bg-white ${logOpen ? 'min-h-0 flex-[2]' : ''}`}
+          >
+            <button
+              type="button"
+              aria-expanded={logOpen}
+              aria-controls="compile-log"
+              onClick={() => {
+                // Opening the log also takes the editor to the first error.
+                if (!logOpen && counts.error > 0) goToStop(1, -1);
+                setLogOpen(!logOpen);
+              }}
+              title={t('compile.logButtonTitle')}
+              className="flex w-full shrink-0 items-center gap-2 px-2 py-1 text-left text-xs font-medium hover:bg-slate-50"
+            >
+              <ChevronRight
+                aria-hidden
+                className={`size-3.5 transition-transform ${logOpen ? 'rotate-90' : ''}`}
+              />
+              <span
+                className={
+                  counts.error > 0
+                    ? 'text-red-800'
+                    : counts.warning > 0
+                      ? 'text-amber-800'
+                      : 'text-slate-700'
+                }
+              >
+                {t('compile.logButton', {
+                  errors: t('compile.errorCount', { count: counts.error }),
+                  warnings: t('compile.warningCount', { count: counts.warning }),
+                })}
+              </span>
+            </button>
+            {logOpen && (
+              <div id="compile-log" className="min-h-0 flex-1 border-t border-slate-200">
+                <LogPanel projectId={project.id} run={shown} fileIds={fileIds} />
+              </div>
+            )}
           </div>
         )}
       </div>
