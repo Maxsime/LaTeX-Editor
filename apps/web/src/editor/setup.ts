@@ -36,6 +36,7 @@ import type { EditorTheme } from '../stores/editor.js';
 import { bibtex } from './bibtex.js';
 import { type CompletionSources, latexCompletionSource } from './completion.js';
 import { latexFoldRange } from './folding.js';
+import { editorPalette } from './palette.js';
 
 const latexLanguage = StreamLanguage.define(stex);
 const bibtexLanguage = StreamLanguage.define(bibtex);
@@ -48,56 +49,60 @@ export function languageFor(name: string): 'latex' | 'bibtex' | 'plain' {
   return 'plain';
 }
 
-const lightHighlight = HighlightStyle.define([
-  { tag: tags.keyword, color: '#7c2d92' },
-  { tag: [tags.tagName, tags.function(tags.variableName)], color: '#1e3a8a' },
-  { tag: tags.comment, color: '#6b7280', fontStyle: 'italic' },
-  { tag: [tags.string, tags.special(tags.string)], color: '#166534' },
-  { tag: tags.number, color: '#9a3412' },
-  { tag: [tags.bracket, tags.punctuation], color: '#4b5563' },
-  { tag: [tags.atom, tags.labelName], color: '#0f766e' },
-  { tag: tags.propertyName, color: '#1e40af' },
-]);
+function highlightFor(theme: EditorTheme): HighlightStyle {
+  const { tokens } = editorPalette(theme);
+  return HighlightStyle.define([
+    { tag: [tags.tagName, tags.function(tags.variableName)], color: tokens.command },
+    { tag: [tags.atom, tags.labelName], color: tokens.environment },
+    { tag: tags.keyword, color: tokens.mathDelimiter },
+    { tag: tags.bracket, color: tokens.bracket },
+    { tag: [tags.punctuation, tags.operator], color: tokens.punctuation },
+    { tag: tags.comment, color: tokens.comment, fontStyle: 'italic' },
+    { tag: [tags.string, tags.special(tags.string)], color: tokens.string },
+    { tag: tags.number, color: tokens.number },
+    { tag: tags.propertyName, color: tokens.property },
+    { tag: tags.standard(tags.variableName), color: tokens.builtin },
+    { tag: tags.invalid, color: tokens.invalid },
+  ]);
+}
 
-const darkHighlight = HighlightStyle.define([
-  { tag: tags.keyword, color: '#d8b4fe' },
-  { tag: [tags.tagName, tags.function(tags.variableName)], color: '#93c5fd' },
-  { tag: tags.comment, color: '#9ca3af', fontStyle: 'italic' },
-  { tag: [tags.string, tags.special(tags.string)], color: '#86efac' },
-  { tag: tags.number, color: '#fdba74' },
-  { tag: [tags.bracket, tags.punctuation], color: '#d1d5db' },
-  { tag: [tags.atom, tags.labelName], color: '#5eead4' },
-  { tag: tags.propertyName, color: '#bfdbfe' },
-]);
+// Built once: CodeMirror compares highlight styles by identity when reconfiguring.
+const highlights = { light: highlightFor('light'), dark: highlightFor('dark') };
 
 function themeExtension(theme: EditorTheme, fontSize: number): Extension {
   const dark = theme === 'dark';
+  const palette = editorPalette(theme);
   return [
     EditorView.theme(
       {
         '&': {
           height: '100%',
           fontSize: `${String(fontSize)}px`,
-          color: dark ? '#e5e7eb' : '#1f2933',
-          backgroundColor: dark ? '#111827' : '#ffffff',
+          color: palette.text,
+          backgroundColor: palette.background,
         },
-        '.cm-content': { fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace' },
+        '.cm-content': {
+          fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
+          caretColor: palette.cursor,
+        },
         '.cm-gutters': {
-          backgroundColor: dark ? '#1f2937' : '#f8fafc',
-          color: dark ? '#9ca3af' : '#64748b',
-          borderRight: `1px solid ${dark ? '#374151' : '#e2e8f0'}`,
+          backgroundColor: palette.gutterBackground,
+          color: palette.gutterText,
+          borderRight: `1px solid ${palette.gutterBorder}`,
         },
-        '.cm-activeLine': { backgroundColor: dark ? '#1f293780' : '#f1f5f980' },
-        '.cm-activeLineGutter': { backgroundColor: dark ? '#374151' : '#e2e8f0' },
-        '&.cm-focused .cm-cursor': { borderLeftColor: dark ? '#f9fafb' : '#111827' },
+        // Translucent: the active line is drawn above the selection layer.
+        '.cm-activeLine': { backgroundColor: `${palette.activeLine}80` },
+        '.cm-activeLineGutter': { backgroundColor: palette.activeLineGutter },
+        '&.cm-focused .cm-cursor': { borderLeftColor: palette.cursor },
         '&.cm-focused .cm-selectionBackground, .cm-selectionBackground': {
-          backgroundColor: dark ? '#1e40af80' : '#bfdbfe',
+          backgroundColor: palette.selection,
         },
+        '.cm-specialChar': { color: palette.tokens.invalid },
         '.cm-scroller': { overflow: 'auto' },
       },
       { dark },
     ),
-    syntaxHighlighting(dark ? darkHighlight : lightHighlight),
+    syntaxHighlighting(highlights[theme]),
   ];
 }
 

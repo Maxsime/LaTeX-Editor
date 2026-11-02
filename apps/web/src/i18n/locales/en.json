@@ -24,6 +24,11 @@
     "fr": "Français",
     "en": "English"
   },
+  "theme": {
+    "night": "Night mode",
+    "toDark": "Switch to night mode",
+    "toLight": "Switch to day mode"
+  },
   "footer": {
     "license": "Free software under the AGPL-3.0 licence.",
     "source": "Source code"
@@ -314,9 +319,9 @@
     },
     "tools": "Tools",
     "preferences": {
-      "theme": "Theme",
+      "theme": "Theme (whole interface)",
       "light": "Light",
-      "dark": "Dark",
+      "dark": "Night",
       "fontSize": "Size",
       "wrap": "Wrap lines",
       "spellCheck": "Spelling",

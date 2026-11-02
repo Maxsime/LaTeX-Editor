@@ -36,6 +36,30 @@ test.describe('status page', () => {
     await expect(page.getByRole('radio', { name: 'English' })).toHaveAttribute('data-state', 'on');
   });
 
+  test('switches the whole interface to night mode and remembers it', async ({ page }) => {
+    await page.goto('/status');
+    const html = page.locator('html');
+    await expect(html).not.toHaveClass(/\bdark\b/);
+    const toggle = page.getByRole('button', { name: 'Mode nuit' });
+    await expect(toggle).toHaveAttribute('aria-pressed', 'false');
+
+    await toggle.click();
+    await expect(html).toHaveClass(/\bdark\b/);
+    await expect(toggle).toHaveAttribute('aria-pressed', 'true');
+    // The page itself turns dark, which portalled popovers and dialogs inherit.
+    const colours = await page.evaluate(() => {
+      const style = getComputedStyle(document.body);
+      return { background: style.backgroundColor, text: style.color };
+    });
+    expect(colours.background).not.toBe('rgb(255, 255, 255)');
+    expect(colours.text).not.toBe(colours.background);
+
+    await page.reload();
+    await expect(html).toHaveClass(/\bdark\b/);
+    await page.getByRole('button', { name: 'Mode nuit' }).click();
+    await expect(html).not.toHaveClass(/\bdark\b/);
+  });
+
   test('links to the source code (AGPL-3.0 §13)', async ({ page }) => {
     await page.goto('/status');
     await expect(page.getByRole('link', { name: 'Code source' })).toHaveAttribute(

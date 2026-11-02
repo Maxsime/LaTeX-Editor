@@ -126,6 +126,13 @@ const theme = EditorView.baseTheme({
     color: '#0f172a',
     cursor: 'pointer',
   },
+  '&dark .cm-ai-button': {
+    borderColor: '#475569',
+    backgroundColor: '#1f2937',
+    color: '#f1f5f9',
+  },
+  '&dark .cm-ai-removed': { backgroundColor: '#7f1d1d80' },
+  '&dark .cm-ai-proposal': { backgroundColor: '#14532d80' },
 });
 
 /** Inline edits (Ctrl+Alt+K) and the drawing of the assistant's proposals in a file. */

@@ -68,6 +68,7 @@ export function mathPreview(options: MathPreviewOptions): Extension {
     EditorView.baseTheme({
       '.cm-math-preview': { padding: '6px 10px', maxWidth: '40rem', overflowX: 'auto' },
       '.cm-math-error': { color: '#b91c1c', fontSize: '0.85em' },
+      '&dark .cm-math-error': { color: '#fca5a5' },
     }),
   ];
 }

@@ -139,7 +139,7 @@ export function Dialog({
   return (
     <RadixDialog.Root open={open} onOpenChange={onOpenChange}>
       <RadixDialog.Portal>
-        <RadixDialog.Overlay className="fixed inset-0 bg-slate-900/40" />
+        <RadixDialog.Overlay className="fixed inset-0 bg-black/50" />
         <RadixDialog.Content
           className={`fixed top-1/2 left-1/2 max-h-[calc(100vh-2rem)] -translate-x-1/2 -translate-y-1/2 space-y-4 overflow-y-auto rounded-lg bg-white p-5 shadow-xl ${
             large

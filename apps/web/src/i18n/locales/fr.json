@@ -24,6 +24,11 @@
     "fr": "Français",
     "en": "English"
   },
+  "theme": {
+    "night": "Mode nuit",
+    "toDark": "Passer en mode nuit",
+    "toLight": "Passer en mode jour"
+  },
   "footer": {
     "license": "Logiciel libre sous licence AGPL-3.0.",
     "source": "Code source"
@@ -314,9 +319,9 @@
     },
     "tools": "Outils",
     "preferences": {
-      "theme": "Thème",
+      "theme": "Thème (toute l’interface)",
       "light": "Clair",
-      "dark": "Sombre",
+      "dark": "Nuit",
       "fontSize": "Taille",
       "wrap": "Retour à la ligne",
       "spellCheck": "Orthographe",
