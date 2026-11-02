@@ -1,7 +1,7 @@
 import { hasRole } from '@galley/shared';
 import { Link, useNavigate, useParams } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
-import { Button, ErrorAlert } from '../components/ui.js';
+import { Button, ErrorAlert, Loading } from '../components/ui.js';
 import { useJoinLink, useLinkPreview } from '../lib/sharing.js';
 
 /** Landing page of a share link: names the project and the offered role, then joins. */
@@ -14,7 +14,7 @@ export function JoinPage() {
   const open = (projectId: string) =>
     void navigate({ to: '/projects/$projectId', params: { projectId } });
 
-  if (preview.isLoading) return <p className="text-slate-600">{t('common.loading')}</p>;
+  if (preview.isLoading) return <Loading />;
   if (preview.error || !preview.data) {
     return (
       <div className="mx-auto max-w-md space-y-4">

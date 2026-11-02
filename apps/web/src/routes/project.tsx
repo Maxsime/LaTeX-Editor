@@ -25,6 +25,7 @@ import { FileTree, type TreeActions } from '../components/FileTree.js';
 import { HistoryDialog } from '../components/HistoryDialog.js';
 import { CopyFilesDialog, LinkFileDialog } from '../components/LibraryDialogs.js';
 import { OutlinePanel } from '../components/OutlinePanel.js';
+import { PaneSplitter } from '../components/PaneSplitter.js';
 import { PresenceBadges } from '../components/PresenceBadges.js';
 import { ReferencesPanel } from '../components/ReferencesPanel.js';
 import { WordsPanel } from '../components/WordsPanel.js';
@@ -32,13 +33,14 @@ import { SearchPanel } from '../components/SearchPanel.js';
 import { ChatPanel } from '../components/ChatPanel.js';
 import { AiPanel } from '../components/AiPanel.js';
 import { ShareDialog } from '../components/ShareDialog.js';
-import { Button, ErrorAlert, IconButton, NameDialog } from '../components/ui.js';
+import { Button, ErrorAlert, IconButton, NameDialog, Loading } from '../components/ui.js';
 import { useAiStatus } from '../lib/ai.js';
 import { ApiRequestError } from '../lib/api.js';
 import { diagnosticsByFile, isPending, useLatestCompile } from '../lib/compile.js';
 import { useLibraryFiles } from '../lib/library.js';
 import { useProject, useTree, useTreeMutations, useUpdateProject } from '../lib/projects.js';
 import { buildTree, flatten } from '../lib/tree.js';
+import { splitTracks } from '../lib/split.js';
 import { fromFileList } from '../lib/upload.js';
 import { useAi } from '../stores/ai.js';
 import { useCompilePreferences, type ViewMode } from '../stores/compile.js';
@@ -76,8 +78,10 @@ const PANEL_ICONS: Record<Panel, LucideIcon> = {
 };
 const VIEW_MODES: readonly ViewMode[] = ['editor', 'both', 'pdf'];
 
+// Side by side, a zero-width track holds the separator; the two panes share the
+// rest in the proportion it sets (variables written by PaneSplitter).
 const GRID: Record<ViewMode, string> = {
-  both: 'md:grid-cols-[16rem_minmax(0,1fr)_minmax(0,1fr)]',
+  both: 'md:grid-cols-[16rem_minmax(0,var(--editor-fr,1fr))_0_minmax(0,var(--pdf-fr,1fr))]',
   editor: 'md:grid-cols-[16rem_minmax(0,1fr)]',
   pdf: 'md:grid-cols-[16rem_minmax(0,1fr)]',
 };
@@ -146,6 +150,8 @@ export function ProjectPage() {
   const preferences = useCompilePreferences();
   const viewMode: ViewMode = isTexmf ? 'editor' : preferences.viewMode;
   const setViewMode = preferences.setViewMode;
+  const grid = useRef<HTMLDivElement>(null);
+  const tracks = splitTracks(preferences.split);
 
   useEffect(() => {
     open(projectId);
@@ -342,7 +348,11 @@ export function ProjectPage() {
       )}
       <Warnings projectId={projectId} />
       <ErrorAlert error={updateProject.error} />
-      <div className={`grid min-h-[28rem] flex-1 gap-2 ${GRID[viewMode]}`}>
+      <div
+        ref={grid}
+        className={`grid min-h-[28rem] flex-1 gap-2 ${GRID[viewMode]}`}
+        style={{ '--editor-fr': tracks.editor, '--pdf-fr': tracks.pdf }}
+      >
         <aside className="flex min-h-0 flex-col overflow-hidden rounded-md border border-slate-200 bg-slate-50/60">
           <div
             role="tablist"
@@ -369,7 +379,8 @@ export function ProjectPage() {
           <h2 className="px-3 pt-2 pb-1 text-xs font-semibold tracking-wide text-slate-500 uppercase">
             {t(`editor.panel.${panel}`)}
           </h2>
-          <div className="min-h-0 flex-1 overflow-auto px-1.5 pb-2">
+          {/* Keyed by panel: the new one fades in instead of replacing the other abruptly. */}
+          <div key={panel} className="fade-in min-h-0 flex-1 overflow-auto px-1.5 pb-2">
             {panel === 'files' && (
               <FileTree
                 nodes={nodes}
@@ -471,7 +482,7 @@ export function ProjectPage() {
             )}
             {panel === 'words' && <WordsPanel count={shownRun?.wordCount ?? null} />}
             {panel === 'review' && project.data && (
-              <Suspense fallback={<p className="text-slate-600">{t('common.loading')}</p>}>
+              <Suspense fallback={<Loading />}>
                 <ReviewPanel projectId={projectId} role={project.data.role} names={paths} />
               </Suspense>
             )}
@@ -484,7 +495,7 @@ export function ProjectPage() {
         <section
           className={`min-h-0 min-w-0 overflow-hidden rounded-md border border-slate-200 bg-white ${viewMode === 'pdf' ? 'hidden' : ''}`}
         >
-          <Suspense fallback={<p className="p-4 text-slate-600">{t('common.loading')}</p>}>
+          <Suspense fallback={<Loading className="p-4" />}>
             {project.data && (
               <EditorArea
                 key={projectId}
@@ -500,6 +511,9 @@ export function ProjectPage() {
             )}
           </Suspense>
         </section>
+        {viewMode === 'both' && (
+          <PaneSplitter grid={grid} split={preferences.split} onChange={preferences.setSplit} />
+        )}
         <section
           aria-label={t('compile.pane')}
           className={`min-h-0 min-w-0 overflow-hidden rounded-md border border-slate-200 ${viewMode === 'editor' ? 'hidden' : ''}`}

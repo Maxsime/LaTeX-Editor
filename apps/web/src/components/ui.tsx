@@ -1,3 +1,4 @@
+import { LoaderCircle } from 'lucide-react';
 import { Dialog as RadixDialog } from 'radix-ui';
 import { type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, useId } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -49,6 +50,25 @@ export function IconButton({
     >
       {children}
     </button>
+  );
+}
+
+/** Small spinning circle, for a button or a status line. */
+export function Spinner({ className = '' }: { className?: string }) {
+  return <LoaderCircle aria-hidden className={`size-4 shrink-0 animate-spin ${className}`} />;
+}
+
+/**
+ * Placeholder while a part of the page loads. It fades in only after a short
+ * wait, so a fast load shows nothing instead of a message flashing by.
+ */
+export function Loading({ className = '' }: { className?: string }) {
+  const { t } = useTranslation();
+  return (
+    <p className={`appear-late flex items-center gap-2 text-sm text-slate-600 ${className}`}>
+      <Spinner />
+      {t('common.loading')}
+    </p>
   );
 }
 
@@ -139,9 +159,9 @@ export function Dialog({
   return (
     <RadixDialog.Root open={open} onOpenChange={onOpenChange}>
       <RadixDialog.Portal>
-        <RadixDialog.Overlay className="fixed inset-0 bg-black/50" />
+        <RadixDialog.Overlay className="dialog-overlay fixed inset-0 bg-black/50" />
         <RadixDialog.Content
-          className={`fixed top-1/2 left-1/2 max-h-[calc(100vh-2rem)] -translate-x-1/2 -translate-y-1/2 space-y-4 overflow-y-auto rounded-lg bg-white p-5 shadow-xl ${
+          className={`dialog-content fixed top-1/2 left-1/2 max-h-[calc(100vh-2rem)] -translate-x-1/2 -translate-y-1/2 space-y-4 overflow-y-auto rounded-lg bg-white p-5 shadow-xl ${
             large
               ? 'w-[min(72rem,calc(100vw-2rem))]'
               : wide

@@ -3,7 +3,7 @@ import { useMutation } from '@tanstack/react-query';
 import { Link, Navigate, useNavigate, useRouter, useSearch } from '@tanstack/react-router';
 import { type ReactNode, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Button, ErrorAlert, TextField, useFieldError } from '../components/ui.js';
+import { Button, ErrorAlert, TextField, useFieldError, Loading } from '../components/ui.js';
 import { api, ApiRequestError } from '../lib/api.js';
 import { useAuthConfig, useRefreshSession, useSession } from '../lib/session.js';
 
@@ -370,12 +370,11 @@ export function IndexRedirect() {
 /** Shows `children` to a signed-in user; others sign in first, then come back here. */
 export function RequireAuth({ children }: { children: ReactNode }) {
   const { user, isLoading } = useSession();
-  const { t } = useTranslation();
   // Read once: subscribing to the location would re-render, and so re-run, the
   // redirection below at every step of the navigation it starts.
   const router = useRouter();
   const [here] = useState(() => router.state.location.href);
-  if (isLoading) return <p className="text-slate-600">{t('common.loading')}</p>;
+  if (isLoading) return <Loading />;
   if (user) return children;
   // The dashboard is where signing in leads anyway.
   return here === '/projects' ? (

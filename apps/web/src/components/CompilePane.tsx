@@ -30,7 +30,7 @@ import { type SynctexNotice, useSynctex } from '../lib/synctex.js';
 import { AUTO_COMPILE_DELAYS, useCompilePreferences, useCompileStore } from '../stores/compile.js';
 import { useEditor } from '../stores/editor.js';
 import { LogPanel } from './LogPanel.js';
-import { Button, ErrorAlert, IconButton } from './ui.js';
+import { Button, ErrorAlert, IconButton, Loading, Spinner } from './ui.js';
 
 // pdf.js is the largest dependency of the client; it loads with the first PDF shown.
 const PdfViewer = lazy(() => import('./PdfViewer.js'));
@@ -380,6 +380,7 @@ export function CompilePane({
           }}
           title={t('compile.shortcut')}
         >
+          {pending && <Spinner className="size-3.5" />}
           {pending ? t('compile.compiling') : t('compile.compile')}
         </Button>
         {latest !== null && isPending(latest) && (
@@ -430,7 +431,17 @@ export function CompilePane({
       <ErrorAlert error={compile.error ?? cancel.error} />
       <Notice notice={synctex.notice} />
       <div className="flex min-h-0 flex-1 flex-col">
-        <div className={logOpen ? 'min-h-0 flex-[3]' : 'min-h-0 flex-1'}>
+        <div className={`relative ${logOpen ? 'min-h-0 flex-[3]' : 'min-h-0 flex-1'}`}>
+          {/* While a compilation runs, a thin bar moves along the top of the PDF. */}
+          {pending && (
+            <div
+              data-testid="compile-progress"
+              aria-hidden
+              className="fade-in pointer-events-none absolute inset-x-0 top-0 z-30 h-0.5 overflow-hidden bg-accent/15"
+            >
+              <div className="progress-indeterminate h-full w-2/5 rounded-full bg-accent" />
+            </div>
+          )}
           {detached ? (
             <div className="space-y-2 p-4 text-sm text-slate-700">
               <p>{t('pdf.detached')}</p>
@@ -444,9 +455,7 @@ export function CompilePane({
               </Button>
             </div>
           ) : pdfUrl !== null ? (
-            <Suspense
-              fallback={<p className="p-4 text-sm text-slate-600">{t('common.loading')}</p>}
-            >
+            <Suspense fallback={<Loading className="p-4" />}>
               <PdfViewer
                 url={pdfUrl}
                 downloadName={downloadName}
@@ -519,7 +528,7 @@ export function CompilePane({
               </span>
             </button>
             {logOpen && (
-              <div id="compile-log" className="min-h-0 flex-1 border-t border-slate-200">
+              <div id="compile-log" className="rise-in min-h-0 flex-1 border-t border-slate-200">
                 <LogPanel projectId={project.id} run={shown} fileIds={fileIds} />
               </div>
             )}

@@ -47,11 +47,13 @@ test.describe('status page', () => {
     await expect(html).toHaveClass(/\bdark\b/);
     await expect(toggle).toHaveAttribute('aria-pressed', 'true');
     // The page itself turns dark, which portalled popovers and dialogs inherit.
+    // The colours cross-fade for a moment, hence the polling.
+    const background = () => page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+    await expect.poll(background).not.toBe('rgb(255, 255, 255)');
     const colours = await page.evaluate(() => {
       const style = getComputedStyle(document.body);
       return { background: style.backgroundColor, text: style.color };
     });
-    expect(colours.background).not.toBe('rgb(255, 255, 255)');
     expect(colours.text).not.toBe(colours.background);
 
     await page.reload();

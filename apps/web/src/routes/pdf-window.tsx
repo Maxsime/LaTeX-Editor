@@ -4,6 +4,7 @@ import { lazy, Suspense, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { PdfHighlight } from '../components/PdfViewer.js';
 import { usePdfChannel } from '../lib/pdf-window.js';
+import { Loading } from '../components/ui.js';
 
 const PdfViewer = lazy(() => import('../components/PdfViewer.js'));
 
@@ -43,7 +44,7 @@ export function PdfWindowPage() {
       {pdf === null ? (
         <p className="p-4 text-sm text-slate-600">{t('pdf.waiting')}</p>
       ) : (
-        <Suspense fallback={<p className="p-4 text-sm text-slate-600">{t('common.loading')}</p>}>
+        <Suspense fallback={<Loading className="p-4" />}>
           <PdfViewer
             url={pdf.url}
             downloadName={pdf.downloadName}

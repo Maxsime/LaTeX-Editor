@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useOutline } from '../lib/editor.js';
 import { activeOutlineIndex, relativeDepths } from '../lib/outline.js';
 import { useEditor } from '../stores/editor.js';
-import { ErrorAlert } from './ui.js';
+import { ErrorAlert, Loading } from './ui.js';
 
 /** Document outline from the main file, following inclusions; clicking a heading reveals it. */
 export function OutlinePanel({ projectId }: { projectId: string }) {
@@ -23,7 +23,7 @@ export function OutlinePanel({ projectId }: { projectId: string }) {
   }, [current]);
 
   if (outline.error) return <ErrorAlert error={outline.error} />;
-  if (outline.isLoading) return <p className="text-sm text-slate-600">{t('common.loading')}</p>;
+  if (outline.isLoading) return <Loading />;
   if (outline.data?.mainFileId === null) {
     return <p className="text-sm text-slate-600">{t('editor.outline.noMain')}</p>;
   }

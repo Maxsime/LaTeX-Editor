@@ -9,7 +9,7 @@ import {
   useGeneration,
 } from '../lib/ai.js';
 import { missingPackages } from '../lib/assistants.js';
-import { Button, Dialog } from './ui.js';
+import { Button, Dialog, Loading } from './ui.js';
 
 const PdfViewer = lazy(() => import('./PdfViewer.js'));
 
@@ -170,7 +170,7 @@ export function GenerateDialog({
             )}
             {snippet.compileId !== null && snippet.outcome === 'success' && (
               <div className="h-72 overflow-hidden rounded border border-slate-200">
-                <Suspense fallback={<p className="p-2 text-slate-600">{t('common.loading')}</p>}>
+                <Suspense fallback={<Loading className="p-2" />}>
                   <PdfViewer
                     url={snippetPdfUrl(projectId, snippet.compileId)}
                     downloadName="snippet.pdf"

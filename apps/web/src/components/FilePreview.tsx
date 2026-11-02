@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { fileContentUrl } from '../lib/api.js';
 import { previewKind } from '../lib/tree.js';
+import { Loading } from './ui.js';
 
 function TextPreview({ url }: { url: string }) {
   const { t } = useTranslation();
@@ -14,7 +15,7 @@ function TextPreview({ url }: { url: string }) {
       return response.text();
     },
   });
-  if (content.isLoading) return <p className="text-slate-600">{t('common.loading')}</p>;
+  if (content.isLoading) return <Loading />;
   return (
     <div className="space-y-2">
       <p className="text-xs text-slate-600">{t('project.preview.readOnly')}</p>

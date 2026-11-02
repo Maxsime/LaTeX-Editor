@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
+import { clampSplit, DEFAULT_SPLIT } from '../lib/split.js';
 
 export type ViewMode = 'both' | 'editor' | 'pdf';
 
@@ -14,11 +15,14 @@ interface CompilePreferences {
   pdfDark: boolean;
   /** Errors and warnings unfolded under the PDF. */
   logOpen: boolean;
+  /** Share of the width given to the editor beside the PDF (lib/split.ts). */
+  split: number;
   setAutoCompile: (on: boolean) => void;
   setAutoCompileDelay: (delay: number) => void;
   setViewMode: (mode: ViewMode) => void;
   setPdfDark: (on: boolean) => void;
   setLogOpen: (open: boolean) => void;
+  setSplit: (split: number) => void;
 }
 
 /** Compilation preferences, kept in this browser only. */
@@ -30,6 +34,7 @@ export const useCompilePreferences = create<CompilePreferences>()(
       viewMode: 'both',
       pdfDark: false,
       logOpen: false,
+      split: DEFAULT_SPLIT,
       setAutoCompile: (autoCompile) => {
         set({ autoCompile });
       },
@@ -44,6 +49,9 @@ export const useCompilePreferences = create<CompilePreferences>()(
       },
       setLogOpen: (logOpen) => {
         set({ logOpen });
+      },
+      setSplit: (split) => {
+        set({ split: clampSplit(split) });
       },
     }),
     {
