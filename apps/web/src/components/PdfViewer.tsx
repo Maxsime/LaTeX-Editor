@@ -252,7 +252,7 @@ export default function PdfViewer({
         </p>
       )}
       <div
-        className={`relative min-h-0 flex-1 ${pdfDark ? 'pdf-dark bg-slate-800' : 'bg-slate-200'}`}
+        className={`relative min-h-0 flex-1 ${pdfDark ? 'pdf-dark bg-slate-800 dark:bg-slate-50' : 'bg-slate-200'}`}
       >
         <div
           ref={container}

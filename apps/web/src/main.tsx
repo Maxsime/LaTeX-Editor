@@ -5,12 +5,15 @@ import { setNonce } from 'get-nonce';
 import { createRoot } from 'react-dom/client';
 import './i18n/index.js';
 import { styleNonce } from './lib/csp.js';
+import { followTheme } from './lib/theme.js';
 import { router } from './router.js';
 import './styles.css';
 
 // Dialogs lock page scrolling with a style element, which needs the CSP nonce.
 const nonce = styleNonce();
 if (nonce !== null) setNonce(nonce);
+
+followTheme();
 
 const queryClient = new QueryClient();
 const container = document.getElementById('root');

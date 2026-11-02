@@ -131,6 +131,7 @@ export function visualEditor(options: VisualOptions): Extension {
       '.cm-visual-math': { fontFamily: 'serif' },
       '.cm-visual-display': { display: 'inline-block', padding: '0.3em 1em' },
       '.cm-visual-math-error': { color: '#b91c1c' },
+      '&dark .cm-visual-math-error': { color: '#fca5a5' },
     }),
   ];
 }

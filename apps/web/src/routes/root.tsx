@@ -2,6 +2,7 @@ import { useMutation } from '@tanstack/react-query';
 import { Link, Outlet, useNavigate, useRouterState } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
 import { LanguageSwitcher } from '../components/LanguageSwitcher.js';
+import { ThemeToggle } from '../components/ThemeToggle.js';
 import { Button } from '../components/ui.js';
 import { api } from '../lib/api.js';
 import { SOURCE_URL } from '../lib/config.js';
@@ -85,6 +86,7 @@ export function RootLayout() {
               </a>
             </span>
             <UserMenu />
+            <ThemeToggle />
             <LanguageSwitcher />
           </div>
         </header>
@@ -101,6 +103,7 @@ export function RootLayout() {
         </Link>
         <div className="ml-auto flex items-center gap-3">
           <UserMenu />
+          <ThemeToggle />
           <LanguageSwitcher />
         </div>
       </header>
