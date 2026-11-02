@@ -219,14 +219,18 @@ export default function EditorArea({
     };
     // Our own role changed: reload it, and leave if access is gone.
     checkAccessRef.current = () => {
-      client.query({ ...projectQuery(projectId), staleTime: 0 }).then(
-        () => client.invalidateQueries({ queryKey: ['project', projectId] }),
-        (error: unknown) => {
-          // A refusal means access is gone; a network hiccup or a server error does not.
-          if (error instanceof ApiRequestError && (error.status === 403 || error.status === 404))
-            leave('accessLost');
-        },
-      );
+      // A request of its own: the cache would hand back a fetch already in flight,
+      // started before the change and answering with the old role.
+      projectQuery(projectId)
+        .queryFn()
+        .then(
+          () => client.invalidateQueries({ queryKey: ['project', projectId] }),
+          (error: unknown) => {
+            // A refusal means access is gone; a network hiccup or a server error does not.
+            if (error instanceof ApiRequestError && (error.status === 403 || error.status === 404))
+              leave('accessLost');
+          },
+        );
     };
     onEventRef.current = (event) => {
       if (event.type === 'project.deleted') {
@@ -299,7 +303,7 @@ export default function EditorArea({
   );
   useEffect(
     () =>
-      connection.onReconnected(() => {
+      connection.onChannelJoined(() => {
         checkAccessRef.current();
       }),
     [connection],

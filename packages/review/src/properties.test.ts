@@ -75,7 +75,10 @@ function sync(a: Y.Doc, b: Y.Doc): void {
   Y.applyUpdate(b, Y.encodeStateAsUpdate(a, Y.encodeStateVector(b)));
 }
 
-describe('suggestion properties', () => {
+// Each property runs hundreds of generated cases under coverage instrumentation,
+// while the CI runner tests every package at once: a run takes well under a
+// second here but went past the 5 s default there. The cases stay the same.
+describe('suggestion properties', { timeout: 30_000 }, () => {
   it('suggesting never changes the accepted text', () => {
     fc.assert(
       fc.property(base, fc.array(drawnEdit, { maxLength: 12 }), (content, edits) => {
