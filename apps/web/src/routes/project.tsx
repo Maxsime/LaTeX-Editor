@@ -1,6 +1,23 @@
 import { hasRole } from '@galley/shared';
 import { ToggleGroup } from 'radix-ui';
 import { Link, useParams } from '@tanstack/react-router';
+import {
+  BookMarked,
+  Copy,
+  FilePlus,
+  FolderPlus,
+  FolderTree,
+  FolderUp,
+  Link2,
+  ListTree,
+  type LucideIcon,
+  MessageSquareText,
+  MessagesSquare,
+  Search,
+  Sparkles,
+  Upload,
+  WholeWord,
+} from 'lucide-react';
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { CompilePane } from '../components/CompilePane.js';
@@ -15,7 +32,7 @@ import { SearchPanel } from '../components/SearchPanel.js';
 import { ChatPanel } from '../components/ChatPanel.js';
 import { AiPanel } from '../components/AiPanel.js';
 import { ShareDialog } from '../components/ShareDialog.js';
-import { Button, ErrorAlert, NameDialog } from '../components/ui.js';
+import { Button, ErrorAlert, IconButton, NameDialog } from '../components/ui.js';
 import { useAiStatus } from '../lib/ai.js';
 import { ApiRequestError } from '../lib/api.js';
 import { diagnosticsByFile, isPending, useLatestCompile } from '../lib/compile.js';
@@ -47,6 +64,16 @@ const PANELS: readonly Panel[] = [
   'chat',
   'assistant',
 ];
+const PANEL_ICONS: Record<Panel, LucideIcon> = {
+  files: FolderTree,
+  outline: ListTree,
+  search: Search,
+  references: BookMarked,
+  words: WholeWord,
+  review: MessageSquareText,
+  chat: MessagesSquare,
+  assistant: Sparkles,
+};
 const VIEW_MODES: readonly ViewMode[] = ['editor', 'both', 'pdf'];
 
 const GRID: Record<ViewMode, string> = {
@@ -172,6 +199,18 @@ export function ProjectPage() {
   useEffect(() => {
     if (activeId !== null) select(activeId);
   }, [activeId, select]);
+  // Like Prism, a project opens on its main file rather than on an empty editor. Decided
+  // once, when the project and its tree first load: a file created later opens nothing.
+  const mainFileId = project.data?.mainFileId ?? null;
+  const treeLoaded = tree.data !== undefined;
+  const projectLoaded = project.data !== undefined;
+  const openedOnMain = useRef<string | null>(null);
+  useEffect(() => {
+    if (!treeLoaded || !projectLoaded || openedOnMain.current === projectId) return;
+    openedOnMain.current = projectId;
+    const main = mainFileId === null ? undefined : nodes.find((node) => node.id === mainFileId);
+    if (main?.kind === 'text' && useEditor.getState().tabs.length === 0) select(main.id);
+  }, [treeLoaded, projectLoaded, projectId, mainFileId, nodes, select]);
   const uploadTarget = selected?.kind === 'folder' ? selected.id : (selected?.parentId ?? null);
   const texFiles = all.filter(
     (item) => item.kind === 'text' && item.name.toLowerCase().endsWith('.tex'),
@@ -217,12 +256,12 @@ export function ProjectPage() {
   if (project.error) return <ErrorAlert error={project.error} />;
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-3">
+    <div className="flex min-h-0 flex-1 flex-col gap-2">
+      <div className="flex flex-wrap items-center gap-2 text-sm">
         <Link to="/projects" className="text-sm text-accent underline">
           ← {t('project.back')}
         </Link>
-        <h1 className="font-serif text-2xl font-semibold">{project.data?.name}</h1>
+        <h1 className="truncate font-serif text-lg font-semibold">{project.data?.name}</h1>
         {project.data && project.data.role !== 'owner' && (
           <span className="rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-700">
             {t(`roles.${project.data.role}`)}
@@ -303,25 +342,34 @@ export function ProjectPage() {
       )}
       <Warnings projectId={projectId} />
       <ErrorAlert error={updateProject.error} />
-      <div className={`grid h-[calc(100vh-11rem)] min-h-[28rem] gap-3 ${GRID[viewMode]}`}>
-        <aside className="flex min-h-0 flex-col">
-          <div role="tablist" aria-label={t('editor.panels')} className="mb-2 flex flex-wrap gap-1">
-            {PANELS.filter((name) => name !== 'assistant' || aiShown).map((name) => (
-              <button
-                key={name}
-                type="button"
-                role="tab"
-                aria-selected={panel === name}
-                onClick={() => {
-                  setPanel(name);
-                }}
-                className="rounded-md px-2 py-1 text-sm aria-selected:bg-slate-200 aria-selected:font-medium hover:bg-slate-100"
-              >
-                {t(`editor.panel.${name}`)}
-              </button>
-            ))}
+      <div className={`grid min-h-[28rem] flex-1 gap-2 ${GRID[viewMode]}`}>
+        <aside className="flex min-h-0 flex-col overflow-hidden rounded-md border border-slate-200 bg-slate-50/60">
+          <div
+            role="tablist"
+            aria-label={t('editor.panels')}
+            className="flex flex-wrap gap-0.5 border-b border-slate-200 px-1.5 py-1"
+          >
+            {PANELS.filter((name) => name !== 'assistant' || aiShown).map((name) => {
+              const Icon = PANEL_ICONS[name];
+              return (
+                <IconButton
+                  key={name}
+                  label={t(`editor.panel.${name}`)}
+                  role="tab"
+                  aria-selected={panel === name}
+                  onClick={() => {
+                    setPanel(name);
+                  }}
+                >
+                  <Icon aria-hidden className="size-4" />
+                </IconButton>
+              );
+            })}
           </div>
-          <div className="min-h-0 flex-1 overflow-auto">
+          <h2 className="px-3 pt-2 pb-1 text-xs font-semibold tracking-wide text-slate-500 uppercase">
+            {t(`editor.panel.${panel}`)}
+          </h2>
+          <div className="min-h-0 flex-1 overflow-auto px-1.5 pb-2">
             {panel === 'files' && (
               <FileTree
                 nodes={nodes}
@@ -341,44 +389,53 @@ export function ProjectPage() {
                 }
                 toolbar={(openFolderDialog) =>
                   canEdit && (
-                    <div className="mb-2 flex flex-wrap gap-1">
-                      <Button
+                    <div className="mb-1 flex flex-wrap gap-0.5 px-1">
+                      <IconButton
+                        label={t('project.newFile')}
                         onClick={() => {
                           setNewFileError(null);
                           setNewFile(true);
                         }}
                       >
-                        {t('project.newFile')}
-                      </Button>
-                      <Button onClick={openFolderDialog}>{t('project.newFolder')}</Button>
-                      <Button
+                        <FilePlus aria-hidden className="size-4" />
+                      </IconButton>
+                      <IconButton label={t('project.newFolder')} onClick={openFolderDialog}>
+                        <FolderPlus aria-hidden className="size-4" />
+                      </IconButton>
+                      <IconButton
+                        label={
+                          mutations.upload.isPending
+                            ? t('project.uploading')
+                            : t('project.uploadFiles')
+                        }
                         disabled={mutations.upload.isPending}
                         onClick={() => fileInput.current?.click()}
                       >
-                        {mutations.upload.isPending
-                          ? t('project.uploading')
-                          : t('project.uploadFiles')}
-                      </Button>
-                      <Button
+                        <Upload aria-hidden className="size-4" />
+                      </IconButton>
+                      <IconButton
+                        label={t('project.uploadFolder')}
                         disabled={mutations.upload.isPending}
                         onClick={() => folderInput.current?.click()}
                       >
-                        {t('project.uploadFolder')}
-                      </Button>
-                      <Button
+                        <FolderUp aria-hidden className="size-4" />
+                      </IconButton>
+                      <IconButton
+                        label={t('library.link.open')}
                         onClick={() => {
                           setLibraryDialog('link');
                         }}
                       >
-                        {t('library.link.open')}
-                      </Button>
-                      <Button
+                        <Link2 aria-hidden className="size-4" />
+                      </IconButton>
+                      <IconButton
+                        label={t('library.copy.open')}
                         onClick={() => {
                           setLibraryDialog('copy');
                         }}
                       >
-                        {t('library.copy.open')}
-                      </Button>
+                        <Copy aria-hidden className="size-4" />
+                      </IconButton>
                       {[fileInput, folderInput].map((ref) => (
                         <input
                           key={ref === fileInput ? 'files' : 'folder'}
@@ -425,7 +482,7 @@ export function ProjectPage() {
           </div>
         </aside>
         <section
-          className={`min-h-0 min-w-0 overflow-hidden rounded-md border border-slate-200 ${viewMode === 'pdf' ? 'hidden' : ''}`}
+          className={`min-h-0 min-w-0 overflow-hidden rounded-md border border-slate-200 bg-white ${viewMode === 'pdf' ? 'hidden' : ''}`}
         >
           <Suspense fallback={<p className="p-4 text-slate-600">{t('common.loading')}</p>}>
             {project.data && (

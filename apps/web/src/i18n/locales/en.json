@@ -312,6 +312,7 @@
       "offline": "Offline: changes kept",
       "denied": "Access denied"
     },
+    "tools": "Tools",
     "preferences": {
       "theme": "Theme",
       "light": "Light",
@@ -502,6 +503,12 @@
     "originalBadgeTitle": "Compiled without the pending suggestions"
   },
   "pdf": {
+    "page": "Current page",
+    "previousPage": "Previous page",
+    "nextPage": "Next page",
+    "zoomIn": "Zoom in",
+    "zoomOut": "Zoom out",
+    "toolbar": "PDF toolbar",
     "zoom": "Zoom",
     "scale": {
       "page-width": "Page width",

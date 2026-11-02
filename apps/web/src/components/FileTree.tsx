@@ -226,7 +226,7 @@ export function FileTree({
       {error}
       <div
         className={`min-h-48 flex-1 overflow-auto rounded-md border p-1 ${
-          dropTarget === null ? 'border-accent bg-sky-50' : 'border-slate-200'
+          dropTarget === null ? 'border-accent bg-sky-50' : 'border-transparent'
         }`}
         data-testid="tree-dropzone"
         {...dropProps(null)}

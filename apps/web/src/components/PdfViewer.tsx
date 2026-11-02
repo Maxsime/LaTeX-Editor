@@ -9,11 +9,13 @@ import {
   PDFViewer,
 } from 'pdfjs-dist/web/pdf_viewer.mjs';
 import 'pdfjs-dist/web/pdf_viewer.css';
+import { ChevronLeft, ChevronRight, Download, Moon, ZoomIn, ZoomOut } from 'lucide-react';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { type ReadingPosition, restorePosition, savePosition } from '../lib/pdf-position.js';
 import { toPdfRect, toSynctexPoint, type ViewBox } from '../lib/synctex.js';
 import { useCompilePreferences } from '../stores/compile.js';
+import { IconButton } from './ui.js';
 
 GlobalWorkerOptions.workerSrc = workerUrl;
 
@@ -39,7 +41,7 @@ interface PdfViewerProps {
   /** Called on a double-click in a page, with the point in SyncTeX coordinates. */
   onSynctex?: (point: { page: number; x: number; y: number }) => void;
   highlight?: PdfHighlight | null;
-  /** Extra buttons at the end of the toolbar. */
+  /** Extra buttons at the end of the floating toolbar. */
   actions?: ReactNode;
 }
 
@@ -90,6 +92,7 @@ export default function PdfViewer({
   const documentRef = useRef<PDFDocumentProxy | null>(null);
   const [scale, setScale] = useState<string>('page-width');
   const [pages, setPages] = useState(0);
+  const [page, setPage] = useState(1);
   const [loadedUrl, setLoadedUrl] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
 
@@ -106,6 +109,9 @@ export default function PdfViewer({
     linkService.setViewer(viewer);
     eventBus.on('pagesinit', () => {
       restorePosition(viewer, element, position.current);
+    });
+    eventBus.on('pagechanging', ({ pageNumber }: { pageNumber: number }) => {
+      setPage(pageNumber);
     });
     eventBus.on(
       'scalechanging',
@@ -237,49 +243,9 @@ export default function PdfViewer({
     [],
   );
 
+  const viewer = (): PDFViewer | null => viewerRef.current;
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="flex items-center gap-2 border-b border-slate-200 bg-slate-50 px-2 py-1 text-xs">
-        <label className="flex items-center gap-1">
-          <span className="sr-only">{t('pdf.zoom')}</span>
-          <select
-            value={SCALES.includes(scale) ? scale : ''}
-            onChange={(event) => {
-              const viewer = viewerRef.current;
-              if (viewer) viewer.currentScaleValue = event.currentTarget.value;
-            }}
-            className="rounded border border-slate-300 px-1 py-0.5"
-            aria-label={t('pdf.zoom')}
-          >
-            {!SCALES.includes(scale) && <option value="">{percent(scale)}</option>}
-            {NAMED_SCALES.map((value) => (
-              <option key={value} value={value}>
-                {t(`pdf.scale.${value}`)}
-              </option>
-            ))}
-            {PERCENT_SCALES.map((value) => (
-              <option key={value} value={value}>
-                {percent(value)}
-              </option>
-            ))}
-          </select>
-        </label>
-        <span className="text-slate-600">{t('pdf.pages', { count: pages })}</span>
-        <button
-          type="button"
-          aria-pressed={pdfDark}
-          onClick={() => {
-            setPdfDark(!pdfDark);
-          }}
-          className="rounded px-1 py-0.5 hover:bg-slate-200 aria-pressed:bg-slate-700 aria-pressed:text-white"
-        >
-          {t('pdf.dark')}
-        </button>
-        <a href={url} download={downloadName} className="ml-auto text-accent underline">
-          {t('pdf.download')}
-        </a>
-        {actions}
-      </div>
       {failed && (
         <p role="alert" className="bg-red-50 px-3 py-2 text-sm text-red-900">
           {t('pdf.loadFailed')}
@@ -295,7 +261,109 @@ export default function PdfViewer({
           data-pages={pages}
           className="absolute inset-0 overflow-auto"
         >
-          <div className="pdfViewer" />
+          {/* Room under the last page, so the floating toolbar never hides its bottom. */}
+          <div className="pdfViewer pb-16" />
+        </div>
+        {/* Floating toolbar, as in Prism: the PDF keeps the whole height of the pane. */}
+        <div
+          role="toolbar"
+          aria-label={t('pdf.toolbar')}
+          className="absolute bottom-3 left-1/2 z-20 flex max-w-[calc(100%-1.5rem)] -translate-x-1/2 items-center gap-0.5 overflow-x-auto rounded-full border border-slate-200 bg-white/95 px-2 py-1 text-xs text-ink shadow-lg backdrop-blur"
+        >
+          <IconButton
+            label={t('pdf.previousPage')}
+            disabled={page <= 1}
+            onClick={() => {
+              viewer()?.previousPage();
+            }}
+          >
+            <ChevronLeft aria-hidden className="size-4" />
+          </IconButton>
+          <label className="flex items-center gap-1 whitespace-nowrap tabular-nums">
+            <input
+              type="number"
+              min={1}
+              max={Math.max(pages, 1)}
+              value={page}
+              aria-label={t('pdf.page')}
+              onChange={(event) => {
+                const target = Number(event.currentTarget.value);
+                const current = viewer();
+                if (current && Number.isInteger(target) && target >= 1 && target <= pages)
+                  current.currentPageNumber = target;
+              }}
+              className="w-10 rounded border border-slate-300 px-1 py-0.5 text-center"
+            />
+            <span className="text-slate-600">/ {pages}</span>
+            <span className="sr-only">{t('pdf.pages', { count: pages })}</span>
+          </label>
+          <IconButton
+            label={t('pdf.nextPage')}
+            disabled={page >= pages}
+            onClick={() => {
+              viewer()?.nextPage();
+            }}
+          >
+            <ChevronRight aria-hidden className="size-4" />
+          </IconButton>
+          <span aria-hidden className="mx-1 h-4 w-px bg-slate-300" />
+          <IconButton
+            label={t('pdf.zoomOut')}
+            onClick={() => {
+              viewer()?.decreaseScale();
+            }}
+          >
+            <ZoomOut aria-hidden className="size-4" />
+          </IconButton>
+          <select
+            value={SCALES.includes(scale) ? scale : ''}
+            onChange={(event) => {
+              const current = viewer();
+              if (current) current.currentScaleValue = event.currentTarget.value;
+            }}
+            className="rounded border border-slate-300 bg-white px-1 py-0.5"
+            aria-label={t('pdf.zoom')}
+          >
+            {!SCALES.includes(scale) && <option value="">{percent(scale)}</option>}
+            {NAMED_SCALES.map((value) => (
+              <option key={value} value={value}>
+                {t(`pdf.scale.${value}`)}
+              </option>
+            ))}
+            {PERCENT_SCALES.map((value) => (
+              <option key={value} value={value}>
+                {percent(value)}
+              </option>
+            ))}
+          </select>
+          <IconButton
+            label={t('pdf.zoomIn')}
+            onClick={() => {
+              viewer()?.increaseScale();
+            }}
+          >
+            <ZoomIn aria-hidden className="size-4" />
+          </IconButton>
+          <span aria-hidden className="mx-1 h-4 w-px bg-slate-300" />
+          <IconButton
+            label={t('pdf.dark')}
+            aria-pressed={pdfDark}
+            onClick={() => {
+              setPdfDark(!pdfDark);
+            }}
+          >
+            <Moon aria-hidden className="size-4" />
+          </IconButton>
+          <a
+            href={url}
+            download={downloadName}
+            aria-label={t('pdf.download')}
+            title={t('pdf.download')}
+            className="inline-flex size-7 shrink-0 items-center justify-center rounded-md text-slate-700 hover:bg-slate-200"
+          >
+            <Download aria-hidden className="size-4" />
+          </a>
+          {actions}
         </div>
       </div>
     </div>

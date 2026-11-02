@@ -56,6 +56,43 @@ export function RootLayout() {
     select: (state) => /^\/projects\/[^/]+\/pdf$/.test(state.location.pathname),
   });
   if (bare) return <Outlet />;
+  const sourceLinks = (
+    <>
+      {t('footer.license')}{' '}
+      <a className="underline" href={SOURCE_URL} rel="noreferrer" target="_blank">
+        {t('footer.source')}
+      </a>{' '}
+      ·{' '}
+      <Link to="/status" className="underline">
+        {t('nav.status')}
+      </Link>
+    </>
+  );
+  // The project page is a workspace: it fills the window and scrolls inside its panes.
+  if (wide)
+    return (
+      <div className="flex h-screen flex-col overflow-hidden bg-white text-ink">
+        <header className="flex items-center gap-4 border-b border-slate-200 px-4 py-1">
+          <Link to="/" className="font-serif text-lg font-semibold text-accent">
+            {t('app.name')}
+          </Link>
+          <div className="ml-auto flex items-center gap-3">
+            {/* AGPL: the source stays one click away, even in the workspace. */}
+            <span className="text-xs text-slate-500">
+              <span className="hidden xl:inline">{t('footer.license')} </span>
+              <a className="underline" href={SOURCE_URL} rel="noreferrer" target="_blank">
+                {t('footer.source')}
+              </a>
+            </span>
+            <UserMenu />
+            <LanguageSwitcher />
+          </div>
+        </header>
+        <main className="flex min-h-0 w-full flex-1 flex-col px-3 py-2">
+          <Outlet />
+        </main>
+      </div>
+    );
   return (
     <div className="flex min-h-screen flex-col bg-white text-ink">
       <header className="flex items-center gap-4 border-b border-slate-200 px-6 py-3">
@@ -67,20 +104,11 @@ export function RootLayout() {
           <LanguageSwitcher />
         </div>
       </header>
-      <main
-        className={wide ? 'w-full flex-1 px-4 py-4' : 'mx-auto w-full max-w-6xl flex-1 px-6 py-8'}
-      >
+      <main className="mx-auto w-full max-w-6xl flex-1 px-6 py-8">
         <Outlet />
       </main>
       <footer className="border-t border-slate-200 px-6 py-3 text-center text-xs text-slate-600">
-        {t('footer.license')}{' '}
-        <a className="underline" href={SOURCE_URL} rel="noreferrer" target="_blank">
-          {t('footer.source')}
-        </a>{' '}
-        ·{' '}
-        <Link to="/status" className="underline">
-          {t('nav.status')}
-        </Link>
+        {sourceLinks}
       </footer>
     </div>
   );

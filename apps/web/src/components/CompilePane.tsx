@@ -6,6 +6,7 @@ import {
   type ProjectDetails,
   shellEscapeMode as shellEscapeModes,
 } from '@galley/shared';
+import { ExternalLink } from 'lucide-react';
 import { Popover } from 'radix-ui';
 import { AiOption, WritingOptions } from './WritingOptions.js';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -29,7 +30,7 @@ import { type SynctexNotice, useSynctex } from '../lib/synctex.js';
 import { AUTO_COMPILE_DELAYS, useCompilePreferences, useCompileStore } from '../stores/compile.js';
 import { useEditor } from '../stores/editor.js';
 import { LogPanel } from './LogPanel.js';
-import { Button, ErrorAlert } from './ui.js';
+import { Button, ErrorAlert, IconButton } from './ui.js';
 
 // pdf.js is the largest dependency of the client; it loads with the first PDF shown.
 const PdfViewer = lazy(() => import('./PdfViewer.js'));
@@ -481,15 +482,14 @@ export function CompilePane({
                         {t('compile.originalBadge')}
                       </span>
                     )}
-                    <button
-                      type="button"
-                      className="rounded px-1 py-0.5 hover:bg-slate-200"
+                    <IconButton
+                      label={t('pdf.detach')}
                       onClick={() => {
                         if (openPdfWindow(project.id) !== null) setDetached(true);
                       }}
                     >
-                      {t('pdf.detach')}
-                    </button>
+                      <ExternalLink aria-hidden className="size-4" />
+                    </IconButton>
                   </>
                 }
               />

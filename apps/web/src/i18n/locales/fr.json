@@ -312,6 +312,7 @@
       "offline": "Hors ligne : modifications conservées",
       "denied": "Accès refusé"
     },
+    "tools": "Outils",
     "preferences": {
       "theme": "Thème",
       "light": "Clair",
@@ -502,6 +503,12 @@
     "originalBadgeTitle": "Compilé sans les suggestions en attente"
   },
   "pdf": {
+    "page": "Page affichée",
+    "previousPage": "Page précédente",
+    "nextPage": "Page suivante",
+    "zoomIn": "Zoom avant",
+    "zoomOut": "Zoom arrière",
+    "toolbar": "Barre d'outils du PDF",
     "zoom": "Zoom",
     "scale": {
       "page-width": "Largeur de page",
