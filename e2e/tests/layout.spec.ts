@@ -50,4 +50,26 @@ test.describe('workspace layout', () => {
     const pane = await page.getByRole('region', { name: 'Compilation et aperçu' }).boundingBox();
     expect(pane?.width ?? 0).toBeGreaterThan(500);
   });
+
+  test('folds errors and warnings under the PDF, and remembers the choice', async ({ page }) => {
+    await signIn(page, createAccount('folding'));
+    await importZip(page, 'Repli.zip', storedZip({ 'main.tex': Buffer.from(document) }));
+    await compileStatus(page, 'success', 90_000);
+    await pdfShown(page);
+
+    // Folded by default: a single line sums them up, the PDF keeps the room.
+    const strip = page.getByRole('button', { name: /^Journal \(0 erreur, 0 avertissement\)/ });
+    await expect(strip).toHaveAttribute('aria-expanded', 'false');
+    await expect(page.getByRole('tab', { name: 'Journal brut' })).toHaveCount(0);
+
+    await strip.click();
+    await expect(strip).toHaveAttribute('aria-expanded', 'true');
+    await expect(page.getByRole('tab', { name: 'Journal brut' })).toBeVisible();
+
+    await page.reload();
+    await compileStatus(page, 'success', 90_000);
+    await expect(strip).toHaveAttribute('aria-expanded', 'true');
+    await strip.click();
+    await expect(page.getByRole('tab', { name: 'Journal brut' })).toHaveCount(0);
+  });
 });
