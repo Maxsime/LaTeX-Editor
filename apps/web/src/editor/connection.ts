@@ -116,6 +116,29 @@ export class ProjectConnection {
   }
 
   /**
+   * Called each time the socket connects again after a disconnection. collab
+   * resets the socket of a member whose role changed, and the event saying so
+   * may be lost with it when the member has files open: the page then reloads
+   * its role rather than trust the last one it saw. Returns a function that
+   * removes the listener.
+   */
+  onReconnected(listener: () => void): () => void {
+    // Only a connection that was actually lost counts: the status repeats while connected.
+    let lost = false;
+    const onStatus = ({ status }: { status: WebSocketStatus }) => {
+      if (status === WebSocketStatus.Disconnected) lost = true;
+      else if (status === WebSocketStatus.Connected && lost) {
+        lost = false;
+        listener();
+      }
+    };
+    this.socket.on('status', onStatus);
+    return () => {
+      this.socket.off('status', onStatus);
+    };
+  }
+
+  /**
    * Called when collab refuses the project channel, typically after losing
    * access while disconnected, when the event saying so could not arrive.
    * Returns a function that removes the listener.

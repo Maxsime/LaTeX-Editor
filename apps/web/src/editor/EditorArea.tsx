@@ -16,7 +16,7 @@ import { BibToolbar } from '../components/BibToolbar.js';
 import { FragmentPreview } from '../components/FragmentPreview.js';
 import { InsertToolbar } from '../components/InsertToolbar.js';
 import { useAiStatus } from '../lib/ai.js';
-import { api } from '../lib/api.js';
+import { api, ApiRequestError } from '../lib/api.js';
 import { compileKey } from '../lib/compile.js';
 import { indexKey, outlineKey, useProjectIndex } from '../lib/editor.js';
 import { projectQuery, useUpdateProject } from '../lib/projects.js';
@@ -202,8 +202,10 @@ export default function EditorArea({
     checkAccessRef.current = () => {
       client.query({ ...projectQuery(projectId), staleTime: 0 }).then(
         () => client.invalidateQueries({ queryKey: ['project', projectId] }),
-        () => {
-          leave('accessLost');
+        (error: unknown) => {
+          // A refusal means access is gone; a network hiccup or a server error does not.
+          if (error instanceof ApiRequestError && (error.status === 403 || error.status === 404))
+            leave('accessLost');
         },
       );
     };
@@ -272,6 +274,13 @@ export default function EditorArea({
   useEffect(
     () =>
       connection.onChannelDenied(() => {
+        checkAccessRef.current();
+      }),
+    [connection],
+  );
+  useEffect(
+    () =>
+      connection.onReconnected(() => {
         checkAccessRef.current();
       }),
     [connection],
