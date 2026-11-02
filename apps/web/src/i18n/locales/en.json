@@ -435,7 +435,9 @@
       "label": "Layout",
       "editor": "Editor",
       "both": "Side by side",
-      "pdf": "PDF"
+      "pdf": "PDF",
+      "split": "Divider between the editor and the PDF",
+      "splitTitle": "Drag to resize, double-click to go back to the middle"
     },
     "engines": {
       "pdflatex": "pdfLaTeX",

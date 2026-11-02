@@ -435,7 +435,9 @@
       "label": "Disposition",
       "editor": "Éditeur",
       "both": "Côte à côte",
-      "pdf": "PDF"
+      "pdf": "PDF",
+      "split": "Séparateur entre l'éditeur et le PDF",
+      "splitTitle": "Glisser pour redimensionner, double-clic pour revenir au milieu"
     },
     "engines": {
       "pdflatex": "pdfLaTeX",
