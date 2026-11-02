@@ -26,6 +26,32 @@ export function Button({
   );
 }
 
+/**
+ * Square button showing only an icon. The label names it for assistive
+ * technologies and shows as a tooltip, so the toolbars stay compact.
+ */
+export function IconButton({
+  label,
+  className = '',
+  children,
+  ...props
+}: Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'aria-label' | 'title'> & {
+  label: string;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      className={`inline-flex size-7 shrink-0 items-center justify-center rounded-md text-slate-700 hover:bg-slate-200 disabled:text-slate-400 disabled:hover:bg-transparent aria-pressed:bg-slate-700 aria-pressed:text-white aria-selected:bg-slate-200 aria-selected:text-ink ${className}`}
+      {...props}
+    >
+      {children}
+    </button>
+  );
+}
+
 /** Labelled input showing the field error returned by the API, if any. */
 export function TextField({
   label,

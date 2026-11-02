@@ -8,6 +8,8 @@ import {
   type TreeNode,
 } from '@galley/shared';
 import { useQueryClient } from '@tanstack/react-query';
+import { SlidersHorizontal } from 'lucide-react';
+import { Popover } from 'radix-ui';
 import { useNavigate } from '@tanstack/react-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -16,7 +18,7 @@ import { BibToolbar } from '../components/BibToolbar.js';
 import { FragmentPreview } from '../components/FragmentPreview.js';
 import { InsertToolbar } from '../components/InsertToolbar.js';
 import { useAiStatus } from '../lib/ai.js';
-import { api } from '../lib/api.js';
+import { api, ApiRequestError } from '../lib/api.js';
 import { compileKey } from '../lib/compile.js';
 import { indexKey, outlineKey, useProjectIndex } from '../lib/editor.js';
 import { projectQuery, useUpdateProject } from '../lib/projects.js';
@@ -97,74 +99,91 @@ function Preferences({ spelling }: { spelling: boolean }) {
     usePreferences();
   const { spellCheck, setSpellCheck, keyBindings, setKeyBindings } = usePreferences();
   return (
-    <div className="ml-auto flex items-center gap-2 px-2 text-xs">
-      <label className="flex items-center gap-1">
-        <span>{t('editor.preferences.keyBindings')}</span>
-        <select
-          value={keyBindings}
-          onChange={(event) => {
-            const value = event.currentTarget.value;
-            setKeyBindings(value === 'vim' || value === 'emacs' ? value : 'default');
-          }}
-          className="rounded border border-slate-300 px-1 py-0.5"
+    <Popover.Root>
+      <Popover.Trigger asChild>
+        <button
+          type="button"
+          className="ml-auto flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-200"
         >
-          <option value="default">{t('editor.preferences.keys.default')}</option>
-          <option value="vim">Vim</option>
-          <option value="emacs">Emacs</option>
-        </select>
-      </label>
-      <label className="flex items-center gap-1">
-        <span>{t('editor.preferences.theme')}</span>
-        <select
-          value={theme}
-          onChange={(event) => {
-            setTheme(event.currentTarget.value === 'dark' ? 'dark' : 'light');
-          }}
-          className="rounded border border-slate-300 px-1 py-0.5"
+          <SlidersHorizontal aria-hidden className="size-3.5" />
+          {t('editor.tools')}
+        </button>
+      </Popover.Trigger>
+      <Popover.Portal>
+        <Popover.Content
+          align="end"
+          sideOffset={4}
+          className="z-50 w-60 space-y-2 rounded-md border border-slate-200 bg-white p-3 text-sm shadow-lg"
         >
-          <option value="light">{t('editor.preferences.light')}</option>
-          <option value="dark">{t('editor.preferences.dark')}</option>
-        </select>
-      </label>
-      <label className="flex items-center gap-1">
-        <span>{t('editor.preferences.fontSize')}</span>
-        <select
-          value={fontSize}
-          onChange={(event) => {
-            setFontSize(Number(event.currentTarget.value));
-          }}
-          className="rounded border border-slate-300 px-1 py-0.5"
-        >
-          {FONT_SIZES.map((size) => (
-            <option key={size} value={size}>
-              {size}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label className="flex items-center gap-1">
-        <input
-          type="checkbox"
-          checked={lineWrapping}
-          onChange={(event) => {
-            setLineWrapping(event.currentTarget.checked);
-          }}
-        />
-        <span>{t('editor.preferences.wrap')}</span>
-      </label>
-      {spelling && (
-        <label className="flex items-center gap-1">
-          <input
-            type="checkbox"
-            checked={spellCheck}
-            onChange={(event) => {
-              setSpellCheck(event.currentTarget.checked);
-            }}
-          />
-          <span>{t('editor.preferences.spellCheck')}</span>
-        </label>
-      )}
-    </div>
+          <label className="flex items-center justify-between gap-2">
+            <span>{t('editor.preferences.keyBindings')}</span>
+            <select
+              value={keyBindings}
+              onChange={(event) => {
+                const value = event.currentTarget.value;
+                setKeyBindings(value === 'vim' || value === 'emacs' ? value : 'default');
+              }}
+              className="rounded border border-slate-300 px-1 py-0.5"
+            >
+              <option value="default">{t('editor.preferences.keys.default')}</option>
+              <option value="vim">Vim</option>
+              <option value="emacs">Emacs</option>
+            </select>
+          </label>
+          <label className="flex items-center justify-between gap-2">
+            <span>{t('editor.preferences.theme')}</span>
+            <select
+              value={theme}
+              onChange={(event) => {
+                setTheme(event.currentTarget.value === 'dark' ? 'dark' : 'light');
+              }}
+              className="rounded border border-slate-300 px-1 py-0.5"
+            >
+              <option value="light">{t('editor.preferences.light')}</option>
+              <option value="dark">{t('editor.preferences.dark')}</option>
+            </select>
+          </label>
+          <label className="flex items-center justify-between gap-2">
+            <span>{t('editor.preferences.fontSize')}</span>
+            <select
+              value={fontSize}
+              onChange={(event) => {
+                setFontSize(Number(event.currentTarget.value));
+              }}
+              className="rounded border border-slate-300 px-1 py-0.5"
+            >
+              {FONT_SIZES.map((size) => (
+                <option key={size} value={size}>
+                  {size}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={lineWrapping}
+              onChange={(event) => {
+                setLineWrapping(event.currentTarget.checked);
+              }}
+            />
+            <span>{t('editor.preferences.wrap')}</span>
+          </label>
+          {spelling && (
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={spellCheck}
+                onChange={(event) => {
+                  setSpellCheck(event.currentTarget.checked);
+                }}
+              />
+              <span>{t('editor.preferences.spellCheck')}</span>
+            </label>
+          )}
+        </Popover.Content>
+      </Popover.Portal>
+    </Popover.Root>
   );
 }
 
@@ -202,8 +221,10 @@ export default function EditorArea({
     checkAccessRef.current = () => {
       client.query({ ...projectQuery(projectId), staleTime: 0 }).then(
         () => client.invalidateQueries({ queryKey: ['project', projectId] }),
-        () => {
-          leave('accessLost');
+        (error: unknown) => {
+          // A refusal means access is gone; a network hiccup or a server error does not.
+          if (error instanceof ApiRequestError && (error.status === 403 || error.status === 404))
+            leave('accessLost');
         },
       );
     };
@@ -272,6 +293,13 @@ export default function EditorArea({
   useEffect(
     () =>
       connection.onChannelDenied(() => {
+        checkAccessRef.current();
+      }),
+    [connection],
+  );
+  useEffect(
+    () =>
+      connection.onReconnected(() => {
         checkAccessRef.current();
       }),
     [connection],
@@ -469,7 +497,7 @@ export default function EditorArea({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="flex items-center border-b border-slate-200 bg-slate-50">
+      <div className="flex items-center border-b border-slate-200 bg-slate-50 pr-1">
         <div role="tablist" aria-label={t('editor.tabs')} className="flex min-w-0 overflow-x-auto">
           {tabs.map((id) => {
             const node = byId.get(id);
@@ -515,9 +543,13 @@ export default function EditorArea({
             );
           })}
         </div>
+        <Preferences spelling={features.data?.spelling === true} />
+      </div>
+      {/* Editing tools on a row of their own, so the file tabs always keep their room. */}
+      <div className="flex items-center gap-1 overflow-x-auto border-b border-slate-200 px-1 py-0.5 whitespace-nowrap">
         {!readOnly && (
           <label
-            className={`ml-2 flex items-center gap-1 rounded px-2 py-0.5 text-xs ${suggesting ? 'bg-emerald-100 text-emerald-900' : ''}`}
+            className={`flex items-center gap-1 rounded px-2 py-0.5 text-xs ${suggesting ? 'bg-emerald-100 text-emerald-900' : ''}`}
             title={t(
               role === 'reviewer'
                 ? 'review.mode.reviewer'
@@ -576,7 +608,6 @@ export default function EditorArea({
           projectId={projectId}
           aiStatus={aiStatus.data}
         />
-        <Preferences spelling={features.data?.spelling === true} />
       </div>
       {reloaded && (
         <div
