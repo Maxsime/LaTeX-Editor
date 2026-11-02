@@ -12,7 +12,7 @@ import 'pdfjs-dist/web/pdf_viewer.css';
 import { ChevronLeft, ChevronRight, Download, Moon, ZoomIn, ZoomOut } from 'lucide-react';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { type ReadingPosition, restorePosition, savePosition } from '../lib/pdf-position.js';
+import { DEFAULT_SCALE, restorePosition, savePosition } from '../lib/pdf-position.js';
 import { toPdfRect, toSynctexPoint, type ViewBox } from '../lib/synctex.js';
 import { useCompilePreferences } from '../stores/compile.js';
 import { IconButton } from './ui.js';
@@ -76,6 +76,30 @@ function cssRect(view: PDFPageView, box: SynctexBox) {
  * pdf.js viewer. Loading a new PDF keeps the zoom and the reading position, so
  * a recompilation does not send the reader back to the first page.
  */
+/** How long a new PDF may take to paint before it replaces the old one anyway. */
+const SWAP_TIMEOUT_MS = 1500;
+/** Length of the cross-fade between two PDFs, as in the slot classes below. */
+const SWAP_FADE_MS = 160;
+
+/** One of the two viewers: the one on screen, or the one preparing the next PDF. */
+interface Slot {
+  element: HTMLDivElement;
+  viewer: PDFViewer;
+  link: PDFLinkService;
+  eventBus: EventBus;
+  document: PDFDocumentProxy | null;
+}
+
+type SlotIndex = 0 | 1;
+
+/**
+ * pdf.js viewer. Loading a new PDF keeps the zoom and the reading position, so
+ * a recompilation does not send the reader back to the first page.
+ *
+ * Two viewers take turns: the new PDF is laid out and painted in the hidden
+ * one, at the same zoom and position, and only then fades in over the old one.
+ * A recompilation therefore never shows blank pages or a jump to the top.
+ */
 export default function PdfViewer({
   url,
   downloadName,
@@ -85,80 +109,140 @@ export default function PdfViewer({
 }: PdfViewerProps) {
   const { t } = useTranslation();
   const { pdfDark, setPdfDark } = useCompilePreferences();
-  const container = useRef<HTMLDivElement>(null);
+  const stage = useRef<HTMLDivElement>(null);
+  const firstContainer = useRef<HTMLDivElement>(null);
+  const secondContainer = useRef<HTMLDivElement>(null);
+  const slots = useRef<[Slot, Slot] | null>(null);
+  const activeRef = useRef<SlotIndex>(0);
   const viewerRef = useRef<PDFViewer | null>(null);
-  const linkRef = useRef<PDFLinkService | null>(null);
-  const position = useRef<ReadingPosition | null>(null);
-  const documentRef = useRef<PDFDocumentProxy | null>(null);
-  const [scale, setScale] = useState<string>('page-width');
+  const [active, setActive] = useState<SlotIndex>(0);
+  const [scale, setScale] = useState<string>(DEFAULT_SCALE);
   const [pages, setPages] = useState(0);
   const [page, setPage] = useState(1);
   const [loadedUrl, setLoadedUrl] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
-    const element = container.current;
-    if (!element) return;
-    const eventBus = new EventBus();
-    const linkService = new PDFLinkService({
-      eventBus,
-      externalLinkTarget: LinkTarget.BLANK,
-      externalLinkRel: 'noopener noreferrer nofollow',
-    });
-    const viewer = new PDFViewer({ container: element, eventBus, linkService });
-    linkService.setViewer(viewer);
-    eventBus.on('pagesinit', () => {
-      restorePosition(viewer, element, position.current);
-    });
-    eventBus.on('pagechanging', ({ pageNumber }: { pageNumber: number }) => {
-      setPage(pageNumber);
-    });
-    eventBus.on(
-      'scalechanging',
-      ({ presetValue, scale: value }: { presetValue?: string; scale: number }) => {
-        setScale(presetValue ?? String(value));
-      },
-    );
-    viewerRef.current = viewer;
-    linkRef.current = linkService;
+    const first = firstContainer.current;
+    const second = secondContainer.current;
+    if (!first || !second) return;
+    const make = (element: HTMLDivElement, index: SlotIndex): Slot => {
+      const eventBus = new EventBus();
+      const link = new PDFLinkService({
+        eventBus,
+        externalLinkTarget: LinkTarget.BLANK,
+        externalLinkRel: 'noopener noreferrer nofollow',
+      });
+      const viewer = new PDFViewer({ container: element, eventBus, linkService: link });
+      link.setViewer(viewer);
+      // Only the viewer on screen drives the toolbar.
+      eventBus.on('pagechanging', ({ pageNumber }: { pageNumber: number }) => {
+        if (activeRef.current === index) setPage(pageNumber);
+      });
+      eventBus.on(
+        'scalechanging',
+        ({ presetValue, scale: value }: { presetValue?: string; scale: number }) => {
+          if (activeRef.current === index) setScale(presetValue ?? String(value));
+        },
+      );
+      return { element, viewer, link, eventBus, document: null };
+    };
+    const made: [Slot, Slot] = [make(first, 0), make(second, 1)];
+    slots.current = made;
+    viewerRef.current = made[activeRef.current].viewer;
     return () => {
+      slots.current = null;
       viewerRef.current = null;
-      linkRef.current = null;
-      viewer.cleanup();
+      for (const slot of made) {
+        slot.viewer.cleanup();
+        void slot.document?.loadingTask.destroy();
+      }
     };
   }, []);
 
   useEffect(() => {
-    const viewer = viewerRef.current;
-    const element = container.current;
-    if (!viewer || !element) return;
+    const pair = slots.current;
+    if (!pair) return;
     let settled = false;
+    let cancelled = false;
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    const unlisten: (() => void)[] = [];
+    const current = pair[activeRef.current];
+    const nextIndex: SlotIndex = activeRef.current === 0 ? 1 : 0;
+    const next = pair[nextIndex];
     const task = getDocument({
       url,
       // A compiled PDF is small enough to fetch whole; the API serves no ranges.
       disableRange: true,
     });
+
+    const swap = () => {
+      if (cancelled) return;
+      cancelled = true;
+      // The reader may have scrolled while the new PDF was painting.
+      if (current.document !== null) {
+        next.element.scrollTop = current.element.scrollTop;
+        next.element.scrollLeft = current.element.scrollLeft;
+      }
+      activeRef.current = nextIndex;
+      viewerRef.current = next.viewer;
+      setActive(nextIndex);
+      setPage(next.viewer.currentPageNumber);
+      setScale(next.viewer.currentScaleValue || DEFAULT_SCALE);
+      setPages(next.document?.numPages ?? 0);
+      setLoadedUrl(url);
+      setFailed(false);
+      // Once the fade is over, the old PDF leaves the page and memory.
+      const old = current.document;
+      current.document = null;
+      setTimeout(() => {
+        // Null empties a viewer.
+        if (activeRef.current === nextIndex) current.viewer.setDocument(null);
+        void old?.loadingTask.destroy();
+      }, SWAP_FADE_MS + 40);
+    };
+
     task.promise.then(
       (loaded) => {
         settled = true;
-        // The previous PDF stays on screen until this one replaces it.
-        const previous = documentRef.current;
-        position.current = previous ? savePosition(viewer, element) : null;
-        viewer.setDocument(loaded);
-        linkRef.current?.setDocument(loaded);
-        documentRef.current = loaded;
-        void previous?.loadingTask.destroy();
-        setPages(loaded.numPages);
-        setLoadedUrl(url);
-        setFailed(false);
+        if (cancelled) {
+          void loaded.loadingTask.destroy();
+          return;
+        }
+        const position =
+          current.document !== null ? savePosition(current.viewer, current.element) : null;
+        const onInit = () => {
+          restorePosition(next.viewer, next.element, position);
+        };
+        const onRendered = () => {
+          swap();
+        };
+        next.eventBus.on('pagesinit', onInit, { once: true });
+        next.eventBus.on('pagerendered', onRendered, { once: true });
+        unlisten.push(
+          () => {
+            next.eventBus.off('pagesinit', onInit);
+          },
+          () => {
+            next.eventBus.off('pagerendered', onRendered);
+          },
+        );
+        timers.push(setTimeout(swap, SWAP_TIMEOUT_MS));
+        void next.document?.loadingTask.destroy();
+        next.document = loaded;
+        next.viewer.setDocument(loaded);
+        next.link.setDocument(loaded);
       },
       () => {
         settled = true;
-        setFailed(true);
+        if (!cancelled) setFailed(true);
       },
     );
     return () => {
-      // A newer URL supersedes a load still in flight; a loaded PDF stays until replaced.
+      // A newer URL supersedes this one, loading or still painting.
+      cancelled = true;
+      for (const timer of timers) clearTimeout(timer);
+      for (const off of unlisten) off();
       if (!settled) void task.destroy();
     };
   }, [url]);
@@ -170,7 +254,7 @@ export default function PdfViewer({
   }, [onSynctex]);
 
   useEffect(() => {
-    const element = container.current;
+    const element = stage.current;
     if (!element) return;
     const onDoubleClick = (event: MouseEvent) => {
       const viewer = viewerRef.current;
@@ -235,15 +319,24 @@ export default function PdfViewer({
     };
   }, [highlight]);
 
-  useEffect(
-    () => () => {
-      void documentRef.current?.loadingTask.destroy();
-      documentRef.current = null;
-    },
-    [],
-  );
-
   const viewer = (): PDFViewer | null => viewerRef.current;
+  const slotProps = (index: SlotIndex) =>
+    index === active
+      ? {
+          // Tests and the reading position address the viewer on screen.
+          'data-testid': 'pdf-viewer',
+          'data-url': loadedUrl ?? '',
+          'data-pages': pages,
+          className:
+            'absolute inset-0 z-10 overflow-auto opacity-100 transition-opacity duration-150 ease-out',
+        }
+      : {
+          'aria-hidden': true,
+          inert: true,
+          // Stays painted under the new PDF for the length of its fade, then hides.
+          className:
+            'pointer-events-none invisible absolute inset-0 z-0 overflow-auto opacity-0 transition-[opacity,visibility] delay-150 duration-0',
+        };
   return (
     <div className="flex h-full min-h-0 flex-col">
       {failed && (
@@ -252,16 +345,14 @@ export default function PdfViewer({
         </p>
       )}
       <div
+        ref={stage}
         className={`relative min-h-0 flex-1 ${pdfDark ? 'pdf-dark bg-slate-800 dark:bg-slate-50' : 'bg-slate-200'}`}
       >
-        <div
-          ref={container}
-          data-testid="pdf-viewer"
-          data-url={loadedUrl ?? ''}
-          data-pages={pages}
-          className="absolute inset-0 overflow-auto"
-        >
+        <div ref={firstContainer} {...slotProps(0)}>
           {/* Room under the last page, so the floating toolbar never hides its bottom. */}
+          <div className="pdfViewer pb-16" />
+        </div>
+        <div ref={secondContainer} {...slotProps(1)}>
           <div className="pdfViewer pb-16" />
         </div>
         {/* Floating toolbar, as in Prism: the PDF keeps the whole height of the pane. */}
