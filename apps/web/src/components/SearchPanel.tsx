@@ -2,7 +2,7 @@ import { type SyntheticEvent, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { type SearchInput, useProjectReplace, useProjectSearch } from '../lib/editor.js';
 import { useEditor } from '../stores/editor.js';
-import { Button, ConfirmDialog, ErrorAlert } from './ui.js';
+import { Button, ConfirmDialog, ErrorAlert, Loading } from './ui.js';
 
 const OPTIONS = ['caseSensitive', 'wholeWord', 'regex'] as const;
 
@@ -114,7 +114,7 @@ export function SearchPanel({ projectId, canEdit }: { projectId: string; canEdit
       <ErrorAlert error={replace.error} />
 
       <ErrorAlert error={search.error} />
-      {search.isFetching && <p className="text-slate-600">{t('common.loading')}</p>}
+      {search.isFetching && <Loading />}
       {search.data && (
         <div className="space-y-1">
           <p role="status" className="text-xs text-slate-600">

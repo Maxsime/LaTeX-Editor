@@ -11,7 +11,7 @@ import {
 } from '../lib/history.js';
 import { cloneUrl } from '../lib/tokens.js';
 import { RemoteSync } from './RemoteSync.js';
-import { Button, ConfirmDialog, Dialog, ErrorAlert, NameDialog } from './ui.js';
+import { Button, ConfirmDialog, Dialog, ErrorAlert, NameDialog, Loading } from './ui.js';
 
 type Change = CompareResponse['changes'][number];
 
@@ -51,7 +51,7 @@ function Diff({
     fromPath: change.status === 'added' ? null : change.path,
     toPath: change.status === 'removed' ? null : change.path,
   });
-  if (diff.isPending) return <p className="text-sm text-slate-600">{t('common.loading')}</p>;
+  if (diff.isPending) return <Loading />;
   if (diff.error) return <ErrorAlert error={diff.error} />;
   const lines = foldDiff(diff.data ?? []);
   return (

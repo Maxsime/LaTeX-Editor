@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { previewPdfUrl, usePreview } from '../lib/compile.js';
 import { fragmentAt } from '../lib/fragment.js';
 import { currentSelection } from '../stores/editor.js';
-import { ErrorAlert } from './ui.js';
+import { ErrorAlert, Loading } from './ui.js';
 
 const PdfViewer = lazy(() => import('./PdfViewer.js'));
 
@@ -77,7 +77,7 @@ export function FragmentPreview({
               )}
               {result.compileId !== null && (
                 <div className="h-64 overflow-hidden rounded border border-slate-200">
-                  <Suspense fallback={<p className="p-2 text-slate-600">{t('common.loading')}</p>}>
+                  <Suspense fallback={<Loading className="p-2" />}>
                     <PdfViewer
                       url={previewPdfUrl(projectId, result.compileId)}
                       downloadName="apercu.pdf"

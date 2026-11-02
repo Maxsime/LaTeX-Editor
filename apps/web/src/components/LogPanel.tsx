@@ -7,6 +7,7 @@ import { useAiStatus } from '../lib/ai.js';
 import { countLevels, outputUrl } from '../lib/compile.js';
 import { useAi } from '../stores/ai.js';
 import { useEditor } from '../stores/editor.js';
+import { Loading } from './ui.js';
 
 type Tab = 'issues' | 'raw' | 'files';
 
@@ -66,7 +67,7 @@ function RawLog({ projectId, run }: { projectId: string; run: CompileRun }) {
     },
   });
   if (log === undefined) return <p className="p-3 text-sm text-slate-600">{t('compile.noLog')}</p>;
-  if (query.isPending) return <p className="p-3 text-sm text-slate-600">{t('common.loading')}</p>;
+  if (query.isPending) return <Loading className="p-3" />;
   if (query.isError) return <p className="p-3 text-sm text-red-800">{t('compile.logFailed')}</p>;
   return (
     <pre className="overflow-auto p-3 font-mono text-xs leading-snug whitespace-pre-wrap">

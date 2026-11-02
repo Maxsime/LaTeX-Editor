@@ -20,6 +20,141 @@
     outline: 2px solid var(--color-accent);
     outline-offset: 2px;
   }
+
+  /*
+   * Controls change colour softly on hover, focus and selection rather than
+   * snapping. Kept short so that the interface never feels slow; utilities
+   * such as `transition-transform` still take over where they are set.
+   */
+  button,
+  a,
+  input,
+  select,
+  textarea,
+  [role='tab'],
+  [role='treeitem'],
+  [role='menuitem'],
+  [role='option'] {
+    transition-property: color, background-color, border-color, outline-color, box-shadow;
+    transition-duration: 120ms;
+    transition-timing-function: ease-out;
+  }
+}
+
+/* Motion of the interface: short, eased, and only on opacity and scale. */
+@keyframes galley-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes galley-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes galley-pop-in {
+  from {
+    opacity: 0;
+    scale: 0.96;
+  }
+}
+
+@keyframes galley-pop-out {
+  to {
+    opacity: 0;
+    scale: 0.96;
+  }
+}
+
+@keyframes galley-rise-in {
+  from {
+    opacity: 0;
+    translate: 0 6px;
+  }
+}
+
+@keyframes galley-progress {
+  from {
+    translate: -100% 0;
+  }
+  to {
+    translate: 250% 0;
+  }
+}
+
+/*
+ * Dialogs: the overlay fades, the box grows in from 96 %. Radix keeps a
+ * closing dialog mounted until its animation ends, so closing is eased too.
+ * The box is centred with `translate`, hence an animation on `scale` only.
+ */
+.dialog-overlay[data-state='open'] {
+  animation: galley-fade-in 160ms ease-out;
+}
+.dialog-overlay[data-state='closed'] {
+  animation: galley-fade-out 120ms ease-in forwards;
+}
+.dialog-content[data-state='open'] {
+  animation: galley-pop-in 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.dialog-content[data-state='closed'] {
+  animation: galley-pop-out 120ms ease-in forwards;
+}
+
+/* Menus and popovers, all positioned by Radix: they grow out of their trigger. */
+[data-radix-popper-content-wrapper] > [data-state='open'] {
+  transform-origin: var(--radix-popper-transform-origin);
+  animation: galley-pop-in 140ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+[data-radix-popper-content-wrapper] > [data-state='closed'] {
+  transform-origin: var(--radix-popper-transform-origin);
+  animation: galley-pop-out 100ms ease-in forwards;
+}
+
+/* A panel shown in place of another, or content unfolded. */
+.fade-in {
+  animation: galley-fade-in 150ms ease-out;
+}
+.rise-in {
+  animation: galley-rise-in 180ms ease-out;
+}
+
+/*
+ * Loading messages appear only if the wait lasts: a fast load shows nothing
+ * rather than a message flashing for a few frames.
+ */
+.appear-late {
+  animation: galley-fade-in 200ms ease-out 300ms both;
+}
+
+/* Indeterminate bar along the top of the PDF while a compilation runs. */
+.progress-indeterminate {
+  animation: galley-progress 1.2s ease-in-out infinite;
+}
+
+/* Day and night cross-fade: set on <html> for the length of the switch only. */
+.theme-transition,
+.theme-transition *,
+.theme-transition *::before,
+.theme-transition *::after {
+  transition-property: color, background-color, border-color, fill, stroke, box-shadow !important;
+  transition-duration: 220ms !important;
+  transition-timing-function: ease-out !important;
+}
+
+/* Whoever asks the system for less motion gets none: states change at once. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0ms !important;
+    transition-delay: 0ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 /*
