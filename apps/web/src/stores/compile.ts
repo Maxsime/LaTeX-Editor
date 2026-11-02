@@ -12,10 +12,13 @@ interface CompilePreferences {
   viewMode: ViewMode;
   /** PDF pages shown with inverted colours, for reading in the dark. */
   pdfDark: boolean;
+  /** Errors and warnings unfolded under the PDF. */
+  logOpen: boolean;
   setAutoCompile: (on: boolean) => void;
   setAutoCompileDelay: (delay: number) => void;
   setViewMode: (mode: ViewMode) => void;
   setPdfDark: (on: boolean) => void;
+  setLogOpen: (open: boolean) => void;
 }
 
 /** Compilation preferences, kept in this browser only. */
@@ -26,6 +29,7 @@ export const useCompilePreferences = create<CompilePreferences>()(
       autoCompileDelay: 2000,
       viewMode: 'both',
       pdfDark: false,
+      logOpen: false,
       setAutoCompile: (autoCompile) => {
         set({ autoCompile });
       },
@@ -37,6 +41,9 @@ export const useCompilePreferences = create<CompilePreferences>()(
       },
       setPdfDark: (pdfDark) => {
         set({ pdfDark });
+      },
+      setLogOpen: (logOpen) => {
+        set({ logOpen });
       },
     }),
     {
