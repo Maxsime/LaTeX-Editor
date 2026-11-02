@@ -80,15 +80,20 @@ test.describe('editor and viewer extras', () => {
     });
     await open(page, 'visuel.tex');
 
+    await page.getByRole('button', { name: 'Outils' }).click();
     await page.getByLabel('Raccourcis').selectOption('vim');
-    await expect(page.locator('.cm-vim-panel')).toBeVisible();
+    await page.keyboard.press('Escape');
+    // main.tex opened with the project, so another editor sits hidden behind this one.
+    await expect(page.locator('.cm-editor:visible .cm-vim-panel')).toBeVisible();
     await editor(page).getByText('Dernière ligne.').click();
     await page.keyboard.press('Escape');
     await page.keyboard.type('dd');
     await expect(editor(page)).not.toContainText('Dernière ligne.');
     await page.keyboard.type('u');
     await expect(editor(page)).toContainText('Dernière ligne.');
+    await page.getByRole('button', { name: 'Outils' }).click();
     await page.getByLabel('Raccourcis').selectOption('default');
+    await page.keyboard.press('Escape');
     await expect(page.locator('.cm-vim-panel')).toHaveCount(0);
 
     await page.getByRole('button', { name: 'Visuel', exact: true }).click();
