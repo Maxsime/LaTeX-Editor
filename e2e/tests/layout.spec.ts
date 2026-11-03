@@ -72,4 +72,35 @@ test.describe('workspace layout', () => {
     await strip.click();
     await expect(page.getByRole('tab', { name: 'Journal brut' })).toHaveCount(0);
   });
+
+  test('keeps dialogs above the PDF and its toolbar', async ({ page }) => {
+    await page.setViewportSize({ width: 1600, height: 900 });
+    await signIn(page, createAccount('stacking'));
+    await importZip(page, 'Empilement.zip', storedZip({ 'main.tex': Buffer.from(document) }));
+    await compileStatus(page, 'success', 90_000);
+    await pdfShown(page);
+    const toolbar = page.getByRole('toolbar', { name: "Barre d'outils du PDF" });
+    const box = await toolbar.boundingBox();
+    if (box === null) throw new Error('PDF toolbar not laid out');
+
+    await page.getByRole('button', { name: 'Historique', exact: true }).click();
+    const dialog = page.getByRole('dialog', { name: 'Historique du projet' });
+    await expect(dialog).toBeVisible();
+    // Whatever sits under the PDF toolbar now belongs to the dialog or to its backdrop.
+    const onTop = await page.evaluate(
+      ({ x, y }) => {
+        const hit = window.document.elementFromPoint(x, y);
+        return hit !== null && hit.closest('[role="toolbar"], [data-testid="pdf-viewer"]') === null;
+      },
+      { x: box.x + box.width / 2, y: box.y + box.height / 2 },
+    );
+    expect(onTop).toBe(true);
+    const pane = await page.getByRole('region', { name: 'Compilation et aperçu' }).boundingBox();
+    if (pane === null) throw new Error('PDF pane not laid out');
+    const inDialog = await page.evaluate(
+      ({ x, y }) => window.document.elementFromPoint(x, y)?.closest('[role="dialog"]') !== null,
+      { x: pane.x + 40, y: pane.y + 160 },
+    );
+    expect(inDialog).toBe(true);
+  });
 });

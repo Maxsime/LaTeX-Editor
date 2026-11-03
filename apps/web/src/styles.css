@@ -9,6 +9,29 @@
   --color-accent: #1e3a5f;
 }
 
+/*
+ * Stacking layers, the only z-index values allowed outside a pane. A pane that
+ * stacks its own children (PDF viewer, compile pane) is marked `isolate`, so
+ * its internal z-index never competes with these. Order, from bottom to top:
+ * page content (auto), dialogs and their backdrop, menus and popovers (above
+ * dialogs, since a dialog can open one), then toasts and live notices.
+ */
+@theme {
+  --z-index-dialog: 40;
+  --z-index-menu: 50;
+  --z-index-toast: 60;
+}
+
+@utility z-dialog {
+  z-index: var(--z-index-dialog);
+}
+@utility z-menu {
+  z-index: var(--z-index-menu);
+}
+@utility z-toast {
+  z-index: var(--z-index-toast);
+}
+
 @layer base {
   /* Popovers and dialogs are portalled to <body>: it carries the page colours too. */
   body {

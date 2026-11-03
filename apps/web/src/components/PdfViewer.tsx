@@ -338,7 +338,7 @@ export default function PdfViewer({
             'pointer-events-none invisible absolute inset-0 z-0 overflow-auto opacity-0 transition-[opacity,visibility] delay-150 duration-0',
         };
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <div className="isolate flex h-full min-h-0 flex-col">
       {failed && (
         <p role="alert" className="bg-red-50 px-3 py-2 text-sm text-red-900">
           {t('pdf.loadFailed')}

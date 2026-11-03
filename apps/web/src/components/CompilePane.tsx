@@ -413,7 +413,7 @@ export function CompilePane({
             <Popover.Content
               align="end"
               sideOffset={4}
-              className="z-50 max-h-[var(--radix-popover-content-available-height)] overflow-y-auto rounded-md border border-slate-200 bg-white p-3 shadow-lg"
+              className="z-menu max-h-[var(--radix-popover-content-available-height)] overflow-y-auto rounded-md border border-slate-200 bg-white p-3 shadow-lg"
             >
               <Options project={project} canEdit={canEdit} />
               <Button
@@ -431,7 +431,7 @@ export function CompilePane({
       <ErrorAlert error={compile.error ?? cancel.error} />
       <Notice notice={synctex.notice} />
       <div className="flex min-h-0 flex-1 flex-col">
-        <div className={`relative ${logOpen ? 'min-h-0 flex-[3]' : 'min-h-0 flex-1'}`}>
+        <div className={`relative isolate ${logOpen ? 'min-h-0 flex-[3]' : 'min-h-0 flex-1'}`}>
           {/* While a compilation runs, a thin bar moves along the top of the PDF. */}
           {pending && (
             <div

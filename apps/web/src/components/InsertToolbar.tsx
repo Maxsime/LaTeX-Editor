@@ -477,7 +477,7 @@ export function InsertToolbar({
           <Popover.Content
             align="start"
             sideOffset={4}
-            className="z-20 rounded-md border border-slate-200 bg-white p-3 shadow-lg"
+            className="z-menu rounded-md border border-slate-200 bg-white p-3 shadow-lg"
           >
             <SymbolPalette
               onPick={(command) => {

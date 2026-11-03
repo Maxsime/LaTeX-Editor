@@ -288,7 +288,7 @@ export function FileTree({
                       ⋯
                     </DropdownMenu.Trigger>
                     <DropdownMenu.Portal>
-                      <DropdownMenu.Content className="min-w-36 rounded-md border border-slate-200 bg-white p-1 shadow-md">
+                      <DropdownMenu.Content className="z-menu min-w-36 rounded-md border border-slate-200 bg-white p-1 shadow-md">
                         <ItemMenu
                           item={item}
                           open={setPending}
@@ -306,7 +306,7 @@ export function FileTree({
               <ContextMenu.Root key={item.id}>
                 <ContextMenu.Trigger asChild>{row}</ContextMenu.Trigger>
                 <ContextMenu.Portal>
-                  <ContextMenu.Content className="min-w-36 rounded-md border border-slate-200 bg-white p-1 shadow-md">
+                  <ContextMenu.Content className="z-menu min-w-36 rounded-md border border-slate-200 bg-white p-1 shadow-md">
                     <ItemMenu item={item} open={setPending} actions={actions} Menu={ContextMenu} />
                   </ContextMenu.Content>
                 </ContextMenu.Portal>

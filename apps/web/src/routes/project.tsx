@@ -493,7 +493,7 @@ export function ProjectPage() {
           </div>
         </aside>
         <section
-          className={`min-h-0 min-w-0 overflow-hidden rounded-md border border-slate-200 bg-white ${viewMode === 'pdf' ? 'hidden' : ''}`}
+          className={`isolate min-h-0 min-w-0 overflow-hidden rounded-md border border-slate-200 bg-white ${viewMode === 'pdf' ? 'hidden' : ''}`}
         >
           <Suspense fallback={<Loading className="p-4" />}>
             {project.data && (
@@ -516,7 +516,7 @@ export function ProjectPage() {
         )}
         <section
           aria-label={t('compile.pane')}
-          className={`min-h-0 min-w-0 overflow-hidden rounded-md border border-slate-200 ${viewMode === 'editor' ? 'hidden' : ''}`}
+          className={`isolate min-h-0 min-w-0 overflow-hidden rounded-md border border-slate-200 ${viewMode === 'editor' ? 'hidden' : ''}`}
         >
           {project.data && !isTexmf && (
             <CompilePane

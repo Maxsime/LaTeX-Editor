@@ -34,7 +34,7 @@ export function BibToolbar({ fileId, read }: { fileId: string; read: () => strin
       <Popover.Portal>
         <Popover.Content
           align="start"
-          className="z-20 w-64 space-y-3 rounded-md border border-slate-200 bg-white p-3 text-sm shadow-md"
+          className="z-menu w-64 space-y-3 rounded-md border border-slate-200 bg-white p-3 text-sm shadow-md"
         >
           <fieldset className="space-y-1">
             <legend className="mb-1 font-medium">{t('bibFormat.sort')}</legend>

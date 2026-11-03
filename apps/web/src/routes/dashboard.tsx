@@ -328,7 +328,7 @@ function TagMenu({ project, tags }: { project: ProjectSummary; tags: Tag[] }) {
         </Button>
       </DropdownMenu.Trigger>
       <DropdownMenu.Portal>
-        <DropdownMenu.Content className="min-w-40 rounded-md border border-slate-200 bg-white p-1 shadow-md">
+        <DropdownMenu.Content className="z-menu min-w-40 rounded-md border border-slate-200 bg-white p-1 shadow-md">
           <DropdownMenu.Label className="px-2 py-1 text-xs text-slate-600">
             {t('dashboard.tags.apply')}
           </DropdownMenu.Label>

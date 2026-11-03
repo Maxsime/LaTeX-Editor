@@ -159,9 +159,10 @@ export function Dialog({
   return (
     <RadixDialog.Root open={open} onOpenChange={onOpenChange}>
       <RadixDialog.Portal>
-        <RadixDialog.Overlay className="dialog-overlay fixed inset-0 bg-black/50" />
+        {/* Layer scale in styles.css: dialogs below menus, above all panes. */}
+        <RadixDialog.Overlay className="dialog-overlay fixed inset-0 z-dialog bg-black/50" />
         <RadixDialog.Content
-          className={`dialog-content fixed top-1/2 left-1/2 max-h-[calc(100vh-2rem)] -translate-x-1/2 -translate-y-1/2 space-y-4 overflow-y-auto rounded-lg bg-white p-5 shadow-xl ${
+          className={`dialog-content fixed top-1/2 z-dialog left-1/2 max-h-[calc(100vh-2rem)] -translate-x-1/2 -translate-y-1/2 space-y-4 overflow-y-auto rounded-lg bg-white p-5 shadow-xl ${
             large
               ? 'w-[min(72rem,calc(100vw-2rem))]'
               : wide

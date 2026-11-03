@@ -113,7 +113,7 @@ function Preferences({ spelling }: { spelling: boolean }) {
         <Popover.Content
           align="end"
           sideOffset={4}
-          className="z-50 w-60 space-y-2 rounded-md border border-slate-200 bg-white p-3 text-sm shadow-lg"
+          className="z-menu w-60 space-y-2 rounded-md border border-slate-200 bg-white p-3 text-sm shadow-lg"
         >
           <label className="flex items-center justify-between gap-2">
             <span>{t('editor.preferences.keyBindings')}</span>
