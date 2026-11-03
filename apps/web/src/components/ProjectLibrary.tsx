@@ -127,7 +127,7 @@ export function ProjectActionsMenu({ project }: { project: ProjectSummary }) {
           </Button>
         </DropdownMenu.Trigger>
         <DropdownMenu.Portal>
-          <DropdownMenu.Content className="min-w-48 rounded-md border border-slate-200 bg-white p-1 shadow-md">
+          <DropdownMenu.Content className="z-menu min-w-48 rounded-md border border-slate-200 bg-white p-1 shadow-md">
             <DropdownMenu.Item
               className={menuItem}
               onSelect={() => {

@@ -57,7 +57,7 @@ export function FragmentPreview({
         <Popover.Content
           align="start"
           aria-label={t('fragmentPreview.title')}
-          className="z-20 w-96 space-y-2 rounded-md border border-slate-200 bg-white p-3 text-sm shadow-md"
+          className="z-menu w-96 space-y-2 rounded-md border border-slate-200 bg-white p-3 text-sm shadow-md"
           data-testid="fragment-preview"
         >
           {empty && <p>{t('fragmentPreview.nothing')}</p>}
