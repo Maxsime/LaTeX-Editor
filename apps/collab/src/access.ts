@@ -1,10 +1,20 @@
-import { type Executor, files, findSessionByToken, projectMembers, projects } from '@galley/db';
+import {
+  type Executor,
+  files,
+  findSessionByToken,
+  projectMembers,
+  projects,
+  sessions,
+  users,
+} from '@galley/db';
 import { hasRole, parseDocumentName, type ProjectRole, SESSION_COOKIE } from '@galley/shared';
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, eq, gt, inArray, isNull } from 'drizzle-orm';
 
 /** What collab knows about a WebSocket connection once it is authorised. */
 export interface CollabContext {
   userId: string;
+  /** Session the connection was opened with; the socket closes once it is revoked. */
+  sessionId: string;
   /** Shown to other participants; taken from the account, never from the client. */
   displayName: string;
   projectId: string;
@@ -110,6 +120,7 @@ export async function authorize(
   return {
     context: {
       userId: session.user.id,
+      sessionId: session.sessionId,
       displayName: session.user.displayName,
       projectId,
       role: member.role,
@@ -118,4 +129,30 @@ export async function authorize(
     // A linked file changes only when refreshed from its source, through the API.
     readOnly: linked || !hasRole(member.role, 'reviewer'),
   };
+}
+
+/**
+ * Returns which of `sessionIds` are still valid: not deleted (sign-out,
+ * password reset, account disabled by an administrator) and not expired, for
+ * an account that is still enabled. A WebSocket outlives the request that
+ * opened it, so collab asks this periodically to close revoked connections.
+ */
+export async function liveSessions(
+  db: Executor,
+  sessionIds: readonly string[],
+  now = new Date(),
+): Promise<Set<string>> {
+  if (sessionIds.length === 0) return new Set();
+  const rows = await db
+    .select({ id: sessions.id })
+    .from(sessions)
+    .innerJoin(users, eq(users.id, sessions.userId))
+    .where(
+      and(
+        inArray(sessions.id, [...sessionIds]),
+        gt(sessions.expiresAt, now),
+        isNull(users.disabledAt),
+      ),
+    );
+  return new Set(rows.map((row) => row.id));
 }

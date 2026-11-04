@@ -223,6 +223,8 @@ export const collabEnv = z.object({
   COLLAB_PERSIST_DEBOUNCE_MS: z._default(z.coerce.number().check(z.int(), z.gte(0)), 2_000),
   /** Longest a document under continuous typing can go without being written. */
   COLLAB_PERSIST_MAX_DEBOUNCE_MS: z._default(z.coerce.number().check(z.int(), z.gte(0)), 10_000),
+  /** Interval between checks that close connections whose session was revoked or expired. */
+  COLLAB_SESSION_CHECK_MS: z._default(z.coerce.number().check(z.int(), z.gte(100)), 30_000),
 });
 export type CollabConfig = z.output<typeof collabEnv>;
 

@@ -136,6 +136,7 @@ describe('loadConfig', () => {
       COLLAB_PORT: 3001,
       COLLAB_PERSIST_DEBOUNCE_MS: 2_000,
       COLLAB_PERSIST_MAX_DEBOUNCE_MS: 10_000,
+      COLLAB_SESSION_CHECK_MS: 30_000,
     });
     expect(() =>
       loadConfig(collabEnv, {
