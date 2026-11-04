@@ -4,6 +4,7 @@ import multipart from '@fastify/multipart';
 import rateLimit from '@fastify/rate-limit';
 import Fastify, { type FastifyBaseLogger, type FastifyInstance } from 'fastify';
 import { type ArchiveLimits, DEFAULT_ARCHIVE_LIMITS } from './archive/limits.js';
+import { accountRoutes } from './routes/account.js';
 import { registerAuth } from './auth/plugin.js';
 import type { AppContext } from './context.js';
 import { registerErrorHandling } from './errors.js';
@@ -100,6 +101,7 @@ export function buildApp({
       await api.register(multipart);
       await registerAuth(api, context);
       authRoutes(api, context);
+      accountRoutes(api, context);
       adminRoutes(api, context, version);
       projectRoutes(api, context);
       sharingRoutes(api, context);

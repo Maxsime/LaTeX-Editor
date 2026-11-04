@@ -56,6 +56,36 @@ export function passwordResetMail(input: {
   );
 }
 
+/** Notice that the password of an account changed, in case its owner did not change it. */
+export function passwordChangedMail(input: {
+  to: string;
+  displayName: string;
+  /** Page where a reset link can be requested. */
+  link: string;
+}): MailJob {
+  const name = inline(input.displayName, 100);
+  return bilingual(
+    input.to,
+    'Galley : mot de passe modifié / password changed',
+    [
+      `Bonjour ${name},`,
+      '',
+      'Le mot de passe de votre compte Galley vient d’être modifié, et vos autres sessions ont été fermées.',
+      '',
+      'Si ce n’est pas vous, choisissez tout de suite un nouveau mot de passe depuis cette page, puis prévenez l’administrateur de l’instance :',
+      input.link,
+    ],
+    [
+      `Hello ${name},`,
+      '',
+      'The password of your Galley account was just changed, and your other sessions were closed.',
+      '',
+      'If this was not you, choose a new password right away from this page, then tell the administrator of the instance:',
+      input.link,
+    ],
+  );
+}
+
 /** Message telling someone they are invited to a project. */
 export function projectInviteMail(input: {
   to: string;

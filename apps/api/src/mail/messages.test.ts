@@ -1,6 +1,11 @@
 import { mailJob } from '@galley/shared';
 import { describe, expect, it } from 'vitest';
-import { mentionMail, passwordResetMail, projectInviteMail } from './messages.js';
+import {
+  mentionMail,
+  passwordChangedMail,
+  passwordResetMail,
+  projectInviteMail,
+} from './messages.js';
 
 describe('mail messages', () => {
   it('builds a reset message in both languages around the link', () => {
@@ -14,6 +19,17 @@ describe('mail messages', () => {
     expect(mail.text).toContain('Hello Ada');
     expect(mail.text.match(/reset-password\?token=abc/g)).toHaveLength(2);
     expect(mail.text).toContain('60');
+  });
+
+  it('tells the owner of an account that its password changed', () => {
+    const mail = passwordChangedMail({
+      to: 'ada@example.org',
+      displayName: 'Ada\nhttps://evil.example',
+      link: 'https://galley.test/forgot-password',
+    });
+    expect(mailJob.parse(mail)).toEqual(mail);
+    expect(mail.text).toContain('Bonjour Ada https://evil.example,');
+    expect(mail.text.match(/forgot-password/g)).toHaveLength(2);
   });
 
   it('names the inviter, project and role of an invitation', () => {
