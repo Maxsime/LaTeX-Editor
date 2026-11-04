@@ -1,7 +1,10 @@
 import { type ErrorCode, errorCode } from '@galley/shared';
-import { createRootRoute, createRoute, createRouter } from '@tanstack/react-router';
-import { AccountPage } from './routes/account.js';
-import { AdminPage } from './routes/admin.js';
+import {
+  createRootRoute,
+  createRoute,
+  createRouter,
+  lazyRouteComponent,
+} from '@tanstack/react-router';
 import {
   ForgotPasswordPage,
   IndexRedirect,
@@ -11,13 +14,19 @@ import {
   ResetPasswordPage,
   SetupPage,
 } from './routes/auth.js';
-import { DashboardPage } from './routes/dashboard.js';
-import { JoinPage } from './routes/join.js';
-import { PdfWindowPage } from './routes/pdf-window.js';
-import { ProjectPage } from './routes/project.js';
 import { RootLayout } from './routes/root.js';
-import { StatusPage } from './routes/status.js';
+import { RouteError } from './components/RouteError.js';
 import { safeRedirect } from './lib/redirect.js';
+
+// Pages behind a session load on demand: the sign-in page, the first one most visitors
+// see, does not wait for the editor, the dashboard or the administration.
+const AccountPage = lazyRouteComponent(() => import('./routes/account.js'), 'AccountPage');
+const AdminPage = lazyRouteComponent(() => import('./routes/admin.js'), 'AdminPage');
+const DashboardPage = lazyRouteComponent(() => import('./routes/dashboard.js'), 'DashboardPage');
+const JoinPage = lazyRouteComponent(() => import('./routes/join.js'), 'JoinPage');
+const PdfWindowPage = lazyRouteComponent(() => import('./routes/pdf-window.js'), 'PdfWindowPage');
+const ProjectPage = lazyRouteComponent(() => import('./routes/project.js'), 'ProjectPage');
+const StatusPage = lazyRouteComponent(() => import('./routes/status.js'), 'StatusPage');
 
 // Code-based routes keep the build free of generated files.
 const rootRoute = createRootRoute({ component: RootLayout });
@@ -41,7 +50,11 @@ const loginRoute = createRoute({
   },
 });
 const setupRoute = route('/setup', SetupPage);
-const statusRoute = route('/status', StatusPage);
+const statusRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/status',
+  component: StatusPage,
+});
 const registerRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/register',
@@ -106,6 +119,8 @@ export const router = createRouter({
     accountRoute,
     adminRoute,
   ]),
+  // A failed render shows a way out instead of a blank page.
+  defaultErrorComponent: RouteError,
 });
 
 declare module '@tanstack/react-router' {
