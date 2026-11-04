@@ -69,6 +69,12 @@ export function buildApp({
     void reply.header(REQUEST_ID_HEADER, request.id);
     done();
   });
+  // API responses hold private data: no browser or proxy cache may keep one
+  // unless its route says so (PDFs, file downloads).
+  app.addHook('onSend', (_request, reply, payload, done) => {
+    if (!reply.hasHeader('cache-control')) void reply.header('cache-control', 'no-store');
+    done(null, payload);
+  });
   app.addHook('onResponse', (request, reply, done) => {
     metrics.httpDuration.observe(
       {

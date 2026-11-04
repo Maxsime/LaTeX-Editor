@@ -1,3 +1,4 @@
+import { Writable } from 'node:stream';
 import { apiErrorBody, healthResponse } from '@galley/shared';
 import { createLogger } from '@galley/shared/node';
 import type { FastifyInstance } from 'fastify';
@@ -83,6 +84,75 @@ describe('errors', () => {
     });
     expect(response.statusCode).toBe(400);
     expect(apiErrorBody.parse(response.json()).error.code).toBe('BAD_REQUEST');
+  });
+});
+
+describe('logs', () => {
+  /** Shaped like Drizzle's DrizzleQueryError, which the API does not depend on directly. */
+  class QueryError extends Error {
+    constructor(
+      readonly query: string,
+      readonly params: unknown[],
+      override readonly cause: Error,
+    ) {
+      super(`Failed query: ${query}\nparams: ${params.join(',')}`);
+    }
+  }
+
+  it('keep share tokens, query values and query parameters out', async () => {
+    const lines: string[] = [];
+    const sink = new Writable({
+      write(chunk: Buffer, _encoding, callback) {
+        lines.push(chunk.toString());
+        callback();
+      },
+    });
+    app = buildApp({
+      logger: createLogger({ service: 'api', level: 'info', destination: sink }),
+      version: '1.2.3',
+      probes: {},
+    });
+    app.get('/api/links/:token', () => ({ ok: true }));
+    app.get('/api/test/query', () => {
+      throw new QueryError(
+        'insert into "users" ("email", "password_hash") values ($1, $2)',
+        ['alice@example.org', '$argon2id$v=19$secret-hash\nsecond line'],
+        new Error('duplicate key'),
+      );
+    });
+    await app.inject('/api/links/share-token-0123456789?code=oauth-code&state=oauth-state');
+    expect((await app.inject('/api/test/query')).statusCode).toBe(500);
+
+    const logged = lines.join('');
+    for (const secret of [
+      'share-token-0123456789',
+      'oauth-code',
+      'oauth-state',
+      'alice@example.org',
+      'secret-hash',
+      'second line',
+    ]) {
+      expect(logged).not.toContain(secret);
+    }
+    expect(logged).toContain('/api/links/[redacted]?code=[redacted]&state=[redacted]');
+    // What is needed to investigate stays: the query and its cause.
+    expect(logged).toContain('insert into');
+    expect(logged).toContain('duplicate key');
+  });
+});
+
+describe('caching', () => {
+  it('forbids caching API responses unless a route allows it', async () => {
+    const instance = makeApp();
+    instance.get('/api/test/cached', (_request, reply) =>
+      reply.header('cache-control', 'private, max-age=60').send({ ok: true }),
+    );
+    instance.get('/api/test/plain', () => ({ ok: true }));
+    expect((await instance.inject('/api/test/plain')).headers['cache-control']).toBe('no-store');
+    expect((await instance.inject('/api/nope')).headers['cache-control']).toBe('no-store');
+    expect((await instance.inject('/api/test/cached')).headers['cache-control']).toBe(
+      'private, max-age=60',
+    );
   });
 });
 
