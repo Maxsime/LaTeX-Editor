@@ -37,7 +37,12 @@ for (const [network, prefix] of [
 for (const [network, prefix] of [
   ['::', 128],
   ['::1', 128],
+  // IPv4-compatible (deprecated), NAT64 and 6to4 addresses embed an IPv4
+  // address, possibly a private one, that a gateway would reach on our behalf.
+  ['::', 96],
+  ['64:ff9b::', 96],
   ['64:ff9b:1::', 48],
+  ['2002::', 16],
   ['100::', 64],
   ['2001::', 23],
   ['2001:db8::', 32],

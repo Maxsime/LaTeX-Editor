@@ -152,6 +152,8 @@ Le menu « Administration », visible des administrateurs, regroupe les comptes 
 
 La connexion unique passe par un fournisseur OpenID Connect (`OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`). `scripts/backup.sh` sauvegarde l'instance sans l'arrêter, `scripts/restore.sh` la restaure. Le détail est dans [`docs/operations.md`](docs/operations.md).
 
+Le modèle de sécurité, le bilan du dernier audit et les risques résiduels sont décrits dans [`docs/security.md`](docs/security.md).
+
 ### Vérifier l'état des services
 
 ```sh

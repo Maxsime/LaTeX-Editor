@@ -244,6 +244,7 @@ describe.skipIf(!dockerAvailable)('collab server', () => {
       COLLAB_INTERNAL_TOKEN: INTERNAL_TOKEN,
       COLLAB_PERSIST_DEBOUNCE_MS: '100',
       COLLAB_PERSIST_MAX_DEBOUNCE_MS: '300',
+      COLLAB_SESSION_CHECK_MS: '200',
     });
     database = createDatabase(config.DATABASE_URL);
     await runMigrations(database);
@@ -612,6 +613,31 @@ describe.skipIf(!dockerAvailable)('collab server', () => {
     });
     expect(await refusal(fileDocumentName(fileId), editor.token)).toBe('forbidden');
     // Other members stay connected and keep editing.
+    ownerProvider.document.getText(TEXT_KEY).insert(0, 'still ');
+    await eventually(async () => {
+      expect(await storedText(fileId)).toBe('still text');
+    });
+  });
+
+  it('closes connections whose session was revoked, then refuses them', async () => {
+    const { fileId, owner, others } = await projectWithFile('text', ['editor']);
+    const [editor] = others;
+    if (!editor) throw new Error('missing member');
+    const ownerProvider = await synced(fileDocumentName(fileId), owner.token);
+    let closed = false;
+    const editorProvider = await synced(fileDocumentName(fileId), editor.token);
+    editorProvider.on('close', () => {
+      closed = true;
+    });
+
+    // What signing out, a password reset or a suspension does to the session.
+    await database.db.delete(sessions).where(eq(sessions.tokenHash, tokenDigest(editor.token)));
+
+    await eventually(() => {
+      expect(closed).toBe(true);
+    });
+    expect(await refusal(fileDocumentName(fileId), editor.token)).toBe('unauthenticated');
+    // The owner's session is untouched: still connected and editing.
     ownerProvider.document.getText(TEXT_KEY).insert(0, 'still ');
     await eventually(async () => {
       expect(await storedText(fileId)).toBe('still text');

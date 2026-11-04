@@ -15,7 +15,13 @@ import { type Document, Server } from '@hocuspocus/server';
 import type { Redis } from 'ioredis';
 import { collectDefaultMetrics, Counter, Gauge, Registry } from 'prom-client';
 import * as Y from 'yjs';
-import { AccessDenied, authorize, type CollabContext, originAllowed } from './access.js';
+import {
+  AccessDenied,
+  authorize,
+  type CollabContext,
+  liveSessions,
+  originAllowed,
+} from './access.js';
 import { type CollabConfig, parseRedisUrl } from './config.js';
 import { relayProjectEvents } from './events.js';
 import { handleInternalRequest, type InternalOperations } from './internal.js';
@@ -402,6 +408,37 @@ export function createCollab({
     },
   });
 
+  /**
+   * Closes every connection whose session no longer exists. Authorisation
+   * happens once per connection, so without this a socket opened before a
+   * sign-out, a password reset or an account suspension would keep writing.
+   */
+  async function closeRevokedConnections(): Promise<void> {
+    const bySession = new Map<string, { close(): void }[]>();
+    for (const document of server.hocuspocus.documents.values()) {
+      for (const connection of document.getConnections()) {
+        // Same context as above, typed any by Hocuspocus.
+        const context = connection.context as CollabContext | undefined;
+        if (context === undefined) continue;
+        const list = bySession.get(context.sessionId) ?? [];
+        list.push({
+          close: () => {
+            connection.webSocket.close(RESET_CONNECTION, 'Reset Connection');
+          },
+        });
+        bySession.set(context.sessionId, list);
+      }
+    }
+    if (bySession.size === 0) return;
+    const live = await liveSessions(db, [...bySession.keys()]);
+    for (const [sessionId, connections] of bySession) {
+      if (live.has(sessionId)) continue;
+      refusals.inc({ reason: 'session_revoked' });
+      for (const connection of connections) connection.close();
+    }
+  }
+
+  let sessionSweep: NodeJS.Timeout | undefined;
   const subscriber = redis.duplicate();
   let stopRelay: (() => Promise<void>) | null = null;
 
@@ -411,8 +448,15 @@ export function createCollab({
     async listen() {
       stopRelay = await relayProjectEvents(subscriber, logger, deliver);
       await server.listen();
+      sessionSweep = setInterval(() => {
+        closeRevokedConnections().catch((error: unknown) => {
+          logger.error({ err: error }, 'session check failed');
+        });
+      }, config.COLLAB_SESSION_CHECK_MS);
+      sessionSweep.unref();
     },
     async destroy() {
+      clearInterval(sessionSweep);
       server.hocuspocus.flushPendingStores();
       await server.destroy();
       await stopRelay?.();
