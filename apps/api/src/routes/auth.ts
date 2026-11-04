@@ -17,6 +17,7 @@ import { verifyAgainstDummy, verifyPassword } from '../auth/password.js';
 import { confirmPasswordReset, requestPasswordReset } from '../auth/password-reset.js';
 import { createSession, deleteSession } from '../auth/sessions.js';
 import { checkSetupCode, clearSetupCode } from '../auth/setup.js';
+import { LoginThrottle } from '../auth/throttle.js';
 import { safeEqual, tokenDigest } from '../auth/tokens.js';
 import { countUsers, createUser, findUserByLogin, toPublicUser } from '../auth/users.js';
 import { instanceSettingsOf } from '../admin/settings.js';
@@ -76,11 +77,15 @@ function reasonOf(error: unknown): string {
   return error instanceof Error ? error.message.slice(0, 200) : 'unknown';
 }
 
+/** Reset messages sent to one address per hour, whoever asks: a mailbox is not a target. */
+const MAX_RESET_MAILS_PER_HOUR = 3;
+
 /** Arbitrary constant serialising first-account creation across API instances. */
 const SETUP_LOCK_KEY = 7_265_830_142;
 
 export function authRoutes(app: FastifyInstance, context: AppContext): void {
   const { database, config, redis } = context;
+  const throttle = new LoginThrottle(redis);
 
   async function startSession(
     reply: Parameters<typeof setSessionCookie>[0],
@@ -185,6 +190,12 @@ export function authRoutes(app: FastifyInstance, context: AppContext): void {
     async (request, reply) => {
       const body = parse(loginRequest, request.body);
       const row = await findUserByLogin(database.db, body.login);
+      // Both names of an account share its failures; an unknown name has its own.
+      const names = row ? [row.email, row.username] : [body.login];
+      if (await throttle.paused(names)) {
+        request.log.warn({ userId: row?.id }, 'sign-in paused after repeated failures');
+        throw new ApiError('RATE_LIMITED', 'account paused');
+      }
       // An account without a password (created through OIDC) is checked like an
       // unknown one, so that timing does not tell them apart.
       const hash = row?.passwordHash ?? null;
@@ -193,8 +204,10 @@ export function authRoutes(app: FastifyInstance, context: AppContext): void {
           ? await verifyAgainstDummy(body.password)
           : await verifyPassword(hash, body.password);
       if (!row || !valid) {
+        await throttle.failed(names);
         throw new ApiError('UNAUTHENTICATED', 'invalid credentials');
       }
+      await throttle.succeeded(names);
       if (request.auth) await deleteSession(database, request.auth.sessionId);
       await startSession(reply, row.id, request.headers['user-agent']);
       return { user: toPublicUser(row) };
@@ -212,14 +225,28 @@ export function authRoutes(app: FastifyInstance, context: AppContext): void {
       const { email } = parse(passwordResetRequest, request.body);
       // Answered before the lookup, so that neither the reply nor its latency
       // tells whether an account uses this address.
-      requestPasswordReset(database, mailer, publicOrigin(config), email, new Date()).then(
-        (sent) => {
-          if (sent) request.log.info('password reset link sent');
-        },
-        (error: unknown) => {
-          request.log.error({ reason: reasonOf(error) }, 'password reset request failed');
-        },
-      );
+      const key = `galley:reset-mails:${email.toLowerCase()}`;
+      redis
+        .multi()
+        .incr(key)
+        .expire(key, 3600, 'NX')
+        .exec()
+        .then(async (replies) => {
+          const count = Number(replies?.[0]?.[1] ?? 0);
+          if (count > MAX_RESET_MAILS_PER_HOUR) {
+            request.log.warn('password reset requests for one address throttled');
+            return false;
+          }
+          return requestPasswordReset(database, mailer, publicOrigin(config), email, new Date());
+        })
+        .then(
+          (sent) => {
+            if (sent) request.log.info('password reset link sent');
+          },
+          (error: unknown) => {
+            request.log.error({ reason: reasonOf(error) }, 'password reset request failed');
+          },
+        );
       return reply.status(202).send();
     },
   );

@@ -10,7 +10,7 @@ import {
   type UploadResponse,
 } from '@galley/shared';
 import { eq } from 'drizzle-orm';
-import type { FastifyInstance, FastifyReply } from 'fastify';
+import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import * as z from 'zod/mini';
 import { requireAuth } from '../auth/plugin.js';
 import { assertRoomFor, storageGuard } from '../admin/quotas.js';
@@ -18,7 +18,7 @@ import { instanceSettingsOf } from '../admin/settings.js';
 import type { AppContext } from '../context.js';
 import { yjsStates } from '@galley/db';
 import { classifySpooled, type IncomingFile, mimeTypeFor } from '../files/ingest.js';
-import { createScratchDir, spool } from '../files/spool.js';
+import { createScratchDir, SizeLimitError, spool } from '../files/spool.js';
 import {
   assertFolder,
   createFolder,
@@ -44,6 +44,16 @@ const fileParams = z.object({ id: z.uuid(), fileId: z.uuid() });
 
 /** Files at most this many per upload request; folders dropped in the browser can be large. */
 const MAX_FILES_PER_UPLOAD = 1000;
+
+/** Uploads per person and minute; a dropped folder is one request. */
+const uploadRateLimit = {
+  rateLimit: {
+    max: 60,
+    timeWindow: '1 minute',
+    hook: 'preHandler' as const,
+    keyGenerator: (request: FastifyRequest) => request.auth?.user.id ?? request.ip,
+  },
+};
 
 /** Types a browser may render inline without risk; everything else is downloaded. */
 const INLINE_TYPES = new Set([
@@ -84,7 +94,15 @@ export function sendUserFile(
   return reply.send(body);
 }
 
-export function fileRoutes(app: FastifyInstance, context: AppContext): void {
+/**
+ * @param limits.maxRequestBytes bytes of one upload request, all files together:
+ * they are spooled to disk before the quota is checked.
+ */
+export function fileRoutes(
+  app: FastifyInstance,
+  context: AppContext,
+  limits: { maxRequestBytes: number },
+): void {
   const { database, redis, s3, config, documents } = context;
   const { db } = database;
 
@@ -123,7 +141,7 @@ export function fileRoutes(app: FastifyInstance, context: AppContext): void {
    * first; each file part may be preceded by a `path` field giving its
    * location below the parent (for dropped folders), else its file name is used.
    */
-  app.post('/api/projects/:id/files', async (request, reply) => {
+  app.post('/api/projects/:id/files', { config: uploadRateLimit }, async (request, reply) => {
     const auth = requireAuth(request);
     const { id } = parse(projectParams, request.params);
     await loadProject(db, id, auth.user.id, 'editor');
@@ -135,6 +153,7 @@ export function fileRoutes(app: FastifyInstance, context: AppContext): void {
       const incoming: IncomingFile[] = [];
       let parentId: string | null = null;
       let pendingPath: string | undefined;
+      let received = 0;
       for await (const part of request.parts({
         limits: { fileSize: MAX_UPLOAD_BYTES, files: MAX_FILES_PER_UPLOAD, fieldSize: 4096 },
       })) {
@@ -155,8 +174,19 @@ export function fileRoutes(app: FastifyInstance, context: AppContext): void {
           throw new ApiError('VALIDATION_FAILED', 'invalid file path');
         }
         const target = scratch.file('upload');
-        const spooled = await spool(part.file, target, MAX_UPLOAD_BYTES);
+        let spooled;
+        try {
+          spooled = await spool(
+            part.file,
+            target,
+            Math.min(MAX_UPLOAD_BYTES, limits.maxRequestBytes - received),
+          );
+        } catch (error) {
+          if (error instanceof SizeLimitError) throw new ApiError('PAYLOAD_TOO_LARGE');
+          throw error;
+        }
         if (part.file.truncated) throw new ApiError('PAYLOAD_TOO_LARGE');
+        received += spooled.size;
         incoming.push(await classifySpooled(segments, { path: target, ...spooled }, warnings));
       }
       if (incoming.length === 0) throw new ApiError('BAD_REQUEST', 'no file');

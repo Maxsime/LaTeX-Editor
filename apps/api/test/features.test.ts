@@ -268,6 +268,47 @@ describe.skipIf(!dockerAvailable)('accounts, projects and files', () => {
       expect(foreign.statusCode).toBe(403);
     });
 
+    it('pauses an account after failures from many addresses, like an unknown name', async () => {
+      const guess = async (login: string, password: string, address: number) =>
+        (
+          await new Client(
+            app,
+            `10.9.${String(Math.floor(address / 200))}.${String(address % 200)}`,
+          ).send('POST', '/api/auth/login', { json: { login, password } })
+        ).statusCode;
+      await register('cyril');
+      for (const login of ['cyril', 'nobody-here']) {
+        const statuses: number[] = [];
+        // One attempt per address: the per-address limit never applies.
+        for (let attempt = 0; attempt < 50; attempt += 1) {
+          statuses.push(
+            await guess(login, `guess-${String(attempt)}`, attempt + (login === 'cyril' ? 0 : 50)),
+          );
+        }
+        expect(statuses.every((status) => status === 401)).toBe(true);
+        expect(await guess(login, `guess-50`, 100 + (login === 'cyril' ? 0 : 1))).toBe(429);
+      }
+      // Paused for its owner too, until the window ends; the e-mail address counts alike.
+      expect(await guess('cyril', 'cyril-password-123', 102)).toBe(429);
+      expect(await guess('cyril@example.org', 'cyril-password-123', 103)).toBe(429);
+      await redis.del('galley:login-failures:cyril', 'galley:login-failures:cyril@example.org');
+      expect(await guess('cyril', 'cyril-password-123', 104)).toBe(200);
+    });
+
+    it('limits Git requests per address', async () => {
+      const git = client();
+      const statuses: number[] = [];
+      for (let attempt = 0; attempt < 61; attempt += 1) {
+        const response = await git.send(
+          'GET',
+          `/git/${randomUUID()}/info/refs?service=git-upload-pack`,
+        );
+        statuses.push(response.statusCode);
+      }
+      expect(statuses.slice(0, 60).every((status) => status === 401)).toBe(true);
+      expect(statuses[60]).toBe(429);
+    });
+
     it('rate-limits sign-in attempts per address and account', async () => {
       const attacker = client();
       const statuses: number[] = [];
@@ -400,6 +441,17 @@ describe.skipIf(!dockerAvailable)('accounts, projects and files', () => {
         'plot.png:binary',
       ]);
       expect(body.warnings).toEqual([{ code: 'NOT_UTF8_TEXT', path: 'legacy.tex' }]);
+    });
+
+    it('bounds the total size of one upload, whatever the number of files', async () => {
+      const chunk = Buffer.alloc(8 * 1024 * 1024, 0x61);
+      const response = await alice.send('POST', `/api/projects/${projectId}/files`, {
+        form: multipart(
+          ['a.bin', 'b.bin', 'c.bin'].map((filename) => ({ name: 'file', filename, data: chunk })),
+        ),
+      });
+      expect(response.statusCode).toBe(413);
+      expect((await tree()).some((node) => node.name === 'a.bin')).toBe(false);
     });
 
     it('serves content with safe headers', async () => {
