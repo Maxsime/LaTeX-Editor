@@ -59,7 +59,7 @@ export function handleProcessLifecycle({
   logger,
   close,
   timeoutMs = SHUTDOWN_TIMEOUT_MS,
-  exit = (code) => process.exit(code),
+  exit = process.exit.bind(process),
   target = process,
 }: LifecycleSettings): void {
   let closing = false;

@@ -104,4 +104,14 @@ describe('handleProcessLifecycle', () => {
     expect(exit).toHaveBeenCalledWith(1);
     expect(lines.at(-1)).toMatchObject({ level: 60, msg: 'unhandled promise rejection' });
   });
+
+  it('logs an uncaught exception as fatal and exits 1', () => {
+    const { logger, lines } = capture();
+    const target = new EventEmitter();
+    const exit = vi.fn<(code: number) => void>();
+    handleProcessLifecycle({ logger, close: () => Promise.resolve(), exit, target });
+    target.emit('uncaughtException', new Error('boom'));
+    expect(exit).toHaveBeenCalledWith(1);
+    expect(lines.at(-1)).toMatchObject({ level: 60, msg: 'uncaught exception' });
+  });
 });
