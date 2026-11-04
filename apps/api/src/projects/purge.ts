@@ -7,6 +7,7 @@ import { type Executor, projects } from '@galley/db';
 import { purgeSnippets } from '../ai/snippets.js';
 import type { AppContext } from '../context.js';
 import { pruneSnapshots, takeDueSnapshots } from '../history/snapshots.js';
+import { logConnectionErrors } from '@galley/shared/node';
 
 /** Queue for periodic API housekeeping. */
 export const MAINTENANCE_QUEUE = 'maintenance';
@@ -58,6 +59,8 @@ export async function startMaintenance(
     },
     { connection, concurrency: 1 },
   );
+  logConnectionErrors(logger, 'maintenance-queue', queue);
+  logConnectionErrors(logger, 'maintenance-worker', worker);
   worker.on('failed', (job, error) => {
     logger.error({ err: error, job: job?.name }, 'maintenance job failed');
   });

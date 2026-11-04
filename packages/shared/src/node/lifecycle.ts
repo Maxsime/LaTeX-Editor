@@ -16,7 +16,7 @@ export const CONNECTION_ERROR_QUIET_MS = 30_000;
  * per {@link CONNECTION_ERROR_QUIET_MS}, so that a Valkey outage does not flood the logs.
  */
 export function logConnectionErrors(
-  logger: Logger,
+  logger: Pick<Logger, 'warn'> | { warn: (details: object, message: string) => void },
   connection: string,
   emitter: ErrorEmitter,
   now: () => number = Date.now,
