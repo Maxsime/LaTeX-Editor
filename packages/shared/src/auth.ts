@@ -83,6 +83,29 @@ export const passwordResetConfirm = z.object({
 });
 export type PasswordResetConfirm = z.infer<typeof passwordResetConfirm>;
 
+/** Password change from « Mon compte »; the current password proves the session holder knows it. */
+export const changePasswordRequest = z.object({
+  currentPassword: z.string().check(z.minLength(1), z.maxLength(PASSWORD_MAX_LENGTH)),
+  newPassword: password,
+});
+export type ChangePasswordRequest = z.infer<typeof changePasswordRequest>;
+
+/** A signed-in browser of the account, as listed in « Mon compte ». */
+export const accountSession = z.object({
+  id: z.uuid(),
+  /** As sent by the browser when signing in, cut to 300 characters; `null` if absent. */
+  userAgent: z.nullable(z.string()),
+  createdAt: z.string(),
+  /** Updated at most once an hour. */
+  lastSeenAt: z.string(),
+  /** The session of the browser making the request. */
+  current: z.boolean(),
+});
+export type AccountSession = z.infer<typeof accountSession>;
+
+export const accountSessionsResponse = z.object({ sessions: z.array(accountSession) });
+export type AccountSessionsResponse = z.infer<typeof accountSessionsResponse>;
+
 /** E-mail notifications a user receives (SPEC §3.4). */
 export const notificationSettings = z.object({ emailMentions: z.boolean() });
 export type NotificationSettings = z.infer<typeof notificationSettings>;

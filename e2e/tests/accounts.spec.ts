@@ -61,6 +61,40 @@ test.describe('accounts', () => {
     await signIn(page, account);
   });
 
+  test('lists sessions, signs the others out and changes the password', async ({
+    page,
+    browser,
+  }) => {
+    const account = createAccount('secure');
+    const other = await (await browser.newContext()).newPage();
+    await signIn(other, account);
+    await signIn(page, account);
+
+    await page.goto('/account');
+    const sessions = page.getByRole('list', { name: 'Sessions ouvertes' });
+    await expect(sessions.getByRole('listitem')).toHaveCount(2);
+    await expect(sessions.getByText('cette session')).toHaveCount(1);
+    await page.getByRole('button', { name: 'Déconnecter toutes les autres sessions' }).click();
+    await expect(page.getByText('Aucune autre session.')).toBeVisible();
+    await other.goto('/projects');
+    await expect(other).toHaveURL(/\/login$/);
+
+    await page.getByLabel('Mot de passe actuel', { exact: true }).fill('not-the-password');
+    await page.getByLabel('Nouveau mot de passe', { exact: true }).fill('secure-new-password');
+    await page
+      .getByLabel('Confirmer le nouveau mot de passe', { exact: true })
+      .fill('secure-new-password');
+    await page.getByRole('button', { name: 'Changer le mot de passe' }).click();
+    await expect(page.getByText('Le mot de passe actuel est incorrect.')).toBeVisible();
+
+    await page.getByLabel('Mot de passe actuel', { exact: true }).fill(account.password);
+    await page.getByRole('button', { name: 'Changer le mot de passe' }).click();
+    await expect(
+      page.getByText('Mot de passe changé. Vos autres sessions ont été fermées.'),
+    ).toBeVisible();
+    await signIn(other, { login: account.login, password: 'secure-new-password' });
+  });
+
   test('sends signed-out visitors to the sign-in page', async ({ page }) => {
     await page.goto('/projects');
     await expect(page).toHaveURL(/\/login$/);

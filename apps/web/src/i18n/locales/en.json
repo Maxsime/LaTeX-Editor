@@ -84,7 +84,9 @@
     "FILE_READ_ONLY": "This file is linked to an external source and is read-only. Refresh it or remove the link.",
     "LINKS_DISABLED": "Files linked to a web address are disabled on this instance.",
     "LINK_ADDRESS_REFUSED": "This address is not allowed: only public http or https addresses are accepted.",
-    "LINK_FETCH_FAILED": "The source of the linked file could not be read. Try again later."
+    "LINK_FETCH_FAILED": "The source of the linked file could not be read. Try again later.",
+    "PASSWORD_INCORRECT": "The current password is incorrect.",
+    "PASSWORD_NOT_SET": "Your account signs in through the instance's identity provider: change your password there."
   },
   "common": {
     "cancel": "Cancel",
@@ -599,6 +601,31 @@
   },
   "account": {
     "title": "My account",
+    "security": {
+      "title": "Security",
+      "password": {
+        "title": "Password",
+        "intro": "Changing your password closes all your other sessions.",
+        "current": "Current password",
+        "new": "New password",
+        "newHint": "At least {{min}} characters. A phrase of several words is safer and easier to remember.",
+        "confirm": "Confirm the new password",
+        "mismatch": "The two entries do not match.",
+        "submit": "Change password",
+        "done": "Password changed. Your other sessions were closed."
+      },
+      "sessions": {
+        "title": "Open sessions",
+        "intro": "Browsers signed in to your account. If you do not recognise one, sign it out, then change your password.",
+        "current": "this session",
+        "details": "opened on {{created}} · last active: {{seen}}",
+        "unknown": "Unknown browser",
+        "browserOn": "{{browser}} on {{os}}",
+        "revoke": "Sign out",
+        "revokeOthers": "Sign out all other sessions",
+        "none": "No other session."
+      }
+    },
     "notifications": {
       "title": "Notifications",
       "intro": "Project invitations are always sent by e-mail. Mentions stay visible in the application even without e-mail.",

@@ -84,7 +84,9 @@
     "FILE_READ_ONLY": "Ce fichier est lié à une source externe : il est en lecture seule. Actualisez-le ou supprimez le lien.",
     "LINKS_DISABLED": "Les fichiers liés à une adresse web sont désactivés sur cette instance.",
     "LINK_ADDRESS_REFUSED": "Cette adresse n'est pas autorisée : seules les adresses publiques en http ou https sont acceptées.",
-    "LINK_FETCH_FAILED": "La source du fichier lié n'a pas pu être lue. Réessayez plus tard."
+    "LINK_FETCH_FAILED": "La source du fichier lié n'a pas pu être lue. Réessayez plus tard.",
+    "PASSWORD_INCORRECT": "Le mot de passe actuel est incorrect.",
+    "PASSWORD_NOT_SET": "Votre compte se connecte par le fournisseur d'identité de l'instance : changez votre mot de passe chez lui."
   },
   "common": {
     "cancel": "Annuler",
@@ -599,6 +601,31 @@
   },
   "account": {
     "title": "Mon compte",
+    "security": {
+      "title": "Sécurité",
+      "password": {
+        "title": "Mot de passe",
+        "intro": "Changer de mot de passe ferme toutes vos autres sessions.",
+        "current": "Mot de passe actuel",
+        "new": "Nouveau mot de passe",
+        "newHint": "Au moins {{min}} caractères. Une phrase de plusieurs mots est plus sûre et plus facile à retenir.",
+        "confirm": "Confirmer le nouveau mot de passe",
+        "mismatch": "Les deux saisies ne correspondent pas.",
+        "submit": "Changer le mot de passe",
+        "done": "Mot de passe changé. Vos autres sessions ont été fermées."
+      },
+      "sessions": {
+        "title": "Sessions ouvertes",
+        "intro": "Navigateurs connectés à votre compte. Si vous n'en reconnaissez pas un, déconnectez-le puis changez votre mot de passe.",
+        "current": "cette session",
+        "details": "ouverte le {{created}} · dernière activité : {{seen}}",
+        "unknown": "Navigateur inconnu",
+        "browserOn": "{{browser}} sur {{os}}",
+        "revoke": "Déconnecter",
+        "revokeOthers": "Déconnecter toutes les autres sessions",
+        "none": "Aucune autre session."
+      }
+    },
     "notifications": {
       "title": "Notifications",
       "intro": "Les invitations à un projet sont toujours envoyées par e-mail. Les mentions restent visibles dans l'application même sans e-mail.",

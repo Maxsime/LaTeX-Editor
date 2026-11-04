@@ -5,6 +5,7 @@ import { AiSection } from '../components/AccountAi.js';
 import { TemplatesSection, TexmfSection } from '../components/AccountLibrary.js';
 import { NotificationsSection } from '../components/AccountNotifications.js';
 import { QuotaSection } from '../components/AccountQuotas.js';
+import { SecuritySection } from '../components/AccountSecurity.js';
 import { DictionarySection, ZoteroSection } from '../components/AccountWriting.js';
 import { Button, ConfirmDialog, ErrorAlert, TextField, useFieldError } from '../components/ui.js';
 import { useAccessTokenMutations, useAccessTokens } from '../lib/tokens.js';
@@ -45,7 +46,7 @@ function CreatedToken({ token }: { token: string }) {
   );
 }
 
-/** The user's own settings: Git access tokens, Zotero library, personal dictionary. */
+/** The user's own settings: password and sessions, Git access tokens, Zotero library, dictionary. */
 export function AccountPage() {
   const { t, i18n } = useTranslation();
   const tokens = useAccessTokens();
@@ -59,6 +60,7 @@ export function AccountPage() {
     <div className="space-y-6">
       <h1 className="font-serif text-2xl font-semibold">{t('account.title')}</h1>
       <QuotaSection />
+      <SecuritySection />
       <NotificationsSection />
       <TexmfSection />
       <TemplatesSection />

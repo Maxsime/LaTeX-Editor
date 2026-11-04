@@ -1,6 +1,7 @@
 import type { S3Client } from '@aws-sdk/client-s3';
 import { passwordResets, users } from '@galley/db';
 import {
+  type AccountSessionsResponse,
   COMPILE_QUEUE,
   type CompileJob,
   type ProjectSummary,
@@ -213,6 +214,121 @@ describe.skipIf(!dockerAvailable)('e-mail', () => {
       json: { token, password: 'another-password-789' },
     });
     expect(reused.json()).toMatchObject({ error: { code: 'RESET_TOKEN_INVALID' } });
+  });
+
+  it('changes a password from the account page, signing the other sessions out', async () => {
+    const paul = await register(app, 'paul');
+    const laptop = new Client(app, '10.4.5.1');
+    expect(
+      (
+        await laptop.send('POST', '/api/auth/login', {
+          json: { login: 'paul', password: 'paul-password-123' },
+        })
+      ).statusCode,
+    ).toBe(200);
+    const listed = await paul.send('GET', '/api/me/sessions');
+    expect(listed.statusCode).toBe(200);
+    const sessions = listed.json<AccountSessionsResponse>().sessions;
+    expect(sessions).toHaveLength(2);
+    expect(sessions.filter((session) => session.current)).toHaveLength(1);
+
+    const wrong = await paul.send('POST', '/api/me/password', {
+      json: { currentPassword: 'not-my-password', newPassword: 'paul-new-password-456' },
+    });
+    expect(wrong.statusCode).toBe(403);
+    expect(wrong.json()).toMatchObject({ error: { code: 'PASSWORD_INCORRECT' } });
+    const short = await paul.send('POST', '/api/me/password', {
+      json: { currentPassword: 'paul-password-123', newPassword: 'short' },
+    });
+    expect(short.statusCode).toBe(400);
+
+    const before = smtp.messages.length;
+    const changed = await paul.send('POST', '/api/me/password', {
+      json: { currentPassword: 'paul-password-123', newPassword: 'paul-new-password-456' },
+    });
+    expect(changed.statusCode, changed.body).toBe(204);
+    // This browser stays signed in, the other one is out.
+    expect((await paul.send('GET', '/api/auth/session')).json()).toMatchObject({
+      user: { username: 'paul' },
+    });
+    expect((await laptop.send('GET', '/api/auth/session')).json()).toMatchObject({ user: null });
+    const notice = await smtp.waitFor(
+      'paul@example.org',
+      (message) => smtp.messages.indexOf(message) >= before,
+    );
+    expect(bodyOf(notice)).toContain('https://galley.test/forgot-password');
+    const old = await new Client(app, '10.4.5.2').send('POST', '/api/auth/login', {
+      json: { login: 'paul', password: 'paul-password-123' },
+    });
+    expect(old.statusCode).toBe(401);
+  });
+
+  it('counts guesses of the current password per account', async () => {
+    const rita = await register(app, 'rita');
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      const guess = await rita.send('POST', '/api/me/password', {
+        json: { currentPassword: `guess-${String(attempt)}`, newPassword: 'rita-new-password-456' },
+      });
+      expect(guess.statusCode).toBe(403);
+    }
+    // Another address, same account: still refused.
+    const elsewhere = new Client(app, '10.4.6.1');
+    await elsewhere.send('POST', '/api/auth/login', {
+      json: { login: 'rita', password: 'rita-password-123' },
+    });
+    const blocked = await elsewhere.send('POST', '/api/me/password', {
+      json: { currentPassword: 'rita-password-123', newPassword: 'rita-new-password-456' },
+    });
+    expect(blocked.statusCode).toBe(429);
+  });
+
+  it('refuses a password change for an account of the identity provider', async () => {
+    const olivia = await register(app, 'olivia');
+    await database.db.update(users).set({ passwordHash: null }).where(eq(users.username, 'olivia'));
+    const refused = await olivia.send('POST', '/api/me/password', {
+      json: { currentPassword: 'olivia-password-123', newPassword: 'olivia-new-password-456' },
+    });
+    expect(refused.statusCode).toBe(409);
+    expect(refused.json()).toMatchObject({ error: { code: 'PASSWORD_NOT_SET' } });
+  });
+
+  it('signs out one session, every other one, or the current one', async () => {
+    const sam = await register(app, 'sam');
+    const phone = new Client(app, '10.4.7.1');
+    const tablet = new Client(app, '10.4.7.2');
+    for (const device of [phone, tablet]) {
+      await device.send('POST', '/api/auth/login', {
+        json: { login: 'sam', password: 'sam-password-123' },
+        headers: { 'user-agent': 'Mozilla/5.0 (Android 14) Firefox/133.0' },
+      });
+    }
+    const list = async (client: Client) =>
+      (await client.send('GET', '/api/me/sessions')).json<AccountSessionsResponse>().sessions;
+    const all = await list(sam);
+    expect(all).toHaveLength(3);
+    expect(all.filter((session) => session.userAgent?.includes('Firefox'))).toHaveLength(2);
+    const phoneSession = (await list(phone)).find((session) => session.current);
+    if (phoneSession === undefined) throw new Error('no current session');
+
+    // Someone else's session is not found, and stays open.
+    const stranger = await register(app, 'tess');
+    const foreign = await stranger.send('DELETE', `/api/me/sessions/${phoneSession.id}`);
+    expect(foreign.statusCode).toBe(404);
+    expect((await phone.send('GET', '/api/auth/session')).json()).toMatchObject({
+      user: { username: 'sam' },
+    });
+
+    expect((await sam.send('DELETE', `/api/me/sessions/${phoneSession.id}`)).statusCode).toBe(204);
+    expect((await phone.send('GET', '/api/auth/session')).json()).toMatchObject({ user: null });
+    expect(await list(sam)).toHaveLength(2);
+
+    expect((await sam.send('DELETE', '/api/me/sessions')).statusCode).toBe(204);
+    expect((await tablet.send('GET', '/api/auth/session')).json()).toMatchObject({ user: null });
+    const [own] = await list(sam);
+    expect(own?.current).toBe(true);
+
+    expect((await sam.send('DELETE', `/api/me/sessions/${own?.id ?? ''}`)).statusCode).toBe(204);
+    expect((await sam.send('GET', '/api/auth/session')).json()).toMatchObject({ user: null });
   });
 
   it('refuses an expired link', async () => {
