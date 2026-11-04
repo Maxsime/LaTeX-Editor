@@ -17,6 +17,7 @@ import {
   COLLAB_TOKEN_HEADER,
   fileDocumentName,
   healthResponse,
+  MAX_TEXT_BYTES,
   projectChannel,
   presenceUserOf,
   projectDocumentName,
@@ -375,6 +376,40 @@ describe.skipIf(!dockerAvailable)('collab server', () => {
     const live = collab.server.hocuspocus.documents.get(fileDocumentName(fileId));
     expect(live?.getText(TEXT_KEY).toJSON()).toBe('original');
     expect(await storedText(fileId)).toBe('original');
+  });
+
+  it('keeps the project channel read-only, even for its owner', async () => {
+    const { projectId, owner } = await projectWithFile('');
+    const name = projectDocumentName(projectId);
+    const scope = await new Promise<string>((resolve) => {
+      connect(name, owner.token, {
+        onAuthenticated: ({ scope: granted }) => {
+          resolve(granted);
+        },
+      });
+    });
+    expect(scope).toBe('readonly');
+    const channel = await synced(name, owner.token);
+    channel.document.getMap('junk').set('blob', 'x'.repeat(1024));
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    expect(collab.server.hocuspocus.documents.get(name)?.share.size ?? 0).toBe(0);
+  });
+
+  it('refuses edits that would make a document too large', async () => {
+    const { fileId, owner } = await projectWithFile('');
+    const name = fileDocumentName(fileId);
+    const editor = await synced(name, owner.token);
+    const closed = new Promise<string | undefined>((resolve) => {
+      editor.on('close', ({ event }: { event: { reason?: string } }) => {
+        resolve(event.reason);
+      });
+    });
+    // Each insertion fits in a frame; together they exceed the limit.
+    const chunk = 'a'.repeat(MAX_TEXT_BYTES / 4);
+    for (let i = 0; i < 5; i += 1) editor.document.getText(TEXT_KEY).insert(0, chunk);
+    expect(await closed).toBe('invalid-update');
+    const live = collab.server.hocuspocus.documents.get(name);
+    expect(live?.getText(TEXT_KEY).length).toBe(MAX_TEXT_BYTES);
   });
 
   it('keeps linked files read-only, even for their owner', async () => {
