@@ -68,7 +68,7 @@ describe.each(['openai', 'anthropic'] as const)('runAssistant over %s', (protoco
       onEvent: (event) => events.push(event),
     });
     expect(result.text).toBe('Le fichier dit bonjour.');
-    expect(result.promptId).toBe('chat.v1');
+    expect(result.promptId).toBe('chat.v2');
     expect(result.usage).toEqual({ inputTokens: 270, outputTokens: 18, cachedInputTokens: 100 });
     expect(events).toContainEqual({
       type: 'tool',
@@ -114,7 +114,7 @@ describe.each(['openai', 'anthropic'] as const)('runAssistant over %s', (protoco
     const budget = await run({ maxTotalTokens: 1_000 });
     expect(budget.calls).toBe(2);
     expect(budget.result.limit).toBe('tokens');
-    expect(budget.result.promptId).toBe('agent.v1');
+    expect(budget.result.promptId).toBe('agent.v2');
     const steps = await run({ maxSteps: 1 });
     expect(steps.calls).toBe(1);
     expect(steps.result.limit).toBe('steps');
