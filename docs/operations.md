@@ -5,7 +5,7 @@ Ce document rassemble ce qu'un administrateur doit savoir pour faire tourner une
 ## Ressources
 
 - Disque : l'image du worker de compilation (TeX Live complet) occupe environ 7,5 Gio ; le premier `docker compose up --build` télécharge environ 2,6 Gio pour elle seule. Prévoir en plus les répertoires de travail des compilations (volume `compile-work`, 20 Gio au plus par défaut, `COMPILER_WORK_QUOTA_MB`), la base, le stockage objet et les dépôts Git des projets (volume `git-data`, de la taille des projets à peu près ; il se reconstruit depuis les projets s'il est perdu, mais les clones existants devront alors être refaits).
-- Mémoire : chaque compilation peut utiliser jusqu'à `COMPILER_MEMORY_MB` (2 Gio) par processus ; compter au moins 2 Gio par compilation simultanée (`COMPILER_CONCURRENCY`, 2 par défaut) en plus des autres services. LanguageTool réserve en plus son tas Java (`LANGUAGETOOL_MEMORY`, 1 Gio par défaut ; 512 Mio suffisent pour quelques utilisateurs). Son image pèse environ 450 Mo et il met 20 à 40 s à démarrer ; l'éditeur reste utilisable sans lui.
+- Mémoire : chaque compilation peut utiliser jusqu'à `COMPILER_MEMORY_MB` (2 Gio) par processus ; compter au moins 2 Gio par compilation simultanée (`COMPILER_CONCURRENCY`, 2 par défaut) en plus des autres services. Le conteneur du worker est plafonné à `COMPILER_CONTAINER_MEMORY` (6 Gio par défaut) : à relever si l'on augmente la concurrence ou la mémoire par compilation. LanguageTool réserve en plus son tas Java (`LANGUAGETOOL_MEMORY`, 1 Gio par défaut ; 512 Mio suffisent pour quelques utilisateurs). Son image pèse environ 450 Mo et il met 20 à 40 s à démarrer ; l'éditeur reste utilisable sans lui.
 - Réseau sortant : l'API appelle `api.crossref.org`, `export.arxiv.org`, `openlibrary.org` et `api.zotero.org` pour les imports bibliographiques, `api.openalex.org` (et `api.semanticscholar.org` avec une clé) pour les recherches de l'assistant, ainsi que le fournisseur d'IA configuré. Derrière un pare-feu, les ouvrir ou désigner un miroir (`CROSSREF_URL`, `ARXIV_URL`, `OPENLIBRARY_URL`, `ZOTERO_URL`, `OPENALEX_URL`, `SEMANTIC_SCHOLAR_URL`). Aucun autre service ne sort : LanguageTool et le worker de compilation sont sur le réseau interne.
 
 ## Clé maître
@@ -207,6 +207,10 @@ Le millésime est figé par l'empreinte de l'image `texlive/texlive` dans `infra
 4. Redémarrer `compiler`. Le millésime affiché dans les options de compilation change ; les répertoires de travail existants restent valables, latexmk recompile ce qui doit l'être.
 
 Le changement de millésime peut modifier le rendu de documents existants : l'annoncer aux utilisateurs.
+
+## Mises à jour des dépendances
+
+Dependabot (`.github/dependabot.yml`) propose chaque mois une pull request groupée par écosystème : paquets npm (versions mineures et correctives), actions GitHub, images de `compose.yaml`. Les actions des workflows sont épinglées par empreinte de commit, avec la version en commentaire : une étiquette déplacée chez l'éditeur de l'action ne change pas ce qui s'exécute. Les images Node et Caddy des `Dockerfile` sont des arguments de construction que Dependabot ne lit pas : les relever à la main (`NODE_IMAGE`, `NODE_GLIBC_IMAGE`, `CADDY_IMAGE`), et TeX Live comme indiqué ci-dessus. Les correctifs de sécurité arrivent sans attendre si les mises à jour de sécurité Dependabot sont activées dans les réglages du dépôt (Security, Code security).
 
 ## Purge
 

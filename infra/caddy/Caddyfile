@@ -1,6 +1,9 @@
 {
 	# The admin API is not needed at runtime and would be one more open port.
 	admin off
+	# The local CA cannot be added to the host's trust store from a container, and the
+	# file system is read-only: README explains how to trust it on each machine.
+	skip_install_trust
 	servers {
 		# Caddy sets no timeout by default: a client trickling its headers, or
 		# leaving idle keep-alive connections open, would hold sockets forever.
@@ -31,7 +34,7 @@ http://:2019 {
 		Strict-Transport-Security "max-age=31536000"
 		X-Content-Type-Options "nosniff"
 		Referrer-Policy "strict-origin-when-cross-origin"
-		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+		Permissions-Policy "camera=(), microphone=(), geolocation=(), display-capture=(), payment=(), usb=(), serial=(), hid=(), bluetooth=(), midi=(), browsing-topics=()"
 		Cross-Origin-Opener-Policy "same-origin"
 		# Another site may not embed our responses (user files, PDFs) as images or scripts.
 		Cross-Origin-Resource-Policy "same-origin"

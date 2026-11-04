@@ -6,6 +6,12 @@ x-node-service: &node-service
   restart: unless-stopped
   # Docker's init (tini) forwards SIGTERM to Node and reaps zombie processes.
   init: true
+  # The services run as an unprivileged user and need no capability: a flaw in
+  # one of them gains nothing more, not even through a setuid program.
+  security_opt: [no-new-privileges:true]
+  cap_drop: [ALL]
+  # A runaway loop of child processes (Git, for the API) stops here.
+  pids_limit: 512
   environment: &node-env
     NODE_ENV: production
     LOG_LEVEL: ${LOG_LEVEL:-info}
@@ -15,6 +21,7 @@ services:
   postgres:
     image: postgres:16.15-alpine
     restart: unless-stopped
+    security_opt: [no-new-privileges:true]
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-galley}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-galley-dev-password}
@@ -31,6 +38,7 @@ services:
   valkey:
     image: valkey/valkey:8.1.10-alpine
     restart: unless-stopped
+    security_opt: [no-new-privileges:true]
     # A password, so that no other container on the data network can read or
     # inject compile jobs, rate-limit counters or collaboration messages.
     command:
@@ -55,6 +63,7 @@ services:
   storage:
     image: chrislusf/seaweedfs:4.50
     restart: unless-stopped
+    security_opt: [no-new-privileges:true]
     command: ['server', '-s3', '-ip.bind=0.0.0.0']
     environment:
       AWS_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-galley}
@@ -150,6 +159,9 @@ services:
       COLLAB_INTERNAL_TOKEN: ${COLLAB_INTERNAL_TOKEN:-galley-dev-internal-token-change-me}
       COLLAB_PERSIST_DEBOUNCE_MS: ${COLLAB_PERSIST_DEBOUNCE_MS:-2000}
       COLLAB_PERSIST_MAX_DEBOUNCE_MS: ${COLLAB_PERSIST_MAX_DEBOUNCE_MS:-10000}
+    # Collab keeps documents in memory and in PostgreSQL: nothing to write on disk.
+    read_only: true
+    tmpfs: [/tmp]
     depends_on:
       # The API applies the migrations collab relies on.
       api: { condition: service_healthy }
@@ -200,6 +212,10 @@ services:
     cap_drop: [ALL]
     read_only: true
     tmpfs: [/tmp]
+    # Each compilation is bounded by prlimit; these bound them all together, so that
+    # a project cannot starve the machine (COMPILER_CONCURRENCY runs at once).
+    mem_limit: ${COMPILER_CONTAINER_MEMORY:-6g}
+    pids_limit: 4096
     depends_on:
       valkey: { condition: service_healthy }
       storage: { condition: service_healthy }
@@ -215,6 +231,7 @@ services:
   languagetool:
     image: erikvl87/languagetool:6.8@sha256:ef8fa12cbd485166c9ceeb7139d76d56d07707a624da6bb1fc1fbb5411750527
     restart: unless-stopped
+    security_opt: [no-new-privileges:true]
     environment:
       Java_Xms: 256m
       Java_Xmx: ${LANGUAGETOOL_MEMORY:-1g}
@@ -234,6 +251,13 @@ services:
       dockerfile: infra/caddy/Dockerfile
     image: galley/caddy:dev
     restart: unless-stopped
+    # Binding ports 80 and 443 is the only privilege Caddy needs; it writes only
+    # to its certificate volumes.
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    cap_add: [NET_BIND_SERVICE]
+    read_only: true
+    tmpfs: [/tmp]
     environment:
       GALLEY_HOST: ${GALLEY_HOST:-localhost}
       GALLEY_TLS: ${GALLEY_TLS:-internal}
@@ -259,6 +283,7 @@ services:
     image: prom/prometheus:v3.15.0
     profiles: [monitoring]
     restart: unless-stopped
+    security_opt: [no-new-privileges:true]
     command:
       - --config.file=/etc/prometheus/prometheus.yml
       - --storage.tsdb.path=/prometheus
