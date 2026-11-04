@@ -221,6 +221,20 @@ Le changement de millésime peut modifier le rendu de documents existants : l'an
 
 Dependabot (`.github/dependabot.yml`) propose chaque mois une pull request groupée par écosystème : paquets npm (versions mineures et correctives), actions GitHub, images de `compose.yaml`. Les actions des workflows sont épinglées par empreinte de commit, avec la version en commentaire : une étiquette déplacée chez l'éditeur de l'action ne change pas ce qui s'exécute. Les images Node et Caddy des `Dockerfile` sont des arguments de construction que Dependabot ne lit pas : les relever à la main (`NODE_IMAGE`, `NODE_GLIBC_IMAGE`, `CADDY_IMAGE`), et TeX Live comme indiqué ci-dessus. Les correctifs de sécurité arrivent sans attendre si les mises à jour de sécurité Dependabot sont activées dans les réglages du dépôt (Security, Code security).
 
+Une version n'est adoptée qu'à 14 jours de sa publication, le temps qu'une version piégée ou défectueuse soit repérée et retirée. Dependabot l'applique par son délai de refroidissement (`cooldown`) et pnpm par `minimumReleaseAge` (`pnpm-workspace.yaml`), qui refuse d'installer une version plus récente, y compris parmi les dépendances indirectes. Une exception, par exemple un correctif de sécurité urgent, passe par `minimumReleaseAgeExclude` et se justifie dans `docs/decisions.md`.
+
+Traitement des pull requests de Dependabot :
+
+| Cas                                                  | Action                                                                                                                                                                                                               |
+| ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Groupe de versions mineures et correctives, CI verte | Fusionner.                                                                                                                                                                                                           |
+| Version majeure (pull request seule), CI verte       | Lire les notes de version, vérifier qu'aucune migration n'est demandée, puis fusionner.                                                                                                                              |
+| CI rouge                                             | Ne pas fusionner : la nouvelle version exige des changements de code. Les faire dans une pull request séparée, ou fermer celle de Dependabot avec un commentaire qui dit pourquoi.                                   |
+| `@types/node` majeur                                 | Ignoré : les types suivent la version de Node des images (22).                                                                                                                                                       |
+| Image majeure de `compose.yaml`                      | Ignorée : une nouvelle version majeure de PostgreSQL ne lit pas les données de la précédente, la migration (sauvegarde, `pg_dump`, restauration) se fait à la main ; les autres images se vérifient aussi à la main. |
+
+Fermer une pull request de Dependabot pour une seule dépendance lui fait ignorer cette version ; la suivante sera proposée.
+
 ## Purge
 
 Les projets mis à la corbeille depuis plus de 30 jours sont purgés chaque heure (file `maintenance`). Les compilations au-delà de la rétention (trois dernières et dernier PDF) sont supprimées à la fin de chaque compilation.

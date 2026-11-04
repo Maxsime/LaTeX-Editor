@@ -2,13 +2,25 @@
 # request per ecosystem. Security fixes come as soon as an advisory appears,
 # whatever the schedule, when Dependabot security updates are enabled in the
 # repository settings (Security, Code security).
+#
+# A release is proposed only once it is 14 days old (cooldown): the time for a
+# compromised or broken release to be noticed and withdrawn, as for the
+# dependencies added by hand (docs/decisions.md). Major versions come in pull
+# requests of their own: they may need code changes, so wait for green CI and
+# read the release notes before merging (docs/operations.md).
 version: 2
 updates:
   - package-ecosystem: npm
     directory: /
     schedule:
       interval: monthly
+    cooldown:
+      default-days: 14
     open-pull-requests-limit: 5
+    ignore:
+      # The types follow the Node major of the images (22), not the latest Node.
+      - dependency-name: '@types/node'
+        update-types: [version-update:semver-major]
     groups:
       dependencies:
         patterns: ['*']
@@ -19,6 +31,8 @@ updates:
     directory: /
     schedule:
       interval: monthly
+    cooldown:
+      default-days: 14
     groups:
       actions:
         patterns: ['*']
@@ -30,6 +44,13 @@ updates:
     directory: /
     schedule:
       interval: monthly
+    cooldown:
+      default-days: 14
+    ignore:
+      # A new major of PostgreSQL cannot open the data of the previous one: it is
+      # a migration, done by hand after a backup. Other majors are checked by hand.
+      - dependency-name: '*'
+        update-types: [version-update:semver-major]
     groups:
       images:
         patterns: ['*']
