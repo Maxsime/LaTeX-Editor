@@ -12,6 +12,7 @@ import {
   type SynctexResult,
   type SynctexSource,
 } from '@galley/shared';
+import { SANDBOX_USERNS_ARGS } from './sandbox.js';
 
 /** Where the cached SyncTeX data of a compilation is seen inside the sandbox. */
 const SANDBOX_DATA = '/out';
@@ -115,6 +116,7 @@ export function synctexArgs(job: SynctexJob): string[] {
 export function synctexSandboxArgs(texliveBin: string, dataDir: string, argv: string[]): string[] {
   return [
     '--unshare-all',
+    ...SANDBOX_USERNS_ARGS,
     '--die-with-parent',
     '--new-session',
     '--clearenv',

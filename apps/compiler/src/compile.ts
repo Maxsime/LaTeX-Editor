@@ -1,4 +1,4 @@
-import { rm, stat, writeFile } from 'node:fs/promises';
+import { lstat, mkdir, realpath, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { parseBibtexLog, parseBiberLog, parseTexLog, type LogEntry } from '@galley/latex-log';
 import {
@@ -36,6 +36,7 @@ import {
   readSandboxFile,
   syncSources,
   syncTexmf,
+  writeSandboxFile,
 } from './workdir.js';
 
 /** Everything a compilation needs besides the job. */
@@ -142,9 +143,10 @@ export function locateRunaway(source: string, runaway: string): number | null {
   return index === -1 ? null : index + 1;
 }
 
+/** Whether a regular file, not a link to one, stands at `path`. */
 async function exists(path: string): Promise<boolean> {
   try {
-    return (await stat(path)).isFile();
+    return (await lstat(path)).isFile();
   } catch {
     return false;
   }
@@ -214,7 +216,7 @@ async function preparePreambleFormat(
     signal,
   );
   if (build.exitCode === 0 && (await exists(fmt))) {
-    await writeFile(stamp, fingerprint);
+    await writeSandboxFile(stamp, fingerprint);
     return { ready: true, fresh: true, fingerprint, warning: null };
   }
   await rm(fmt, { force: true });
@@ -251,7 +253,10 @@ export async function compileProject(
   signal?: AbortSignal,
 ): Promise<LocalCompileResult> {
   const started = Date.now();
-  const dirs = projectDirs(env.workRoot, job.projectId);
+  // Files the sandbox wrote are read only where the kernel says they are (see
+  // readSandboxFile): the work root is used in its canonical form, links resolved.
+  await mkdir(env.workRoot, { recursive: true });
+  const dirs = projectDirs(await realpath(env.workRoot), job.projectId);
   if (job.clean) await cleanOutputs(dirs);
   await syncSources(dirs, job.manifest, env.fetchBlob);
   await syncTexmf(dirs, job.texmfManifest, env.fetchBlob);
@@ -314,7 +319,10 @@ export async function compileProject(
       const plain = await latexPass(false);
       if (errorCount(plain.entries) < errorCount(first.entries)) {
         await rm(join(dirs.out, `${PREAMBLE_FORMAT}.fmt`), { force: true });
-        await writeFile(join(dirs.out, PREAMBLE_STAMP), `${UNUSABLE}${prepared.fingerprint}`);
+        await writeSandboxFile(
+          join(dirs.out, PREAMBLE_STAMP),
+          `${UNUSABLE}${prepared.fingerprint}`,
+        );
         return { ...plain, preambleWarning: formatWarning(job, 'PREAMBLE_FORMAT_UNUSABLE') };
       }
       return { ...plain, preambleWarning: warning };

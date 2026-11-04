@@ -112,8 +112,10 @@ describe('synctexArgs', () => {
 describe('synctexSandboxArgs', () => {
   it('confines the query: no network, empty environment, read-only data', () => {
     const args = synctexSandboxArgs('/tl/bin', '/cache/abc', ['edit']);
-    expect(args.slice(0, 4)).toEqual([
+    expect(args.slice(0, 6)).toEqual([
       '--unshare-all',
+      '--unshare-user',
+      '--disable-userns',
       '--die-with-parent',
       '--new-session',
       '--clearenv',
