@@ -223,6 +223,8 @@ Dependabot (`.github/dependabot.yml`) propose chaque mois une pull request group
 
 Une version n'est adoptée qu'à 14 jours de sa publication, le temps qu'une version piégée ou défectueuse soit repérée et retirée. Dependabot l'applique par son délai de refroidissement (`cooldown`) et pnpm par `minimumReleaseAge` (`pnpm-workspace.yaml`), qui refuse d'installer une version plus récente, y compris parmi les dépendances indirectes. Une exception, par exemple un correctif de sécurité urgent, passe par `minimumReleaseAgeExclude` et se justifie dans `docs/decisions.md`.
 
+Exception en cours : les correctifs de glob et de minimatch (GHSA-3g3m-2fjr-6pw4, GHSA-g3hv-75wg-m249) sont adoptés depuis le 4 novembre 2026, avant leurs deux semaines, à la demande du mainteneur. Elle ne vise que quatre versions exactes : glob 14.0.3, minimatch 11.0.2 et les deux paquets qu'ils tirent, path-scurry 3.0.0 et `@isaacs/nonrecursive-glob-match` 1.0.2. Toute autre version de ces paquets reste soumise au délai. La liste `minimumReleaseAgeExclude` est à retirer le 11 novembre 2026, date à laquelle ces versions auront deux semaines.
+
 Traitement des pull requests de Dependabot :
 
 | Cas                                                  | Action                                                                                                                                                                                                               |
