@@ -1276,5 +1276,12 @@
       "tooManyFiles": "Le dépôt contient trop de fichiers.",
       "quota": "L'espace de stockage du propriétaire du projet est plein."
     }
+  },
+  "pageError": {
+    "title": "Cette page n'a pas pu s'afficher.",
+    "stale": "Galley a été mis à jour depuis l'ouverture de cet onglet. Rechargez la page pour utiliser la nouvelle version.",
+    "unexpected": "Une erreur inattendue est survenue. Vos documents sont enregistrés sur le serveur : recharger la page ne fait rien perdre.",
+    "reload": "Recharger la page",
+    "home": "Retour aux projets"
   }
 }

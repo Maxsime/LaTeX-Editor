@@ -1,6 +1,11 @@
 import { COMPILE_QUEUE, type CompileJob, ConfigError, SYNCTEX_QUEUE } from '@galley/shared';
 import { Queue, QueueEvents } from 'bullmq';
-import { createLogger, readPackageVersion } from '@galley/shared/node';
+import {
+  createLogger,
+  handleProcessLifecycle,
+  logConnectionErrors,
+  readPackageVersion,
+} from '@galley/shared/node';
 import { Redis } from 'ioredis';
 import { buildApp } from './app.js';
 import { createDocumentGateway } from './collab/documents.js';
@@ -36,6 +41,7 @@ async function main(): Promise<void> {
   const database = createDatabase(config.DATABASE_URL);
   const redis = new Redis(config.VALKEY_URL, { lazyConnect: true, maxRetriesPerRequest: 1 });
   const s3 = createS3Client(config);
+  logConnectionErrors(logger, 'valkey', redis);
 
   await runMigrations(database);
   logger.info('database migrations applied');
@@ -70,6 +76,15 @@ async function main(): Promise<void> {
   const synctexEvents = new QueueEvents(SYNCTEX_QUEUE, {
     connection: { url: config.VALKEY_URL, maxRetriesPerRequest: null },
   });
+  logConnectionErrors(logger, 'valkey-queue', queueRedis);
+  for (const [name, emitter] of [
+    ['compile-queue', compileQueue],
+    ['compile-events', compileEvents],
+    ['synctex-queue', synctexQueue],
+    ['synctex-events', synctexEvents],
+  ] as const) {
+    logConnectionErrors(logger, name, emitter);
+  }
 
   const mail = startMailer(config, queueRedis, logger);
   logger.info(mail === null ? 'SMTP_URL is not set: no e-mail is sent' : 'e-mail delivery enabled');
@@ -98,37 +113,22 @@ async function main(): Promise<void> {
     },
   });
 
-  let closing = false;
-  const shutdown = (signal: NodeJS.Signals): void => {
-    if (closing) return;
-    closing = true;
-    logger.info({ signal }, 'shutting down');
-    app
-      .close()
-      .then(stopMaintenance)
-      .then(() => mail?.close())
-      .then(() =>
-        Promise.allSettled([
-          compileEvents.close(),
-          compileQueue.close(),
-          synctexEvents.close(),
-          synctexQueue.close(),
-        ]),
-      )
-      .then(() =>
-        Promise.allSettled([database.sql.end({ timeout: 5 }), redis.quit(), queueRedis.quit()]),
-      )
-      .then(() => {
-        s3.destroy();
-        process.exit(0);
-      })
-      .catch((error: unknown) => {
-        logger.error({ err: error }, 'shutdown failed');
-        process.exit(1);
-      });
-  };
-  process.on('SIGTERM', shutdown);
-  process.on('SIGINT', shutdown);
+  handleProcessLifecycle({
+    logger,
+    close: async () => {
+      await app.close();
+      await stopMaintenance();
+      await mail?.close();
+      await Promise.allSettled([
+        compileEvents.close(),
+        compileQueue.close(),
+        synctexEvents.close(),
+        synctexQueue.close(),
+      ]);
+      await Promise.allSettled([database.sql.end({ timeout: 5 }), redis.quit(), queueRedis.quit()]);
+      s3.destroy();
+    },
+  });
 
   await app.listen({ host: config.API_HOST, port: config.API_PORT });
   logger.info({ version }, 'api started');

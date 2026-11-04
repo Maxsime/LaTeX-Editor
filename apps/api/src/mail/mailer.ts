@@ -4,6 +4,7 @@ import type { FastifyBaseLogger } from 'fastify';
 import type { Redis } from 'ioredis';
 import { createTransport } from 'nodemailer';
 import type { ApiConfig } from '../config.js';
+import { logConnectionErrors } from '@galley/shared/node';
 
 /** Sends e-mail on behalf of the routes; absent when the instance has no SMTP server. */
 export interface Mailer {
@@ -58,6 +59,8 @@ export function startMailer(
     },
     { connection, concurrency: 2 },
   );
+  logConnectionErrors(logger, 'mail-queue', queue);
+  logConnectionErrors(logger, 'mail-worker', worker);
   worker.on('failed', (job, error) => {
     // The message itself (recipient, text) stays out of the logs.
     logger.warn(

@@ -1276,5 +1276,12 @@
       "tooManyFiles": "The repository has too many files.",
       "quota": "The project owner's storage space is full."
     }
+  },
+  "pageError": {
+    "title": "This page could not be displayed.",
+    "stale": "Galley was updated since this tab was opened. Reload the page to use the new version.",
+    "unexpected": "An unexpected error occurred. Your documents are saved on the server: reloading the page loses nothing.",
+    "reload": "Reload the page",
+    "home": "Back to projects"
   }
 }
