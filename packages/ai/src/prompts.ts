@@ -3,16 +3,16 @@ import type { AiMode } from '@galley/shared';
 
 /** Prompt file of each mode, with its version; bump the version to change a prompt. */
 export const PROMPT_FILES: Record<AiMode, string> = {
-  chat: 'chat.v1',
-  inline: 'inline.v1',
-  fix: 'fix.v1',
-  generate: 'generate.v1',
-  image: 'image.v1',
-  agent: 'agent.v1',
+  chat: 'chat.v2',
+  inline: 'inline.v2',
+  fix: 'fix.v2',
+  generate: 'generate.v2',
+  image: 'image.v2',
+  agent: 'agent.v2',
 };
 
 export interface SystemPrompt {
-  /** Name and version, recorded with the usage, e.g. `chat.v1`. */
+  /** Name and version, recorded with the usage, e.g. `chat.v2`. */
   id: string;
   text: string;
 }
