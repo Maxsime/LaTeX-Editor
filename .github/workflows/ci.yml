@@ -134,7 +134,10 @@ jobs:
         run: pnpm --filter @galley/compiler test:corpus
       # Last: it destroys the volumes and restores them from the backup.
       - name: Back up, wipe and restore the instance
-        run: scripts/ci-backup-roundtrip.sh
+        run: |
+          sudo apt-get update --quiet
+          sudo apt-get install --yes --no-install-recommends age
+          scripts/ci-backup-roundtrip.sh
       - name: Collect container logs
         if: failure()
         run: docker compose logs --no-color > compose-logs.txt

@@ -1,12 +1,16 @@
 #!/usr/bin/env bash
 # J10 acceptance A1: back up the running stack, destroy every volume, start a
-# fresh stack, restore, and check that the content and sign-in came back.
+# fresh stack, restore, and check that the content and sign-in came back. The
+# backup is encrypted with a throwaway age key, as BACKUP_AGE_RECIPIENT does.
 #
 # Usage: scripts/ci-backup-roundtrip.sh     (on a running stack; CI runs it after e2e)
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
 backups=$(mktemp -d)
+key="$backups/age-key.txt"
+age-keygen --output "$key" 2> /dev/null
+recipient=$(age-keygen -y "$key")
 account="restore$(date +%s)"
 created=$(docker compose exec -T api node dist/cli/admin.js create-user \
   --email "$account@example.org" --username "$account" --name "Restore check")
@@ -17,9 +21,14 @@ password=$(sed -n 's/^Temporary password: //p' <<< "$created")
 backup=""
 for attempt in 1 2 3; do
   folder="$backups/$attempt"
-  scripts/backup.sh "$folder"
-  backup=$(find "$folder" -mindepth 1 -maxdepth 1 -type d -name 'galley-*' | head -n 1)
-  if ! grep -q '"fingerprint":null' "$backup/manifest.json"; then break; fi
+  BACKUP_AGE_RECIPIENT="$recipient" scripts/backup.sh "$folder"
+  if find "$folder" -mindepth 1 -maxdepth 1 -type d | grep -q .; then
+    echo "An encrypted backup left a plain folder behind." >&2
+    exit 1
+  fi
+  backup=$(find "$folder" -mindepth 1 -maxdepth 1 -type f -name 'galley-*.tar.age' | head -n 1)
+  manifest=$(age --decrypt --identity "$key" "$backup" | tar -xOf - ./manifest.json)
+  if ! grep -q '"fingerprint":null' <<< "$manifest"; then break; fi
   backup=""
   sleep 5
 done
@@ -31,7 +40,7 @@ ls -l "$backup"
 
 docker compose down --volumes
 scripts/compose-healthy.sh --no-build
-scripts/restore.sh "$backup" --yes --verify
+scripts/restore.sh "$backup" --identity "$key" --yes --verify
 
 status=$(curl --silent --insecure --output /dev/null --write-out '%{http_code}' \
   --header 'content-type: application/json' \

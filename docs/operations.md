@@ -107,7 +107,16 @@ La base est sauvegardée avant les objets. Un objet n'est jamais réécrit : cha
 
 `backup.sh` calcule l'empreinte au début et à la fin de la sauvegarde et ne l'enregistre que si elles sont égales ; sinon (l'instance a changé pendant la sauvegarde, par exemple une version automatique de l'historique), la sauvegarde reste utilisable mais la restauration ne peut pas être vérifiée par l'empreinte. `--verify` fait de toute différence une erreur (CI). La clé maître n'est pas dans la sauvegarde : sur une nouvelle machine, reprendre le `.env` d'origine avant de restaurer, sinon les clés Zotero et d'IA enregistrées devront être ressaisies.
 
-La CI exerce l'ensemble après les tests de bout en bout (`scripts/ci-backup-roundtrip.sh`) : sauvegarde (refaite jusqu'à trois fois si l'instance a changé pendant), `docker compose down --volumes`, pile neuve, restauration avec `--verify`, connexion avec un compte créé avant la sauvegarde.
+### Sauvegardes chiffrées
+
+Une sauvegarde en clair contient tous les documents : si elle part sur un disque externe ou chez un hébergeur, la chiffrer. Avec `BACKUP_AGE_RECIPIENT` (dans `.env` ou l'environnement), `backup.sh` remplace le dossier par un seul fichier `galley-<date UTC>.tar.age`, chiffré et authentifié avec [age](https://age-encryption.org) (`apt install age`). Le serveur n'a besoin que de la clé publique : même un attaquant qui le prendrait ne pourrait pas relire les sauvegardes déjà faites.
+
+1. Sur une autre machine (ou une clé USB), créer la paire de clés : `age-keygen -o galley-backup.key`. La commande affiche la clé publique (`age1...`).
+2. Sur le serveur, `BACKUP_AGE_RECIPIENT=age1...` dans `.env`.
+3. Garder `galley-backup.key` hors du serveur, en deux exemplaires : sans elle, les sauvegardes chiffrées sont perdues.
+4. Pour restaurer : `scripts/restore.sh backups/galley-<date>.tar.age --identity galley-backup.key`. Le contenu est déchiffré dans un dossier temporaire privé, effacé à la fin.
+
+La CI exerce l'ensemble après les tests de bout en bout (`scripts/ci-backup-roundtrip.sh`) : sauvegarde chiffrée avec une clé jetable (refaite jusqu'à trois fois si l'instance a changé pendant), `docker compose down --volumes`, pile neuve, restauration avec `--verify`, connexion avec un compte créé avant la sauvegarde.
 
 ## Supervision
 
