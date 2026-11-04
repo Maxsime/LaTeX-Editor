@@ -1,0 +1,35 @@
+# Update proposals, once a month and grouped, so that they stay few: one pull
+# request per ecosystem. Security fixes come as soon as an advisory appears,
+# whatever the schedule, when Dependabot security updates are enabled in the
+# repository settings (Security, Code security).
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 5
+    groups:
+      dependencies:
+        patterns: ['*']
+        update-types: [minor, patch]
+
+  # The actions of .github/workflows are pinned by commit; this moves the pins.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      actions:
+        patterns: ['*']
+
+  # Images of compose.yaml (PostgreSQL, Valkey, SeaweedFS, LanguageTool…). The
+  # Node, Caddy and TeX Live images of the Dockerfiles are build arguments, which
+  # Dependabot does not read: they are updated by hand (docs/operations.md).
+  - package-ecosystem: docker-compose
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      images:
+        patterns: ['*']

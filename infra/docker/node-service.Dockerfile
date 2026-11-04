@@ -60,10 +60,11 @@ RUN set -eu; \
     printf 'galley:x:1000:\n' > /opt/galley/group
 COPY infra/compiler/latexmkrc /opt/galley/latexmkrc
 WORKDIR /app
-COPY --from=prod-deps --chown=texlive:texlive /repo/package.json ./
-COPY --from=prod-deps --chown=texlive:texlive /repo/node_modules ./node_modules
-COPY --from=prod-deps --chown=texlive:texlive /repo/packages ./packages
-COPY --from=prod-deps --chown=texlive:texlive /repo/apps/compiler ./apps/compiler
+# The code belongs to root: the worker reads it but cannot change it.
+COPY --from=prod-deps /repo/package.json ./
+COPY --from=prod-deps /repo/node_modules ./node_modules
+COPY --from=prod-deps /repo/packages ./packages
+COPY --from=prod-deps /repo/apps/compiler ./apps/compiler
 WORKDIR /app/apps/compiler
 USER texlive
 CMD ["node", "dist/server.js"]
@@ -72,11 +73,12 @@ FROM ${NODE_IMAGE} AS runtime
 ARG SERVICE
 ENV NODE_ENV=production
 WORKDIR /app
-# Keep the workspace layout so the pnpm symlinks between packages stay valid.
-COPY --from=prod-deps --chown=node:node /repo/package.json ./
-COPY --from=prod-deps --chown=node:node /repo/node_modules ./node_modules
-COPY --from=prod-deps --chown=node:node /repo/packages ./packages
-COPY --from=prod-deps --chown=node:node /repo/apps/${SERVICE} ./apps/${SERVICE}
+# Keep the workspace layout so the pnpm symlinks between packages stay valid. The code
+# belongs to root: the service reads it but cannot change it.
+COPY --from=prod-deps /repo/package.json ./
+COPY --from=prod-deps /repo/node_modules ./node_modules
+COPY --from=prod-deps /repo/packages ./packages
+COPY --from=prod-deps /repo/apps/${SERVICE} ./apps/${SERVICE}
 # The API serves projects over Git (SPEC §6.7): git from the Alpine release of the Node
 # image, and the folder of the git-data volume.
 RUN if [ "$SERVICE" = api ]; then \
