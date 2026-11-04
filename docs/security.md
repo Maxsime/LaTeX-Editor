@@ -86,7 +86,7 @@ Aucune régression n'a été relevée sur les points couverts par le premier aud
 - **Bac à sable.** Le conteneur du compilateur fonctionne sans profil AppArmor et avec `systempaths=unconfined`, nécessaires à bubblewrap (voir `docs/decisions.md`). bubblewrap reste la frontière de confinement ; une faille du noyau la contournerait. Maintenir le noyau de l'hôte à jour.
 - **Clé des sauvegardes.** Sans la clé privée `age`, une sauvegarde chiffrée est perdue. La conserver hors du serveur, en deux exemplaires.
 - **Réglages du dépôt GitHub.** Les alertes et mises à jour de sécurité Dependabot ainsi que le signalement privé de failles s'activent dans Settings, Code security ; le fichier `.github/dependabot.yml` ne couvre que les mises à jour régulières.
-- **Dépendances de développement.** `pnpm audit` signale encore esbuild (via drizzle-kit), minimatch (via ESLint) et glob (via Testcontainers). Ces paquets ne sont pas dans les images de production.
+- **Dépendances de développement.** `pnpm audit` signale encore glob (via Testcontainers) et minimatch (via ESLint et Testcontainers), corrigés par glob 14.0.2 et minimatch 11.0.1, publiés le 27 octobre 2026 ; ils seront forcés par un `override` pnpm une fois âgés de deux semaines. Ces paquets ne servent qu'aux tests et à l'analyse du code, ne sont pas dans les images de production, et les fonctions vulnérables (annulation par `AbortSignal`, motifs fournis par un tiers) n'y sont pas utilisées. esbuild 0.18 (via drizzle-kit) est remplacé par la 0.28.2.
 - **Supervision.** Le profil facultatif `monitoring` place Prometheus sur le réseau des données.
 
 ## Signaler une faille

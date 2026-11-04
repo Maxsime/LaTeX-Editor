@@ -6,6 +6,10 @@ packages:
 onlyBuiltDependencies:
   - esbuild
 
-# Transitive versions held back until they are two weeks old (CLAUDE.md, dependencies).
+# Transitive versions held back until they are two weeks old (CLAUDE.md, dependencies),
+# or moved past a known flaw when the parent package has no fixed release.
 overrides:
   jose: 6.2.12
+  # drizzle-kit still pulls @esbuild-kit/core-utils, pinned to esbuild 0.18
+  # (GHSA-67mh-4wv8-2f99); it only calls transform, unchanged since.
+  '@esbuild-kit/core-utils>esbuild': 0.28.2
