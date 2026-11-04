@@ -280,7 +280,7 @@ services:
 
   # Optional: docker compose --profile monitoring up -d (docs/operations.md).
   prometheus:
-    image: prom/prometheus:v3.15.0
+    image: prom/prometheus:v3.15.1
     profiles: [monitoring]
     restart: unless-stopped
     security_opt: [no-new-privileges:true]
