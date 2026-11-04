@@ -39,6 +39,7 @@ random() {
   printf '%s' "${pool:0:$1}"
 }
 postgres_password=$(random 32)
+valkey_password=$(random 32)
 s3_secret=$(random 40)
 internal_token=$(random 48)
 master_key=$(head -c 32 /dev/urandom | base64)
@@ -47,6 +48,7 @@ umask 077
 sed \
   -e "s|^GALLEY_HOST=.*|GALLEY_HOST=$host|" \
   -e "s|^GALLEY_TLS=.*|GALLEY_TLS=$tls|" \
+  -e "s|galley-dev-valkey-password|$valkey_password|g" \
   -e "s|galley-dev-password|$postgres_password|g" \
   -e "s|galley-dev-secret|$s3_secret|g" \
   -e "s|galley-dev-internal-token-change-me|$internal_token|g" \

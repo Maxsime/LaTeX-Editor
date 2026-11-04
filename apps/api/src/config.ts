@@ -11,6 +11,7 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): ApiConfig {
 /** Values shipped in compose.yaml and .env.example: public, fit for a local instance only. */
 const DEVELOPMENT_SECRETS = {
   POSTGRES_PASSWORD: 'galley-dev-password',
+  VALKEY_PASSWORD: 'galley-dev-valkey-password',
   S3_SECRET_ACCESS_KEY: 'galley-dev-secret',
   COLLAB_INTERNAL_TOKEN: 'galley-dev-internal-token-change-me',
   GALLEY_MASTER_KEY: DEVELOPMENT_MASTER_KEY,
@@ -19,6 +20,16 @@ const DEVELOPMENT_SECRETS = {
 /** Hosts that only the machine itself reaches. */
 const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '::1']);
 
+/** Password part of a connection URL, empty when there is none. */
+function passwordOf(url: string): string {
+  try {
+    return decodeURIComponent(new URL(url).password);
+  } catch {
+    // A URL the schema accepted always parses; nothing to report otherwise.
+    return '';
+  }
+}
+
 /**
  * Names of the development secrets still in use, when the instance is served
  * on a public name; empty for a local instance, which may keep them.
@@ -26,13 +37,12 @@ const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '::1']);
 export function developmentSecretsInUse(config: ApiConfig): string[] {
   if (LOCAL_HOSTS.has(config.GALLEY_HOST)) return [];
   const used: string[] = [];
-  let password = '';
-  try {
-    password = decodeURIComponent(new URL(config.DATABASE_URL).password);
-  } catch {
-    // A URL the schema accepted always parses; nothing to report otherwise.
+  if (passwordOf(config.DATABASE_URL) === DEVELOPMENT_SECRETS.POSTGRES_PASSWORD) {
+    used.push('POSTGRES_PASSWORD');
   }
-  if (password === DEVELOPMENT_SECRETS.POSTGRES_PASSWORD) used.push('POSTGRES_PASSWORD');
+  if (passwordOf(config.VALKEY_URL) === DEVELOPMENT_SECRETS.VALKEY_PASSWORD) {
+    used.push('VALKEY_PASSWORD');
+  }
   if (config.S3_SECRET_ACCESS_KEY === DEVELOPMENT_SECRETS.S3_SECRET_ACCESS_KEY) {
     used.push('S3_SECRET_ACCESS_KEY');
   }

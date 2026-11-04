@@ -9,7 +9,7 @@ x-node-service: &node-service
   environment: &node-env
     NODE_ENV: production
     LOG_LEVEL: ${LOG_LEVEL:-info}
-    VALKEY_URL: redis://valkey:6379
+    VALKEY_URL: redis://:${VALKEY_PASSWORD:-galley-dev-valkey-password}@valkey:6379
 
 services:
   postgres:
@@ -31,7 +31,17 @@ services:
   valkey:
     image: valkey/valkey:8.1.10-alpine
     restart: unless-stopped
-    command: ['valkey-server', '--appendonly', 'yes']
+    # A password, so that no other container on the data network can read or
+    # inject compile jobs, rate-limit counters or collaboration messages.
+    command:
+      - valkey-server
+      - --appendonly
+      - 'yes'
+      - --requirepass
+      - ${VALKEY_PASSWORD:-galley-dev-valkey-password}
+    environment:
+      # Read by valkey-cli: the health check and scripts/restore.sh authenticate with it.
+      REDISCLI_AUTH: ${VALKEY_PASSWORD:-galley-dev-valkey-password}
     volumes:
       - valkey-data:/data
     networks: [data]
@@ -118,7 +128,7 @@ services:
       postgres: { condition: service_healthy }
       valkey: { condition: service_healthy }
       storage: { condition: service_healthy }
-    networks: [data, edge]
+    networks: [data, edge, spelling]
     healthcheck:
       test: ['CMD', 'wget', '-q', '-O', '/dev/null', 'http://127.0.0.1:3000/api/health/ready']
       interval: 5s
@@ -207,7 +217,9 @@ services:
     environment:
       Java_Xms: 256m
       Java_Xmx: ${LANGUAGETOOL_MEMORY:-1g}
-    networks: [data]
+    # A third-party image: kept off the data network, where the object store's
+    # filer and volume ports answer without credentials.
+    networks: [spelling]
     healthcheck:
       test: ['CMD', 'curl', '-fsS', '-o', '/dev/null', 'http://127.0.0.1:8010/v2/languages']
       interval: 10s
@@ -268,6 +280,9 @@ networks:
   edge: {}
   # Datastores; not reachable from Caddy.
   data:
+    internal: true
+  # The API and LanguageTool only.
+  spelling:
     internal: true
 
 volumes:

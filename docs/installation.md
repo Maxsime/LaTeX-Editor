@@ -102,6 +102,12 @@ docker compose up --detach --build --wait
 
 Les migrations de la base s'appliquent au démarrage de la nouvelle version. Lire auparavant la section du jalon concerné dans `docs/decisions.md` lorsqu'une version change la configuration ; `.env.example` montre les variables nouvelles, absentes du `.env` existant, qui gardent alors leur valeur par défaut.
 
+Une instance créée avant l'ajout du mot de passe Valkey (novembre 2026) n'a pas de `VALKEY_PASSWORD` dans son `.env` : sur un nom public, l'API refuse alors de démarrer avec la valeur de développement. L'ajouter avant la mise à jour :
+
+```sh
+echo "VALKEY_PASSWORD=$(head -c 1024 /dev/urandom | tr -dc 'A-Za-z0-9' | head -c 32)" >> .env
+```
+
 ## 8. Retour arrière
 
 Une migration de base ne se défait pas. Pour revenir à la version précédente :
