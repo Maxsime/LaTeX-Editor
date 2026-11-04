@@ -25,7 +25,9 @@ import {
 import { type CollabConfig, parseRedisUrl } from './config.js';
 import { relayProjectEvents } from './events.js';
 import { handleInternalRequest, type InternalOperations } from './internal.js';
+import { DocumentSizeGuard } from './limits.js';
 import { loadFileState, storeFileState } from './persistence.js';
+import { filterPresence } from './presence.js';
 import { checkReviewerUpdate, InvalidUpdate } from './review.js';
 import { replaceText } from './text.js';
 
@@ -105,6 +107,9 @@ export function createCollab({
   const editorsOf = new Map<string, Set<string>>();
   /** Documents being dropped: their pending writes must not reach the database. */
   const dropped = new Set<string>();
+  const sizes = new DocumentSizeGuard();
+  /** Connection that announced each presence client id, per document (see filterPresence). */
+  const presenceOwners = new WeakMap<Document, Map<number, unknown>>();
 
   const redisUrl = parseRedisUrl(config.VALKEY_URL);
   const server = new Server({
@@ -173,11 +178,21 @@ export function createCollab({
     /**
      * Presence names the connection's own account: whatever identity a client
      * announces is replaced, so nobody can show a cursor under another name.
+     * Oversized entries and entries of other connections are dropped.
      */
-    beforeHandleAwareness({ context, states }) {
+    beforeHandleAwareness({ context, states, removedClients, document, connection }) {
       // Hocuspocus types the context as any; onAuthenticate returns a CollabContext.
       const identity = context as CollabContext | undefined;
-      if (identity === undefined) return Promise.resolve();
+      if (identity === undefined || connection === undefined) return Promise.resolve();
+      const owners = presenceOwners.get(document) ?? new Map<number, unknown>();
+      presenceOwners.set(document, owners);
+      filterPresence(
+        owners,
+        connection,
+        (owner) => document.getConnections().some((open) => open === owner),
+        states,
+        removedClients,
+      );
       const user = presenceUserOf(identity.userId, identity.displayName);
       for (const state of states.values()) state.user = user;
       return Promise.resolve();
@@ -197,38 +212,45 @@ export function createCollab({
     },
 
     /**
-     * Reviewers write only suggestions and comment anchors. Sync step 1
-     * carries no change; steps 2 and updates are checked before Hocuspocus
-     * applies them, and a refused one closes the connection.
+     * Checks what a writer sends before Hocuspocus applies it: the document
+     * must stay within its size limits, and reviewers write only suggestions
+     * and comment anchors. Sync step 1 carries no change; a refused step 2 or
+     * update closes the connection, and the client loads the document again.
      */
-    beforeSync({ context, document, type, payload }) {
+    beforeSync({ context, document, documentName, connection, type, payload }) {
       // Same context as in beforeHandleAwareness.
       const identity = context as CollabContext | undefined;
-      if (identity === undefined || type === 0 || hasRole(identity.role, 'editor')) {
+      // Read-only connections have their changes dropped by Hocuspocus.
+      if (identity === undefined || type === 0 || connection.readOnly) {
         return Promise.resolve();
       }
-      if (identity.role !== 'reviewer') return Promise.resolve();
       try {
-        checkReviewerUpdate(document, payload, identity.userId);
+        sizes.check(documentName, document, payload);
+        if (!hasRole(identity.role, 'editor')) {
+          checkReviewerUpdate(document, payload, identity.userId);
+        }
       } catch (error) {
         if (!(error instanceof InvalidUpdate)) {
-          logger.error(
-            { err: error, projectId: identity.projectId },
-            'reviewer update check failed',
-          );
+          logger.error({ err: error, projectId: identity.projectId }, 'update check failed');
           throw new InvalidUpdate('check-failed');
         }
         refusals.inc({ reason: error.reason });
         logger.warn(
-          { userId: identity.userId, projectId: identity.projectId, check: error.detail },
-          'reviewer update refused',
+          {
+            userId: identity.userId,
+            projectId: identity.projectId,
+            role: identity.role,
+            check: error.detail,
+          },
+          'update refused',
         );
         throw error;
       }
       return Promise.resolve();
     },
 
-    onChange({ documentName, context }) {
+    onChange({ documentName, context, update }) {
+      sizes.record(documentName, update);
       // Same context as in beforeHandleAwareness; server-side changes carry an empty one.
       const identity = context as Partial<CollabContext> | undefined;
       if (typeof identity?.userId !== 'string') return Promise.resolve();
@@ -270,6 +292,7 @@ export function createCollab({
     },
 
     afterUnloadDocument({ documentName }) {
+      sizes.forget(documentName);
       projectOf.delete(documentName);
       editorsOf.delete(documentName);
       dropped.delete(documentName);

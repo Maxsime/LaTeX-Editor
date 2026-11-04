@@ -73,7 +73,7 @@ export function originAllowed(origin: string | undefined, host: string | undefin
  * member of are indistinguishable to the client. Readers get a read-only
  * connection, enforced by Hocuspocus on every update they send; reviewers may
  * write suggestions, each update checked by `checkReviewerUpdate`. Linked
- * files are read-only for everyone.
+ * files and the project channel are read-only for everyone.
  */
 export async function authorize(
   db: Executor,
@@ -127,7 +127,9 @@ export async function authorize(
       fileId,
     },
     // A linked file changes only when refreshed from its source, through the API.
-    readOnly: linked || !hasRole(member.role, 'reviewer'),
+    // The project channel carries events and presence, never document changes:
+    // writable, it would be shared memory any member could fill for everyone.
+    readOnly: target.kind === 'project' || linked || !hasRole(member.role, 'reviewer'),
   };
 }
 

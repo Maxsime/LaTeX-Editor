@@ -76,5 +76,11 @@ export type UploadResponse = z.infer<typeof uploadResponse>;
 /** Text files above this size are stored as binaries: the editor cannot handle them well. */
 export const MAX_TEXT_BYTES = 4 * 1024 * 1024;
 
+/**
+ * Largest Yjs state of a text document edited over WebSocket: the text plus
+ * its suggestions, comment anchors and editing metadata, with ample room.
+ */
+export const MAX_DOCUMENT_STATE_BYTES = 4 * MAX_TEXT_BYTES;
+
 /** Per-file upload limit, also enforced by the multipart parser. */
 export const MAX_UPLOAD_BYTES = 100 * 1024 * 1024;
