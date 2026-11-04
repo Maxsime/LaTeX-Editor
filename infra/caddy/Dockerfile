@@ -18,6 +18,10 @@ COPY . .
 RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
     pnpm install --offline --frozen-lockfile --filter "@galley/web..."
 RUN pnpm --filter "@galley/web..." run build
+# Source maps stay out of the image: they weigh about 10 MB, more than the application.
+# The assets are compressed once here rather than by Caddy on every request.
+RUN find apps/web/dist -name '*.map' -delete && \
+    node apps/web/scripts/precompress.mjs apps/web/dist/assets
 
 FROM ${CADDY_IMAGE}
 COPY infra/caddy/Caddyfile /etc/caddy/Caddyfile

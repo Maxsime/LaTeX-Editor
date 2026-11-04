@@ -17,7 +17,9 @@ export default defineConfig({
     },
   },
   build: {
-    sourcemap: true,
+    // Written for local debugging but not referenced by the bundles; the production
+    // image leaves them out (infra/caddy/Dockerfile).
+    sourcemap: 'hidden',
   },
   test: {
     include: ['src/**/*.test.ts'],

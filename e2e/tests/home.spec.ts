@@ -118,3 +118,35 @@ test.describe('front proxy', () => {
     expect(response.headers()['x-request-id']).toBeTruthy();
   });
 });
+
+test.describe('static assets', () => {
+  test('serve hashed bundles precompressed and cached, the page uncached', async ({ page }) => {
+    const response = await page.goto('/login');
+    expect(response?.headers()['cache-control']).toBe('no-store');
+    const html = (await response?.text()) ?? '';
+    const script = /<script[^>]+src="(\/assets\/[^"]+\.js)"/.exec(html)?.[1];
+    expect(script).toBeDefined();
+
+    const asset = await page.request.get(script ?? '', {
+      headers: { 'Accept-Encoding': 'br, gzip' },
+    });
+    expect(asset.status()).toBe(200);
+    expect(asset.headers()['content-encoding']).toBe('br');
+    expect(asset.headers()['cache-control']).toContain('immutable');
+    // Source maps are not shipped, and an unknown asset is not answered with the page.
+    expect((await page.request.get(`${script ?? ''}.map`)).status()).toBe(404);
+    expect((await page.request.get('/assets/missing-0000.js')).status()).toBe(404);
+  });
+
+  test('loads the editor code only once a project is opened', async ({ page }) => {
+    const scripts: string[] = [];
+    page.on('request', (request) => {
+      if (request.resourceType() === 'script') scripts.push(request.url());
+    });
+    await page.goto('/status');
+    await expect(page.getByTestId('api-status')).toHaveAttribute('data-state', 'ok');
+    expect(scripts.some((url) => /\/assets\/(project|EditorArea|PdfViewer)-/.test(url))).toBe(
+      false,
+    );
+  });
+});
