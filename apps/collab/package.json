@@ -19,8 +19,8 @@
     "@galley/db": "workspace:*",
     "@galley/review": "workspace:*",
     "@galley/shared": "workspace:*",
-    "@hocuspocus/extension-redis": "4.7.1",
-    "@hocuspocus/server": "4.7.1",
+    "@hocuspocus/extension-redis": "4.8.0",
+    "@hocuspocus/server": "4.8.0",
     "drizzle-orm": "0.45.4",
     "ioredis": "5.11.1",
     "prom-client": "15.1.3",
@@ -28,12 +28,12 @@
     "yjs": "13.6.33"
   },
   "devDependencies": {
-    "@hocuspocus/provider": "4.7.1",
+    "@hocuspocus/provider": "4.8.0",
     "@testcontainers/postgresql": "12.2.1",
     "@types/ws": "8.18.2",
     "testcontainers": "12.2.1",
     "tsx": "4.23.15",
     "vitest": "5.0.5",
-    "ws": "8.22.0"
+    "ws": "8.22.1"
   }
 }

@@ -27,12 +27,12 @@
     "eval": "node eval/run.js"
   },
   "dependencies": {
-    "@ai-sdk/anthropic": "4.0.79",
-    "@ai-sdk/mistral": "4.0.63",
-    "@ai-sdk/openai": "4.0.92",
-    "@ai-sdk/openai-compatible": "3.0.68",
+    "@ai-sdk/anthropic": "4.0.94",
+    "@ai-sdk/mistral": "4.0.77",
+    "@ai-sdk/openai": "4.0.106",
+    "@ai-sdk/openai-compatible": "3.0.82",
     "@galley/shared": "workspace:*",
-    "ai": "7.0.138",
+    "ai": "7.0.159",
     "zod": "4.6.7"
   },
   "devDependencies": {
