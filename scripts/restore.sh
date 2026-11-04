@@ -2,8 +2,11 @@
 # Restores a backup of scripts/backup.sh into this instance, new or existing
 # (docs/operations.md). Everything the instance holds is replaced.
 #
-# Usage: scripts/restore.sh <backup folder> [--yes] [--verify]
+# Usage: scripts/restore.sh <backup folder | galley-<date>.tar.age> [--identity <file>]
+#                           [--yes] [--verify]
 #
+# An encrypted backup (BACKUP_AGE_RECIPIENT in backup.sh) is opened with the age
+# private key given by --identity, or by BACKUP_AGE_IDENTITY.
 # --yes skips the confirmation asked when the instance already has accounts.
 # --verify fails unless the restored content has the fingerprint recorded in the
 # backup, which backup.sh records only when nothing changed while it ran.
@@ -13,18 +16,45 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+usage="Usage: scripts/restore.sh <backup folder | .tar.age file> [--identity <file>] [--yes] [--verify]"
 source_dir=""
 confirmed=false
 verify=false
-for argument in "$@"; do
-  case "$argument" in
+identity="${BACKUP_AGE_IDENTITY:-}"
+while (($# > 0)); do
+  case "$1" in
     --yes) confirmed=true ;;
     --verify) verify=true ;;
-    *) source_dir="$argument" ;;
+    --identity)
+      identity="${2:-}"
+      shift
+      ;;
+    *) source_dir="$1" ;;
   esac
+  shift
 done
+
+if [[ -f "$source_dir" && "$source_dir" == *.tar.age ]]; then
+  if [[ -z "$identity" || ! -f "$identity" ]]; then
+    echo "An encrypted backup needs the age private key: --identity <file>." >&2
+    exit 2
+  fi
+  if ! command -v age > /dev/null; then
+    echo "age is not installed (apt install age)." >&2
+    exit 2
+  fi
+  umask 077
+  opened=$(mktemp -d)
+  trap 'rm -rf "$opened"' EXIT
+  echo "Decrypting $source_dir"
+  # Only the five expected members are extracted, whatever else the archive holds.
+  age --decrypt --identity "$identity" "$source_dir" |
+    tar -C "$opened" --no-same-owner -xf - \
+      ./database.dump ./objects.tar ./git.tar ./manifest.json ./SHA256SUMS
+  source_dir="$opened"
+fi
 if [[ -z "$source_dir" || ! -d "$source_dir" ]]; then
-  echo "Usage: scripts/restore.sh <backup folder> [--yes] [--verify]" >&2
+  echo "$usage" >&2
   exit 2
 fi
 source_dir=$(cd "$source_dir" && pwd)

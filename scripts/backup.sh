@@ -5,21 +5,47 @@
 # Usage: scripts/backup.sh [folder]          (default: ./backups)
 #
 # Each backup is a folder galley-<UTC date>/ with database.dump, objects.tar,
-# git.tar, manifest.json and SHA256SUMS. Backups older than BACKUP_KEEP_DAYS
-# (environment or .env, default 14) are deleted afterwards. The master key
-# GALLEY_MASTER_KEY is not in the backup: keep a copy of .env apart.
+# git.tar, manifest.json and SHA256SUMS. With BACKUP_AGE_RECIPIENT set (an age
+# public key, or a file of them), the folder is replaced by one encrypted file
+# galley-<UTC date>.tar.age, which only the matching private key opens: the
+# server needs the public key only. Backups older than BACKUP_KEEP_DAYS are
+# deleted afterwards. Both settings come from the environment or .env. The master
+# key GALLEY_MASTER_KEY is not in the backup: keep a copy of .env apart.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+# A setting from the environment, else from .env.
+setting() {
+  local value="${!1:-}"
+  if [[ -z "$value" && -f .env ]]; then
+    value=$(sed -n "s/^$1=//p" .env | tail -n 1)
+  fi
+  printf '%s' "$value"
+}
+
 root="${1:-backups}"
-keep="${BACKUP_KEEP_DAYS:-}"
-if [[ -z "$keep" && -f .env ]]; then
-  keep=$(sed -n 's/^BACKUP_KEEP_DAYS=//p' .env | tail -n 1)
-fi
+keep=$(setting BACKUP_KEEP_DAYS)
 keep="${keep:-14}"
 if ! [[ "$keep" =~ ^[0-9]+$ ]]; then
   echo "BACKUP_KEEP_DAYS must be a number of days, not \"$keep\"." >&2
   exit 2
+fi
+
+recipient=$(setting BACKUP_AGE_RECIPIENT)
+age_args=()
+if [[ -n "$recipient" ]]; then
+  if ! command -v age > /dev/null; then
+    echo "BACKUP_AGE_RECIPIENT is set but age is not installed (apt install age)." >&2
+    exit 2
+  fi
+  if [[ "$recipient" == age1* || "$recipient" == ssh-* ]]; then
+    age_args=(--recipient "$recipient")
+  elif [[ -f "$recipient" ]]; then
+    age_args=(--recipients-file "$recipient")
+  else
+    echo "BACKUP_AGE_RECIPIENT must be an age public key (age1...) or a file of them." >&2
+    exit 2
+  fi
 fi
 
 # Backups hold every document and password digest: readable by their owner only.
@@ -61,10 +87,19 @@ printf '{"createdAt":"%s","application":%s,"objects":%s,"fingerprint":%s}\n' \
 rm "$work/objects.json"
 (cd "$work" && sha256sum database.dump objects.tar git.tar manifest.json > SHA256SUMS)
 
-mv "$work" "$target"
+if ((${#age_args[@]} > 0)); then
+  # One archive, encrypted and authenticated; the plain folder never outlives it.
+  tar -C "$work" -cf - . | age "${age_args[@]}" --output "$target.tar.age.partial"
+  mv "$target.tar.age.partial" "$target.tar.age"
+  rm -rf "$work"
+  target="$target.tar.age"
+else
+  mv "$work" "$target"
+fi
 trap - EXIT
 echo "Backup complete: $target"
 
-# Rotation: only folders this script created, older than the retention period.
-find "$root" -mindepth 1 -maxdepth 1 -type d -name 'galley-*' ! -name '*.partial' \
+# Rotation: only what this script created, older than the retention period.
+find "$root" -mindepth 1 -maxdepth 1 \
+  \( -type d -name 'galley-*' ! -name '*.partial' -o -type f -name 'galley-*.tar.age' \) \
   -mtime "+$keep" -print -exec rm -rf {} + | sed 's/^/  removed old backup: /'
