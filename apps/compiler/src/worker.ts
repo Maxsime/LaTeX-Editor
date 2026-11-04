@@ -16,7 +16,7 @@ import {
   type SynctexResult,
   TEXLIVE_VERSION_KEY,
 } from '@galley/shared';
-import { createProbeServer, type Logger } from '@galley/shared/node';
+import { createProbeServer, type Logger, logConnectionErrors } from '@galley/shared/node';
 import { DelayedError, type Job, UnrecoverableError, Worker } from 'bullmq';
 import type { Server } from 'node:http';
 import { Redis } from 'ioredis';
@@ -119,11 +119,19 @@ export function createCompilerService(
   const redis = new Redis(config.VALKEY_URL, { maxRetriesPerRequest: 3 });
   const subscriber = new Redis(config.VALKEY_URL, { maxRetriesPerRequest: null });
   const running = new Map<string, AbortController>();
-  void subscriber.subscribe(COMPILE_CANCEL_CHANNEL);
+  logConnectionErrors(logger, 'valkey', redis);
+  logConnectionErrors(logger, 'valkey-subscriber', subscriber);
+  // ioredis queues both commands until connected; a failure here only costs cancellation
+  // or the version shown to clients, never the worker.
+  subscriber.subscribe(COMPILE_CANCEL_CHANNEL).catch((error: unknown) => {
+    logger.error({ err: error }, 'cannot subscribe to compile cancellations');
+  });
   subscriber.on('message', (_channel: string, compileId: string) => {
     running.get(compileId)?.abort();
   });
-  void redis.set(TEXLIVE_VERSION_KEY, dependencies.texlive.release);
+  redis.set(TEXLIVE_VERSION_KEY, dependencies.texlive.release).catch((error: unknown) => {
+    logger.warn({ err: error }, 'cannot publish the TeX Live release');
+  });
 
   const processJob = async (job: Job, token?: string): Promise<CompileResult> => {
     const parsed = compileJob.safeParse(job.data);
