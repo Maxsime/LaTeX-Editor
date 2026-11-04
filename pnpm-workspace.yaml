@@ -6,6 +6,10 @@ packages:
 onlyBuiltDependencies:
   - esbuild
 
+# A release is installed only once it is 14 days old (in minutes): the time for a
+# compromised or broken release to be noticed and withdrawn (docs/decisions.md).
+minimumReleaseAge: 20160
+
 # Transitive versions held back until they are two weeks old (CLAUDE.md, dependencies),
 # or moved past a known flaw when the parent package has no fixed release.
 overrides:
