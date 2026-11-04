@@ -9,6 +9,15 @@ onlyBuiltDependencies:
 # A release is installed only once it is 14 days old (in minutes): the time for a
 # compromised or broken release to be noticed and withdrawn (docs/decisions.md).
 minimumReleaseAge: 20160
+# Exact versions let in before their two weeks, each justified in docs/decisions.md.
+# The glob and minimatch fixes (GHSA-3g3m-2fjr-6pw4, GHSA-g3hv-75wg-m249) and the two
+# packages they need, taken on 2026-11-04: remove this list once they are two weeks
+# old, on 2026-11-11.
+minimumReleaseAgeExclude:
+  - glob@14.0.3
+  - minimatch@11.0.2
+  - path-scurry@3.0.0
+  - '@isaacs/nonrecursive-glob-match@1.0.2'
 
 # Transitive versions held back until they are two weeks old (CLAUDE.md, dependencies),
 # or moved past a known flaw when the parent package has no fixed release.
@@ -17,3 +26,8 @@ overrides:
   # drizzle-kit still pulls @esbuild-kit/core-utils, pinned to esbuild 0.18
   # (GHSA-67mh-4wv8-2f99); it only calls transform, unchanged since.
   '@esbuild-kit/core-utils>esbuild': 0.28.2
+  # ReDoS in glob patterns: archiver-utils (testcontainers) pins glob 10, ESLint and
+  # typescript-eslint minimatch 10, with no release on the fixed majors yet. They only
+  # use glob.sync, new Minimatch().match and minimatch(), unchanged in these majors.
+  'glob@>=9.0.0 <14.0.2': 14.0.3
+  'minimatch@>=7.0.0 <11.0.1': 11.0.2
