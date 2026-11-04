@@ -19,7 +19,7 @@ x-node-service: &node-service
 
 services:
   postgres:
-    image: postgres:16.15-alpine
+    image: postgres:18.6-alpine
     restart: unless-stopped
     security_opt: [no-new-privileges:true]
     environment:
@@ -36,7 +36,7 @@ services:
       retries: 20
 
   valkey:
-    image: valkey/valkey:8.1.10-alpine
+    image: valkey/valkey:9.1.3-alpine
     restart: unless-stopped
     security_opt: [no-new-privileges:true]
     # A password, so that no other container on the data network can read or
@@ -280,7 +280,7 @@ services:
 
   # Optional: docker compose --profile monitoring up -d (docs/operations.md).
   prometheus:
-    image: prom/prometheus:v3.15.0
+    image: prom/prometheus:v3.15.1
     profiles: [monitoring]
     restart: unless-stopped
     security_opt: [no-new-privileges:true]
