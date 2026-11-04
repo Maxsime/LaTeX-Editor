@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import { lstat, mkdir, mkdtemp, readFile, readlink, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -11,6 +12,7 @@ import {
   type ProjectDirs,
   readSandboxFile,
   syncSources,
+  writeSandboxFile,
 } from './workdir.js';
 
 const hash = (char: string) => char.repeat(64);
@@ -111,5 +113,39 @@ describe('output files', () => {
     ]);
     await cleanOutputs(dirs);
     expect(await listOutputs(dirs)).toEqual([]);
+  });
+});
+
+describe('links and special files left by a compilation', () => {
+  it('refuses a file reached through a linked folder', async () => {
+    await syncSources(dirs, { 'main.tex': hash('a') }, fetch);
+    // A compilation can replace a folder of its sources by a link: the worker must not
+    // then read the host's files, its own environment included, through that path.
+    await symlink(join(dirs.root, '..'), join(dirs.src, 'up'));
+    await symlink('/proc/self', join(dirs.src, 'proc'));
+    expect(await readFile(join(dirs.src, 'up', 'outside.txt'), 'utf8')).toBe('host file');
+
+    expect(await readSandboxFile(join(dirs.src, 'up', 'outside.txt'), 100)).toBeNull();
+    expect(await readSandboxFile(join(dirs.src, 'proc', 'environ'), 1_000_000)).toBeNull();
+    expect(await openSandboxFile(join(dirs.src, 'up', 'outside.txt'))).toBeNull();
+    expect((await readSandboxFile(join(dirs.src, 'main.tex'), 100))?.toString()).toBe('version A');
+  });
+
+  it('refuses a named pipe without waiting for a writer', async () => {
+    await syncSources(dirs, { 'main.tex': hash('a') }, fetch);
+    execFileSync('mkfifo', [join(dirs.out, 'main.log')]);
+    expect(await readSandboxFile(join(dirs.out, 'main.log'), 100)).toBeNull();
+    expect(await openSandboxFile(join(dirs.out, 'main.log'))).toBeNull();
+  }, 5_000);
+
+  it('writes in place of a link instead of through it', async () => {
+    await syncSources(dirs, { 'main.tex': hash('a') }, fetch);
+    const stamp = join(dirs.out, 'galley-preamble.stamp');
+    await symlink(outside, stamp);
+    await writeSandboxFile(stamp, 'fingerprint');
+
+    expect(await readFile(outside, 'utf8')).toBe('host file');
+    expect((await lstat(stamp)).isFile()).toBe(true);
+    expect(await readFile(stamp, 'utf8')).toBe('fingerprint');
   });
 });

@@ -30,6 +30,14 @@ export interface SandboxPaths {
 export const SANDBOX_PROJECT = '/project';
 export const SANDBOX_OUT = '/out';
 
+/**
+ * The sandbox gets a user namespace of its own (bwrap would otherwise only try)
+ * and may not create further ones. Inside a new user namespace a process holds
+ * every capability over it, which opens kernel code (mounts, network stacks,
+ * keyrings) that many privilege escalations go through; TeX never needs one.
+ */
+export const SANDBOX_USERNS_ARGS = ['--unshare-user', '--disable-userns'];
+
 /** Platform directory of the TeX Live binaries in the worker image. */
 const TEXLIVE_ARCH = 'x86_64-linux';
 
@@ -56,6 +64,7 @@ export function bwrapArgs(
   const tmpBytes = String(Math.min(limits.maxOutputBytes, 512 * 1024 * 1024));
   return [
     '--unshare-all',
+    ...SANDBOX_USERNS_ARGS,
     '--die-with-parent',
     '--new-session',
     '--clearenv',
@@ -227,9 +236,13 @@ export function runSandboxed(
   });
 }
 
-/** Arguments of the smallest sandbox: the namespaces of a compilation and a read-only `/usr`. */
+/**
+ * Arguments of the smallest sandbox: the namespaces of a compilation, nested
+ * user namespaces refused, and a read-only `/usr`.
+ */
 export const SANDBOX_PROBE_ARGS = [
   '--unshare-all',
+  ...SANDBOX_USERNS_ARGS,
   '--die-with-parent',
   '--clearenv',
   '--ro-bind',

@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { bwrapArgs, checkSandbox, directorySize } from './sandbox.js';
+import { bwrapArgs, checkSandbox, directorySize, SANDBOX_PROBE_ARGS } from './sandbox.js';
 
 const paths = {
   texliveDir: '/usr/local/texlive/2026',
@@ -31,13 +31,22 @@ describe('bwrapArgs', () => {
   const args = bwrapArgs(paths, limits, 'thesis', ['latexmk', 'main.tex']);
 
   it('isolates every namespace and dies with the worker', () => {
-    expect(args.slice(0, 4)).toEqual([
+    expect(args.slice(0, 6)).toEqual([
       '--unshare-all',
+      '--unshare-user',
+      '--disable-userns',
       '--die-with-parent',
       '--new-session',
       '--clearenv',
     ]);
     expect(args).not.toContain('--share-net');
+  });
+
+  it('forbids nested user namespaces, and the start-up probe checks that it can', () => {
+    expect(args).toEqual(expect.arrayContaining(['--unshare-user', '--disable-userns']));
+    expect(SANDBOX_PROBE_ARGS).toEqual(
+      expect.arrayContaining(['--unshare-all', '--unshare-user', '--disable-userns']),
+    );
   });
 
   it('exposes the project, its outputs and read-only system parts only', () => {

@@ -1,5 +1,5 @@
 {
-  "description": "Tentatives malveillantes : rien hors du projet et du texmf ne doit être lu, aucune commande ne doit atteindre le réseau ni l'hôte, aucune écriture ne doit sortir du projet. Les cas avec shell-escape tournent en mode complet, le pire cas.",
+  "description": "Tentatives malveillantes : rien hors du projet et du texmf ne doit être lu, aucune commande ne doit atteindre le réseau ni l'hôte, aucune écriture ne doit sortir du projet, aucun espace de noms ne doit être créé dans le bac à sable, et le worker ne doit suivre aucun lien laissé par la compilation. Les cas avec shell-escape tournent en mode complet, le pire cas.",
   "runs": [
     {
       "main": "read-files.tex",
@@ -35,7 +35,7 @@
           "NETWORK-REACHED",
           "Example Domain"
         ],
-        "logContains": ["READ shell-net.txt: NO-NETWORK"]
+        "logContains": ["READ shell-net.txt: NO-NETWORK", "READ shell-userns.txt: USERNS-REFUSED"]
       }
     },
     {
@@ -60,6 +60,29 @@
           "Example Domain"
         ],
         "logContains": ["LUA socket: no network", "LUA valkey:"]
+      }
+    },
+    {
+      "main": "links/links.tex",
+      "expect": {
+        "outcome": "failure",
+        "pdf": false,
+        "errors": [
+          {
+            "file": "links/proc/environ",
+            "line": null,
+            "message": "File ended"
+          }
+        ],
+        "forbidden": [
+          "root:x:0:0",
+          "texlive:x:1000",
+          "$CANARY",
+          "S3_SECRET",
+          "HOSTNAME=",
+          "NETWORK-REACHED",
+          "Example Domain"
+        ]
       }
     }
   ]

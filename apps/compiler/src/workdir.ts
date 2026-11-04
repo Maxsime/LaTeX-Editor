@@ -1,16 +1,18 @@
 import { constants, createWriteStream } from 'node:fs';
 import {
+  type FileHandle,
   lstat,
   mkdir,
   open,
   readdir,
   readFile,
+  readlink,
   rename,
   rm,
   utimes,
   writeFile,
 } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import type { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import type { Manifest } from '@galley/shared';
@@ -188,19 +190,41 @@ export async function cleanOutputs(dirs: ProjectDirs): Promise<void> {
 }
 
 /**
- * Reads a file written by the sandbox, refusing links and anything but a
- * regular file. Returns null when it is missing or refused.
+ * Opens a regular file the sandbox may have written, or returns null. The
+ * worker runs unconfined, so a link the sandbox left must never be followed:
+ * O_NOFOLLOW refuses one in place of the file itself, and the path the kernel
+ * reports for the open descriptor refuses one in place of any folder leading
+ * to it (`out/x` → `/proc/self`, then `x/environ`, would read the worker's
+ * secrets). O_NONBLOCK keeps a named pipe from blocking the worker forever.
  */
-export async function readSandboxFile(path: string, maxBytes: number): Promise<Buffer | null> {
-  let handle;
+async function openContained(path: string): Promise<FileHandle | null> {
+  let handle: FileHandle;
   try {
-    handle = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW);
+    handle = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
   } catch {
     return null;
   }
   try {
+    const actual = await readlink(`/proc/self/fd/${String(handle.fd)}`);
+    if (actual === resolve(path) && (await handle.stat()).isFile()) return handle;
+  } catch {
+    // Treated as refused below.
+  }
+  await handle.close();
+  return null;
+}
+
+/**
+ * Reads a file written by the sandbox, refusing links (on the file or on a
+ * folder above it) and anything but a regular file. Returns null when it is
+ * missing or refused.
+ */
+export async function readSandboxFile(path: string, maxBytes: number): Promise<Buffer | null> {
+  const handle = await openContained(path);
+  if (handle === null) return null;
+  try {
     const stat = await handle.stat();
-    if (!stat.isFile() || stat.size > maxBytes) return null;
+    if (stat.size > maxBytes) return null;
     return await handle.readFile();
   } finally {
     await handle.close();
@@ -208,24 +232,26 @@ export async function readSandboxFile(path: string, maxBytes: number): Promise<B
 }
 
 /**
- * Opens a file written by the sandbox as a stream, refusing links and anything
- * but a regular file. Returns null when it is missing or refused.
+ * Opens a file written by the sandbox as a stream, with the same refusals as
+ * {@link readSandboxFile}. Returns null when it is missing or refused.
  */
 export async function openSandboxFile(
   path: string,
 ): Promise<{ stream: Readable; size: number } | null> {
-  let handle;
-  try {
-    handle = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW);
-  } catch {
-    return null;
-  }
+  const handle = await openContained(path);
+  if (handle === null) return null;
   const stat = await handle.stat();
-  if (!stat.isFile()) {
-    await handle.close();
-    return null;
-  }
   return { stream: handle.createReadStream(), size: stat.size };
+}
+
+/**
+ * Writes a small file in a folder the sandbox can write to. Whatever stands at
+ * the path is removed first, and the file is created exclusively (O_EXCL),
+ * which fails on a link instead of writing through it.
+ */
+export async function writeSandboxFile(path: string, content: string): Promise<void> {
+  await rm(path, { force: true, recursive: true });
+  await writeFile(path, content, { flag: 'wx', mode: 0o644 });
 }
 
 /** A regular file of the output folder. */

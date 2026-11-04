@@ -2,9 +2,12 @@
 \input{dump}
 \begin{document}
 \immediate\write18{env > shell-env.txt; cat /etc/passwd > shell-passwd.txt; ls / > shell-root.txt; (curl -s -m 5 http://example.com || wget -q -T 5 -O- http://example.com || echo NO-NETWORK) > shell-net.txt 2>&1}
+% A sandbox that could create user namespaces would expose the kernel's namespace code.
+\immediate\write18{(unshare --user true 2>/dev/null && echo USERNS-ALLOWED || echo USERNS-REFUSED) > shell-userns.txt}
 \dumpfile{shell-env.txt}
 \dumpfile{shell-passwd.txt}
 \dumpfile{shell-root.txt}
 \dumpfile{shell-net.txt}
+\dumpfile{shell-userns.txt}
 Commandes du shell tentées.
 \end{document}

