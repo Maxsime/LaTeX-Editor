@@ -106,7 +106,10 @@ export function buildApp({
       projectRoutes(api, context);
       sharingRoutes(api, context);
       tagRoutes(api, context);
-      fileRoutes(api, context);
+      // An upload of many files is bounded like an archive.
+      fileRoutes(api, context, {
+        maxRequestBytes: (archiveLimits ?? DEFAULT_ARCHIVE_LIMITS).maxTotalBytes,
+      });
       libraryRoutes(api, context);
       editorRoutes(api, context);
       archiveRoutes(api, context, archiveLimits);
@@ -121,11 +124,19 @@ export function buildApp({
       });
     });
     // Git clients authenticate with access tokens, never with the session cookie.
-    void app.register((gitApp, _options, done) => {
+    void app.register(async (gitApp) => {
+      // Every fetch first rebuilds the project's commit: bounded per address, so that
+      // one client cannot keep the API busy. A clone or a pull takes two or three requests.
+      await gitApp.register(rateLimit, {
+        global: true,
+        max: context.config.GIT_RATE_LIMIT_PER_MINUTE,
+        timeWindow: '1 minute',
+        redis: context.redis,
+        nameSpace: 'galley:rate-limit:git:',
+      });
       gitRoutes(gitApp, context, {
         maxEntries: (archiveLimits ?? DEFAULT_ARCHIVE_LIMITS).maxEntries,
       });
-      done();
     });
   }
 

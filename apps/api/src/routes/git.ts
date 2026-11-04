@@ -251,32 +251,37 @@ export function gitRoutes(
     });
   });
 
-  // Called by the pre-receive hook only; Caddy does not route /internal.
-  app.post('/internal/git/pre-receive', async (request, reply) => {
-    const secret = String(request.headers['x-galley-push'] ?? '');
-    const entry = [...pending].find(([token]) => safeEqual(token, secret));
-    if (!entry) return reply.status(403).send({ message: 'Galley: unknown push.' });
-    const push = entry[1];
-    const body = hookBody.parse(request.body);
-    try {
-      await applyPush(
-        context,
-        {
-          projectId: push.projectId,
-          userId: push.userId,
-          gitDir: push.gitDir,
-          updates: body.updates satisfies RefUpdate[],
-          objectDirectory: body.objectDirectory,
-        },
-        { maxBytes: maxPushBytes, maxEntries: limits.maxEntries },
-      );
-    } catch (error) {
-      if (error instanceof PushRefused) {
-        return reply.status(409).send({ message: refusalMessage(error.refusal, push.locale) });
+  // Called by the pre-receive hook only; Caddy does not route /internal. Every hook
+  // comes from 127.0.0.1, so the per-address limit would throttle all pushes at once.
+  app.post(
+    '/internal/git/pre-receive',
+    { config: { rateLimit: false } },
+    async (request, reply) => {
+      const secret = String(request.headers['x-galley-push'] ?? '');
+      const entry = [...pending].find(([token]) => safeEqual(token, secret));
+      if (!entry) return reply.status(403).send({ message: 'Galley: unknown push.' });
+      const push = entry[1];
+      const body = hookBody.parse(request.body);
+      try {
+        await applyPush(
+          context,
+          {
+            projectId: push.projectId,
+            userId: push.userId,
+            gitDir: push.gitDir,
+            updates: body.updates satisfies RefUpdate[],
+            objectDirectory: body.objectDirectory,
+          },
+          { maxBytes: maxPushBytes, maxEntries: limits.maxEntries },
+        );
+      } catch (error) {
+        if (error instanceof PushRefused) {
+          return reply.status(409).send({ message: refusalMessage(error.refusal, push.locale) });
+        }
+        request.log.error({ err: error, projectId: push.projectId }, 'push failed');
+        return reply.status(500).send({ message: 'Galley : erreur interne / internal error.' });
       }
-      request.log.error({ err: error, projectId: push.projectId }, 'push failed');
-      return reply.status(500).send({ message: 'Galley : erreur interne / internal error.' });
-    }
-    return { message: null };
-  });
+      return { message: null };
+    },
+  );
 }

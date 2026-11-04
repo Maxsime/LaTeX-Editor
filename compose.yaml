@@ -87,6 +87,7 @@ services:
       COLLAB_INTERNAL_URL: http://collab:3001
       COLLAB_INTERNAL_TOKEN: ${COLLAB_INTERNAL_TOKEN:-galley-dev-internal-token-change-me}
       GIT_MAX_PUSH_MB: ${GIT_MAX_PUSH_MB:-100}
+      GIT_RATE_LIMIT_PER_MINUTE: ${GIT_RATE_LIMIT_PER_MINUTE:-60}
       GIT_SYNC_HOSTS: ${GIT_SYNC_HOSTS:-github.com,gitlab.com}
       GIT_SYNC_ALLOW_HTTP: ${GIT_SYNC_ALLOW_HTTP:-false}
       # Development value: change it before storing real keys (openssl rand -base64 32).

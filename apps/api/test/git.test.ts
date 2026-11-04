@@ -133,6 +133,8 @@ describe.skipIf(!dockerAvailable)('Git bridge', () => {
       S3_BUCKET: 'galley-git',
       GIT_DATA_DIR: join(scratch, 'repositories'),
       GIT_MAX_PUSH_MB: '1',
+      // Every client of this suite is 127.0.0.1.
+      GIT_RATE_LIMIT_PER_MINUTE: '10000',
     });
     database = createDatabase(config.DATABASE_URL);
     redis = new Redis(config.VALKEY_URL, { maxRetriesPerRequest: 1 });

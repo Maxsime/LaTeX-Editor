@@ -331,6 +331,25 @@ describe.skipIf(!dockerAvailable)('e-mail', () => {
     expect((await sam.send('GET', '/api/auth/session')).json()).toMatchObject({ user: null });
   });
 
+  it('sends at most three reset messages an hour to one address', async () => {
+    await register(app, 'yves');
+    const before = smtp.messages.length;
+    for (let request = 0; request < 5; request += 1) {
+      const response = await new Client(app, `10.4.8.${String(request)}`).send(
+        'POST',
+        '/api/auth/password-reset',
+        { json: { email: 'yves@example.org' } },
+      );
+      // Same answer every time: the throttle tells nothing either.
+      expect(response.statusCode).toBe(202);
+    }
+    const sent = () =>
+      smtp.messages.slice(before).filter((message) => message.to.includes('yves@example.org'));
+    await smtp.waitFor('yves@example.org', () => sent().length >= 3);
+    await new Promise((resolve) => setTimeout(resolve, 1_000));
+    expect(sent()).toHaveLength(3);
+  });
+
   it('refuses an expired link', async () => {
     await register(app, 'eve');
     const before = smtp.messages.length;

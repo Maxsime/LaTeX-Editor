@@ -107,6 +107,11 @@ export const apiEnv = z
     GIT_DATA_DIR: z._default(z.string(), '/var/lib/galley/git'),
     /** Largest pack a single `git push` may send. */
     GIT_MAX_PUSH_MB: z._default(z.coerce.number().check(z.int(), z.gte(1), z.lte(2_048)), 100),
+    /** Git smart HTTP requests per client address and minute; a clone or a pull takes 2 or 3. */
+    GIT_RATE_LIMIT_PER_MINUTE: z._default(
+      z.coerce.number().check(z.int(), z.gte(1), z.lte(100_000)),
+      60,
+    ),
     /**
      * Internal base URL of collab, e.g. `http://collab:3001`. When unset (API
      * tests run without collab), the API writes document states directly.

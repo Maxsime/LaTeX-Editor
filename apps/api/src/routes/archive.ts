@@ -4,7 +4,7 @@ import {
   type ImportWarning,
   projectName,
 } from '@galley/shared';
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { requireAuth } from '../auth/plugin.js';
 import { assertOwnerRoom } from '../admin/quotas.js';
 import { instanceSettingsOf } from '../admin/settings.js';
@@ -33,6 +33,16 @@ function nameFromArchive(fileName: string): string {
   return base === '' ? 'Imported project' : base;
 }
 
+/** Imports per person and minute: each one spools and unpacks up to 500 MB. */
+const importRateLimit = {
+  rateLimit: {
+    max: 20,
+    timeWindow: '1 minute',
+    hook: 'preHandler' as const,
+    keyGenerator: (request: FastifyRequest) => request.auth?.user.id ?? request.ip,
+  },
+};
+
 export function archiveRoutes(
   app: FastifyInstance,
   context: AppContext,
@@ -46,7 +56,7 @@ export function archiveRoutes(
    * The archive is fully validated before the project exists; a refusal is a
    * VALIDATION_FAILED error whose field `archive` carries the reason.
    */
-  app.post('/api/projects/import', async (request, reply) => {
+  app.post('/api/projects/import', { config: importRateLimit }, async (request, reply) => {
     const auth = requireAuth(request);
     if (!request.isMultipart()) throw new ApiError('BAD_REQUEST', 'multipart expected');
     const scratch = await createScratchDir(config.API_TMP_DIR);
