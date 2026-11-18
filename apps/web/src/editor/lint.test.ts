@@ -37,6 +37,18 @@ describe('toLintDiagnostics', () => {
     expect(toLintDiagnostics(doc, [diagnostic('error', null)])).toEqual([]);
   });
 
+  it('puts the remedy of a known message on a line of its own', () => {
+    const explain = (d: Diagnostic) => (d.level === 'error' ? 'Fix it.' : null);
+    const markers = toLintDiagnostics(
+      doc,
+      [diagnostic('error', 3), diagnostic('warning', 3)],
+      undefined,
+      undefined,
+      explain,
+    );
+    expect(markers.map((marker) => marker.message)).toEqual(['message\nFix it.', 'message']);
+  });
+
   it('offers to turn off the rule of a chktex warning', () => {
     const disabled: number[] = [];
     const [marker] = toLintDiagnostics(

@@ -22,3 +22,10 @@ overrides:
   # use glob.sync, new Minimatch().match and minimatch(), unchanged in these majors.
   'glob@>=9.0.0 <14.0.2': 14.0.3
   'minimatch@>=7.0.0 <11.0.1': 11.0.2
+
+# Advisories accepted by the maintainer, each with no fixed release and reached only
+# through development tooling (docs/decisions.md). Remove one as soon as a fix ships.
+auditConfig:
+  ignoreGhsas:
+    # ReDoS in picomatch <= 4.0.7, via typescript-eslint > tinyglobby (lint only).
+    - GHSA-fc5q-39xc-vjpf
