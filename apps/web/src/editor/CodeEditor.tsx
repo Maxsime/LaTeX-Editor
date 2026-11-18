@@ -5,6 +5,7 @@ import type { Diagnostic } from '@galley/shared';
 import { EditorView } from '@codemirror/view';
 import { useEffect, useRef } from 'react';
 import i18n from '../i18n/index.js';
+import { explainDiagnostic } from '../lib/explain.js';
 import { appendedBlock } from '../lib/writing.js';
 import { cursorOf } from '../lib/presence.js';
 import { lineChanges } from '../lib/textdiff.js';
@@ -334,6 +335,7 @@ export function CodeEditor({
           disableChktex === null
             ? undefined
             : { name: i18n.t('editor.chktex.disable'), disable: disableChktex },
+          (diagnostic) => explainDiagnostic(diagnostic, i18n.t),
         ),
       ),
     });
