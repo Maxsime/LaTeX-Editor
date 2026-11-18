@@ -10,9 +10,12 @@ import type {
   UploadResponse,
 } from '@galley/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useCallback, useState } from 'react';
+import { useNotices } from '../stores/notices.js';
 import { useDashboard } from '../stores/dashboard.js';
 import type { TemplateChoice } from './library.js';
 import { api } from './api.js';
+import { type ImportItem, runImports } from './import-batch.js';
 import { batches, type PendingUpload, UPLOAD_BATCH, uploadForm } from './upload.js';
 
 export const projectsKey = ['projects'] as const;
@@ -75,16 +78,51 @@ export function useCreateProject() {
   });
 }
 
+/** Creates a project from one zip archive. */
+function importArchive(file: File): Promise<ImportProjectResponse> {
+  const form = new FormData();
+  form.append('archive', file, file.name);
+  return api<ImportProjectResponse>('POST', '/api/projects/import', { form });
+}
+
 export function useImportProject() {
   const invalidate = useInvalidate();
   return useMutation({
-    mutationFn: (file: File) => {
-      const form = new FormData();
-      form.append('archive', file, file.name);
-      return api<ImportProjectResponse>('POST', '/api/projects/import', { form });
-    },
+    mutationFn: importArchive,
     onSuccess: () => invalidate(projectsKey),
   });
+}
+
+/**
+ * Imports several zips at once, one project per archive, and keeps the outcome
+ * of each so the dashboard can list them. Warnings of each imported project
+ * are kept for when it is opened, as for a single import.
+ */
+export function useBatchImport() {
+  const client = useQueryClient();
+  const setWarnings = useNotices((state) => state.setWarnings);
+  const [items, setItems] = useState<readonly ImportItem[] | null>(null);
+  const running = items?.some((item) => item.status === 'pending' || item.status === 'running');
+  const start = useCallback(
+    async (files: readonly File[]): Promise<void> => {
+      await runImports(
+        files,
+        async (file) => {
+          const response = await importArchive(file);
+          setWarnings(response.project.id, response.warnings);
+          // Each project appears in the list as soon as it exists.
+          void client.invalidateQueries({ queryKey: projectsKey });
+          return response;
+        },
+        setItems,
+      );
+    },
+    [client, setWarnings],
+  );
+  const clear = useCallback(() => {
+    setItems(null);
+  }, []);
+  return { items, running: running === true, start, clear };
 }
 
 export type BulkAction = 'archive' | 'unarchive' | 'trash' | 'restore' | 'purge';

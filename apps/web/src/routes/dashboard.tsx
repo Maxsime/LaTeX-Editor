@@ -7,14 +7,17 @@ import {
 } from '@galley/shared';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { DropdownMenu, ToggleGroup } from 'radix-ui';
-import { useRef, useState } from 'react';
+import { type DragEvent, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ProjectActionsMenu } from '../components/ProjectLibrary.js';
 import { Button, ConfirmDialog, Dialog, ErrorAlert, TextField } from '../components/ui.js';
+import { errorMessageKey } from '../lib/api.js';
+import { type ImportItem, isZipFile } from '../lib/import-batch.js';
 import { templateChoice, useTemplates } from '../lib/library.js';
 import {
   actionsFor,
   type BulkAction,
+  useBatchImport,
   useBulkAction,
   useCreateProject,
   useImportProject,
@@ -125,44 +128,159 @@ function NewProjectDialog({
   );
 }
 
-function ImportButton() {
-  const { t } = useTranslation();
-  const input = useRef<HTMLInputElement>(null);
+type BatchImport = ReturnType<typeof useBatchImport>;
+
+/**
+ * Starts an import from picked or dropped files. A single zip opens its
+ * project right away, as before; several files are imported one project per
+ * zip and the outcome of each is listed on the dashboard.
+ */
+function useArchiveImport() {
   const importProject = useImportProject();
+  const batch = useBatchImport();
   const setWarnings = useNotices((state) => state.setWarnings);
   const navigate = useNavigate();
+  const start = (files: readonly File[]): void => {
+    const [only] = files;
+    if (files.length === 1 && only !== undefined && isZipFile(only)) {
+      batch.clear();
+      importProject.mutate(only, {
+        onSuccess: ({ project, warnings }) => {
+          setWarnings(project.id, warnings);
+          void navigate({ to: '/projects/$projectId', params: { projectId: project.id } });
+        },
+      });
+      return;
+    }
+    if (files.length === 0) return;
+    importProject.reset();
+    void batch.start(files);
+  };
+  return { importProject, batch, start, busy: importProject.isPending || batch.running };
+}
+
+type ArchiveImport = ReturnType<typeof useArchiveImport>;
+
+function ImportButton({ archives }: { archives: ArchiveImport }) {
+  const { t } = useTranslation();
+  const input = useRef<HTMLInputElement>(null);
   return (
     <>
       <input
         ref={input}
         type="file"
+        multiple
         accept=".zip,application/zip"
         className="sr-only"
         data-testid="import-input"
         tabIndex={-1}
         aria-hidden
         onChange={(event) => {
-          const file = event.currentTarget.files?.[0];
+          const files = [...(event.currentTarget.files ?? [])];
           event.currentTarget.value = '';
-          if (!file) return;
-          importProject.mutate(file, {
-            onSuccess: ({ project, warnings }) => {
-              setWarnings(project.id, warnings);
-              void navigate({ to: '/projects/$projectId', params: { projectId: project.id } });
-            },
-          });
+          archives.start(files);
         }}
       />
-      <Button disabled={importProject.isPending} onClick={() => input.current?.click()}>
-        {importProject.isPending ? t('dashboard.importing') : t('dashboard.import')}
+      <Button
+        disabled={archives.busy}
+        title={t('dashboard.importHint')}
+        onClick={() => input.current?.click()}
+      >
+        {archives.busy ? t('dashboard.importing') : t('dashboard.import')}
       </Button>
-      {importProject.error !== null && (
+      {archives.importProject.error !== null && (
         <div className="basis-full">
-          <ErrorAlert error={importProject.error} />
+          <ErrorAlert error={archives.importProject.error} />
         </div>
       )}
     </>
   );
+}
+
+/** Outcome of each archive of a batch import, until dismissed. */
+function ImportResults({ batch }: { batch: BatchImport }) {
+  const { t } = useTranslation();
+  const { items } = batch;
+  if (items === null) return null;
+  const done = items.filter((item) => item.status === 'done').length;
+  return (
+    <section
+      aria-label={t('dashboard.batch.title')}
+      data-testid="import-results"
+      className="space-y-2 rounded-md border border-slate-200 px-3 py-2 text-sm"
+    >
+      <div className="flex items-center gap-2">
+        <h2 className="mr-auto font-semibold">
+          {batch.running
+            ? t('dashboard.batch.running', { count: items.length })
+            : t('dashboard.batch.summary', { count: done, total: items.length })}
+        </h2>
+        {!batch.running && (
+          <Button variant="ghost" onClick={batch.clear}>
+            {t('common.close')}
+          </Button>
+        )}
+      </div>
+      <ul className="space-y-1">
+        {items.map((item, index) => (
+          <li
+            // Two picked files can share a name; their position tells them apart.
+            key={`${String(index)}:${item.fileName}`}
+            data-testid="import-result"
+            data-status={item.status}
+            className="flex flex-wrap items-baseline gap-x-2"
+          >
+            <span className="font-medium">{item.fileName}</span>
+            <ImportItemStatus item={item} />
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function ImportItemStatus({ item }: { item: ImportItem }) {
+  const { t } = useTranslation();
+  switch (item.status) {
+    case 'pending':
+      return <span className="text-slate-500">{t('dashboard.batch.pending')}</span>;
+    case 'running':
+      return <span className="text-slate-500">{t('dashboard.importing')}</span>;
+    case 'skipped':
+      return <span className="text-amber-800">{t('dashboard.batch.notZip')}</span>;
+    case 'failed':
+      // The key comes from the API contract (errors.*, archive.*, validation.*).
+      return (
+        <span className="text-red-800">
+          {t(errorMessageKey(item.error) as 'errors.INTERNAL_ERROR')}
+        </span>
+      );
+    case 'done': {
+      const { project, warnings } = item.result;
+      return (
+        <span className="text-emerald-800">
+          {t('dashboard.imported', { name: project.name })}{' '}
+          {warnings.length > 0 && (
+            <span className="text-amber-800">
+              {t('dashboard.batch.warnings', { count: warnings.length })}{' '}
+            </span>
+          )}
+          <Link
+            to="/projects/$projectId"
+            params={{ projectId: project.id }}
+            className="text-accent underline"
+          >
+            {t('dashboard.batch.open')}
+          </Link>
+        </span>
+      );
+    }
+  }
+}
+
+/** Whether a drag carries files from the system, not text or a page element. */
+function carriesFiles(event: DragEvent<HTMLElement>): boolean {
+  return event.dataTransfer.types.includes('Files');
 }
 
 /** Invitations to other people's projects, answered here since no e-mail is sent. */
@@ -421,6 +539,8 @@ export function DashboardPage() {
   const bulk = useBulkAction();
   const [creating, setCreating] = useState(false);
   const [confirmPurge, setConfirmPurge] = useState(false);
+  const archives = useArchiveImport();
+  const [dropping, setDropping] = useState(false);
   const list = projects.data ?? [];
   const selected = list.filter((project) => dashboard.selected.has(project.id));
   const dateFormat = new Intl.DateTimeFormat(i18n.resolvedLanguage, {
@@ -443,7 +563,28 @@ export function DashboardPage() {
 
   return (
     <div className="grid gap-8 md:grid-cols-[1fr_16rem]">
-      <div className="space-y-4">
+      <div
+        className={`space-y-4 rounded-md ${dropping ? 'outline-2 outline-offset-4 outline-accent outline-dashed' : ''}`}
+        data-testid="import-drop-zone"
+        onDragOver={(event) => {
+          if (!carriesFiles(event)) return;
+          event.preventDefault();
+          event.dataTransfer.dropEffect = archives.busy ? 'none' : 'copy';
+          setDropping(true);
+        }}
+        onDragLeave={(event) => {
+          // Leaving for a child element is not leaving the zone. relatedTarget
+          // is an EventTarget; on drag events it is always a DOM node or null.
+          if (event.currentTarget.contains(event.relatedTarget as Node | null)) return;
+          setDropping(false);
+        }}
+        onDrop={(event) => {
+          if (!carriesFiles(event)) return;
+          event.preventDefault();
+          setDropping(false);
+          if (!archives.busy) archives.start([...event.dataTransfer.files]);
+        }}
+      >
         <div className="flex flex-wrap items-center gap-2">
           <h1 className="mr-auto font-serif text-3xl font-semibold">{t('dashboard.title')}</h1>
           <Button
@@ -454,8 +595,9 @@ export function DashboardPage() {
           >
             {t('dashboard.newProject')}
           </Button>
-          <ImportButton />
+          <ImportButton archives={archives} />
         </div>
+        <ImportResults batch={archives.batch} />
         <NewProjectDialog open={creating} onOpenChange={setCreating} />
         <Flash />
         <ReceivedInvites />

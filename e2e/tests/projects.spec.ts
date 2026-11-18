@@ -1,7 +1,14 @@
 import { readFile } from 'node:fs/promises';
 import { expect, type Page, test } from '@playwright/test';
 import { importZip } from '../editing.js';
-import { createAccount, hostileZip, referenceArchive, signIn, zipDigests } from '../instance.js';
+import {
+  createAccount,
+  hostileZip,
+  referenceArchive,
+  signIn,
+  storedZip,
+  zipDigests,
+} from '../instance.js';
 
 async function expandAll(page: Page): Promise<void> {
   const collapsed = page.locator('[role="treeitem"][aria-expanded="false"]');
@@ -56,6 +63,80 @@ test.describe('projects and files', () => {
     );
     await expect(page).toHaveURL(/\/projects$/);
     await expect(page.getByTestId('project-row')).toHaveCount(0);
+  });
+
+  test('imports several zips at once, one project each, despite a refused one', async ({
+    page,
+  }) => {
+    const tex = (title: string) =>
+      Buffer.from(`\\documentclass{article}\n\\begin{document}\n${title}\n\\end{document}\n`);
+    await page.getByTestId('import-input').setInputFiles([
+      {
+        name: 'Thèse.zip',
+        mimeType: 'application/zip',
+        buffer: storedZip({ 'these.tex': tex('A') }),
+      },
+      { name: 'evil.zip', mimeType: 'application/zip', buffer: hostileZip('../evil.tex') },
+      { name: 'notes.txt', mimeType: 'text/plain', buffer: Buffer.from('notes\n') },
+      {
+        name: 'TP réseaux.zip',
+        mimeType: 'application/zip',
+        buffer: storedZip({ 'src/rapport.tex': tex('B') }),
+      },
+    ]);
+    // Several files keep the dashboard open and list the outcome of each.
+    const results = page.getByTestId('import-result');
+    await expect(results).toHaveCount(4);
+    await expect(page.getByTestId('import-results')).toContainText(
+      '2 projets importés sur 4 fichier(s)',
+    );
+    await expect(results.nth(0)).toHaveAttribute('data-status', 'done');
+    await expect(results.nth(1)).toHaveAttribute('data-status', 'failed');
+    await expect(results.nth(1)).toContainText(
+      "L'archive contient un chemin qui sort du projet : elle est refusée.",
+    );
+    await expect(results.nth(2)).toHaveAttribute('data-status', 'skipped');
+    await expect(results.nth(3)).toHaveAttribute('data-status', 'done');
+    await expect(page).toHaveURL(/\/projects$/);
+    const rows = page.getByTestId('project-row');
+    await expect(rows).toHaveCount(2);
+    await expect(rows.filter({ hasText: 'Thèse' })).toHaveCount(1);
+    await expect(rows.filter({ hasText: 'TP réseaux' })).toHaveCount(1);
+
+    // Each project opens on its own files, whatever their layout.
+    await results.nth(3).getByRole('link', { name: 'Ouvrir' }).click();
+    await expect(page.getByRole('heading', { level: 1, name: 'TP réseaux' })).toBeVisible();
+    expect(await treePaths(page)).toEqual(['src', 'src/rapport.tex']);
+  });
+
+  test('imports zips dropped on the dashboard', async ({ page }) => {
+    const archives = [
+      {
+        name: 'Cours.zip',
+        data: [...storedZip({ 'cours.tex': Buffer.from('\\documentclass{book}\n') })],
+      },
+      {
+        name: 'TD.zip',
+        data: [...storedZip({ 'td.tex': Buffer.from('\\documentclass{article}\n') })],
+      },
+    ];
+    // Builds the drop as the browser does for files dragged from the system.
+    const dataTransfer = await page.evaluateHandle((files) => {
+      const transfer = new DataTransfer();
+      for (const file of files) {
+        transfer.items.add(
+          new File([new Uint8Array(file.data)], file.name, { type: 'application/zip' }),
+        );
+      }
+      return transfer;
+    }, archives);
+    const zone = page.getByTestId('import-drop-zone');
+    await zone.dispatchEvent('dragover', { dataTransfer });
+    await zone.dispatchEvent('drop', { dataTransfer });
+    await expect(page.getByTestId('import-results')).toContainText(
+      '2 projets importés sur 2 fichier(s)',
+    );
+    await expect(page.getByTestId('project-row')).toHaveCount(2);
   });
 
   test('creates a project and manages its files', async ({ page }) => {
