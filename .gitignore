@@ -14,3 +14,19 @@ test-results/
 .ca/
 # Captured compilation logs used as parser test fixtures.
 !packages/latex-log/src/__fixtures__/*.log
+# Keys, certificates and backups: never in the repository, even by mistake.
+*.key
+*.pem
+*.p12
+*.pfx
+*.crt
+id_rsa*
+id_ed25519*
+age-key*.txt
+*.age
+backups/
+*.dump
+*.sql.gz
+# Archives belong to the test fixtures only (personal projects stay out).
+*.zip
+!fixtures/**/*.zip

@@ -1,0 +1,15 @@
+# gitleaks configuration (pre-commit hook in .githooks, CI job "Secret scan").
+# The default rules apply; only the values below are allowed, each one public
+# on purpose, so that a real key next to them is still reported.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Published development defaults and test fixtures"
+regexes = [
+  # Development master key of compose.yaml: the API refuses it on a public host.
+  '''Z2FsbGV5LWRldi1tYXN0ZXIta2V5LWNoYW5nZS1tZSE=''',
+  # Fake provider keys of the API integration tests.
+  '''sk-(ant-user|instance)-SECRET-[0-9a-f]{12}''',
+  '''Zk3pQ9rT5vX7yA1bC2dE4fG6''',
+]
