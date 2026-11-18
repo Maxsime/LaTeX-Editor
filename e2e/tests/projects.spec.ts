@@ -81,7 +81,8 @@ test.describe('projects and files', () => {
       {
         name: 'TP réseaux.zip',
         mimeType: 'application/zip',
-        buffer: storedZip({ 'src/rapport.tex': tex('B') }),
+        // Two entries at the root, so the importer keeps the folder as it is.
+        buffer: storedZip({ 'src/rapport.tex': tex('B'), 'notes.md': Buffer.from('notes\n') }),
       },
     ]);
     // Several files keep the dashboard open and list the outcome of each.
@@ -106,7 +107,7 @@ test.describe('projects and files', () => {
     // Each project opens on its own files, whatever their layout.
     await results.nth(3).getByRole('link', { name: 'Ouvrir' }).click();
     await expect(page.getByRole('heading', { level: 1, name: 'TP réseaux' })).toBeVisible();
-    expect(await treePaths(page)).toEqual(['src', 'src/rapport.tex']);
+    expect(await treePaths(page)).toEqual(['notes.md', 'src', 'src/rapport.tex']);
   });
 
   test('imports zips dropped on the dashboard', async ({ page }) => {
