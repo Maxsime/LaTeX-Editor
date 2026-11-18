@@ -27,6 +27,7 @@ import {
   keymap,
   lineNumbers,
   rectangularSelection,
+  tooltips,
 } from '@codemirror/view';
 import { tags } from '@lezer/highlight';
 import { yCollab, yUndoManagerKeymap } from 'y-codemirror.next';
@@ -98,6 +99,16 @@ function themeExtension(theme: EditorTheme, fontSize: number): Extension {
           backgroundColor: palette.selection,
         },
         '.cm-specialChar': { color: palette.tokens.invalid },
+        // Tooltips live in <body> (see editorExtensions), outside the editor
+        // element: they take its text size and colour here rather than by
+        // inheritance, and sit on the menu layer of styles.css.
+        '.cm-tooltip': {
+          zIndex: 'var(--z-index-menu, 50)',
+          fontSize: `${String(fontSize)}px`,
+          color: palette.text,
+        },
+        // A compile marker puts its remedy on a line of its own.
+        '.cm-diagnosticText': { whiteSpace: 'pre-line' },
         '.cm-scroller': { overflow: 'auto' },
       },
       { dark },
@@ -187,6 +198,11 @@ export function editorExtensions(options: EditorOptions): Extension {
     highlightActiveLine(),
     highlightSelectionMatches(),
     search({ top: true }),
+    // The editor pane is an isolated stacking context that clips its content,
+    // and the PDF pane comes after it: a tooltip drawn inside the editor (lint
+    // message, completion list, formula preview) would pass under the PDF as
+    // soon as it overflowed to the right. Drawn in <body>, it stays on top.
+    tooltips({ parent: document.body }),
     language === 'latex' ? latexLanguage : language === 'bibtex' ? bibtexLanguage : [],
     language === 'latex'
       ? [

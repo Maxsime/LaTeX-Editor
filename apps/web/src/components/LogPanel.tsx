@@ -1,10 +1,10 @@
-import { explainMessage } from '@galley/latex-log';
 import type { CompileRun, Diagnostic } from '@galley/shared';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAiStatus } from '../lib/ai.js';
 import { countLevels, outputUrl } from '../lib/compile.js';
+import { explainDiagnostic } from '../lib/explain.js';
 import { useAi } from '../stores/ai.js';
 import { useEditor } from '../stores/editor.js';
 import { Loading } from './ui.js';
@@ -42,12 +42,11 @@ function useDiagnosticMessage(): (diagnostic: Diagnostic) => string {
 /** Plain-language hint under a TeX message, for the common cases (SPEC §3.3). */
 function Explanation({ diagnostic }: { diagnostic: Diagnostic }) {
   const { t } = useTranslation();
-  if (diagnostic.source !== 'tex' || diagnostic.level === 'badbox') return null;
-  const explanation = explainMessage(diagnostic.message, diagnostic.context);
+  const explanation = explainDiagnostic(diagnostic, t);
   if (explanation === null) return null;
   return (
     <span data-testid="explanation" className="mt-1 block text-[11px] text-slate-800">
-      {t(`compile.explain.${explanation.code}`, { name: explanation.name || '…' })}
+      {explanation}
     </span>
   );
 }
