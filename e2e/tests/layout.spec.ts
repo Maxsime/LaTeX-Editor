@@ -122,7 +122,12 @@ test.describe('workspace layout', () => {
 
     // The bubble opens at the pointer and is wider than what is left of the
     // editor on its right: it spills over the PDF preview.
-    const range = page.locator('.cm-editor:visible .cm-lintRange-error');
+    // The compile error only: the grammar checker can underline other words of
+    // the same line, depending on when LanguageTool answers.
+    const range = page
+      .locator('.cm-editor:visible .cm-lintRange-error')
+      .filter({ hasText: '\\commandeinconnue' })
+      .first();
     const tooltip = page.locator('.cm-tooltip-lint');
     await expect(async () => {
       await page.mouse.move(0, 0);

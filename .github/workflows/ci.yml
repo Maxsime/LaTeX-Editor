@@ -52,6 +52,21 @@ jobs:
           package-manager-cache: false
       - run: pnpm audit --audit-level=high
 
+  secrets:
+    name: Secret scan
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The whole history: a secret removed later is still published.
+          fetch-depth: 0
+          persist-credentials: false
+      # Image pinned by digest, like the actions above. Rules: .gitleaks.toml.
+      - run: >-
+          docker run --rm -v "$PWD:/repo" -w /repo
+          zricethezav/gitleaks:v8.28.0@sha256:cdbb7c955abce02001a9f6c9f602fb195b7fadc1e812065883f695d1eeaba854
+          git /repo --redact --no-banner --exit-code 1
+
   stack:
     name: Images, compose stack and end-to-end tests
     runs-on: ubuntu-24.04

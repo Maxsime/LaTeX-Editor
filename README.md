@@ -186,6 +186,8 @@ L'interface de développement est servie par Vite sur <http://localhost:5173>, q
 
 Les tests d'intégration sont ignorés en local si Docker est absent, et obligatoires en CI.
 
+`pnpm install` active aussi le hook `.githooks/pre-commit`, qui cherche des secrets (clés, jetons, mots de passe) dans les changements de chaque commit avec [gitleaks](https://github.com/gitleaks/gitleaks) et bloque le commit s'il en trouve. Installer gitleaks une fois (`winget install gitleaks` sous Windows, `brew install gitleaks` sous macOS) ; sans lui, le hook avertit et laisse passer. La CI refait la vérification sur tout l'historique (job « Secret scan »). Un faux positif voulu (valeur de test) s'ajoute à la liste blanche de `.gitleaks.toml`.
+
 Le worker de compilation lancé par `pnpm dev` a besoin de TeX Live et de `bwrap` sur la machine (Linux uniquement). Ailleurs, compiler avec la pile complète (`docker compose up --build`). `pnpm --filter @galley/compiler test:corpus` compile tout `fixtures/projects/` dans l'image du worker et vérifie chaque résultat attendu.
 
 ### Construire derrière un proxy d'inspection TLS
