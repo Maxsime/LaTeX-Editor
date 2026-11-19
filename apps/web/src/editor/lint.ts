@@ -31,13 +31,16 @@ export interface ChktexAction {
  * Turns compilation diagnostics of one file into editor markers spanning their
  * line. Lines past the end, from a compilation of an older version of the
  * file, are clamped to the last line rather than dropped. chktex warnings are
- * shown as information, with an action turning their rule off.
+ * shown as information, with an action turning their rule off. When `explain`
+ * knows a TeX message, its plain-language remedy follows the message on a line
+ * of its own, so the marker's tooltip says how to fix the error, as the log does.
  */
 export function toLintDiagnostics(
   doc: Text,
   diagnostics: readonly Diagnostic[],
   source?: string,
   chktex?: ChktexAction,
+  explain?: (diagnostic: Diagnostic) => string | null,
 ): LintDiagnostic[] {
   const markers: LintDiagnostic[] = [];
   for (const diagnostic of diagnostics) {
@@ -66,12 +69,13 @@ export function toLintDiagnostics(
       });
       continue;
     }
+    const explanation = explain?.(diagnostic) ?? null;
     markers.push({
       from: line.from,
       to: line.to,
       severity: SEVERITY[diagnostic.level],
       source: source ?? diagnostic.source,
-      message: diagnostic.message,
+      message: explanation === null ? diagnostic.message : `${diagnostic.message}\n${explanation}`,
     });
   }
   return markers;
