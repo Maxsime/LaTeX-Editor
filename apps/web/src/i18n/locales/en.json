@@ -188,9 +188,22 @@
     "title": "Projects",
     "search": "Search projects",
     "newProject": "New project",
-    "import": "Import a zip",
+    "import": "Import zips",
+    "importHint": "Pick one or more .zip files, or drop them on the list: each archive becomes a project.",
     "importing": "Importing…",
     "imported": "Project “{{name}}” imported.",
+    "batch": {
+      "title": "Importing several archives",
+      "running_one": "Importing {{count}} file…",
+      "running_other": "Importing {{count}} files…",
+      "summary_one": "{{count}} project imported out of {{total}} file(s)",
+      "summary_other": "{{count}} projects imported out of {{total}} file(s)",
+      "pending": "Waiting.",
+      "notZip": "Not a .zip file: skipped.",
+      "warnings_one": "{{count}} warning.",
+      "warnings_other": "{{count}} warnings.",
+      "open": "Open"
+    },
     "states": {
       "active": "Projects",
       "archived": "Archived",
